@@ -24,7 +24,7 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
   return (
     <aside className="sticky top-0 h-screen p-4 flex flex-col items-center gap-3 border-r border-white/5 bg-white/[0.02] backdrop-blur-xl max-md:w-[78px] w-[86px]">
       {/* Logo */}
-      <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-black border border-white/15 shadow-cinema mb-2 overflow-hidden p-1">
+      <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-black shadow-cinema mb-2 overflow-hidden p-1">
         <img src="https://images.seeklogo.com/logo-png/48/1/fluxo-logo-png_seeklogo-485780.png" alt="Fluxo" className="w-full h-full object-contain" />
       </div>
 
