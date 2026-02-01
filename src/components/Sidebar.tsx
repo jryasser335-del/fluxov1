@@ -1,5 +1,7 @@
-import { Tv, Film, Clapperboard, Theater, Users } from "lucide-react";
+import { Tv, Film, Clapperboard, Theater, Users, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 export type ViewType = "canales" | "peliculas" | "series" | "doramas" | "eventos";
 
@@ -17,6 +19,8 @@ const navItems: { view: ViewType; label: string; icon: React.ReactNode }[] = [
 ];
 
 export function Sidebar({ activeView, onViewChange }: SidebarProps) {
+  const { user, isAdmin } = useAuth();
+
   return (
     <aside className="sticky top-0 h-screen p-4 flex flex-col items-center gap-3 border-r border-white/5 bg-white/[0.02] backdrop-blur-xl max-md:w-[78px] w-[86px]">
       {/* Logo */}
@@ -40,6 +44,20 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
           <span className="text-[10px] text-muted-foreground tracking-wider">{label}</span>
         </button>
       ))}
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Admin/Login Button */}
+      <Link
+        to={isAdmin ? "/admin" : "/auth"}
+        className="w-[58px] h-[58px] rounded-xl flex flex-col items-center justify-center gap-1.5 border border-white/10 bg-white/[0.03] hover:-translate-y-0.5 hover:bg-white/[0.05] hover:border-white/20 transition-all duration-150"
+      >
+        <Settings className="w-[18px] h-[18px] text-white/90" />
+        <span className="text-[10px] text-muted-foreground tracking-wider">
+          {isAdmin ? "ADMIN" : user ? "CUENTA" : "LOGIN"}
+        </span>
+      </Link>
     </aside>
   );
 }

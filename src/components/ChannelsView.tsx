@@ -1,12 +1,41 @@
-import { CHANNELS } from "@/lib/constants";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { Section } from "./Section";
-import { SkeletonChannelCard } from "./Skeleton";
+import { Loader2 } from "lucide-react";
+
+interface Channel {
+  id: string;
+  key: string;
+  name: string;
+  logo: string | null;
+  stream: string | null;
+  is_active: boolean;
+}
 
 export function ChannelsView() {
   const { openPlayer } = usePlayerModal();
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleChannelClick = (channel: typeof CHANNELS[0]) => {
+  useEffect(() => {
+    const fetchChannels = async () => {
+      const { data, error } = await supabase
+        .from("channels")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+
+      if (!error && data) {
+        setChannels(data);
+      }
+      setLoading(false);
+    };
+
+    fetchChannels();
+  }, []);
+
+  const handleChannelClick = (channel: Channel) => {
     if (channel.stream) {
       openPlayer(channel.name, channel.stream);
     } else {
@@ -14,12 +43,22 @@ export function ChannelsView() {
     }
   };
 
+  if (loading) {
+    return (
+      <Section title="Canales" emoji="📺" badge="En vivo">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </Section>
+    );
+  }
+
   return (
-    <Section title="Canales" emoji="📺" badge="Links desde código">
+    <Section title="Canales" emoji="📺" badge="En vivo">
       <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
-        {CHANNELS.map((channel) => (
+        {channels.map((channel) => (
           <div
-            key={channel.key}
+            key={channel.id}
             onClick={() => handleChannelClick(channel)}
             className="rounded-xl border border-white/10 bg-white/[0.04] p-3 flex items-center justify-between gap-3 cursor-pointer transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/25"
           >
