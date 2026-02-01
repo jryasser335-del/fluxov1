@@ -1,14 +1,14 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { MAX_PAGE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 interface PagerProps {
   page: number;
   onPageChange: (page: number) => void;
+  maxPage?: number;
 }
 
-export function Pager({ page, onPageChange }: PagerProps) {
-  const options = Array.from({ length: MAX_PAGE }, (_, i) => i + 1);
+export function Pager({ page, onPageChange, maxPage = 100 }: PagerProps) {
+  const options = Array.from({ length: maxPage }, (_, i) => i + 1);
 
   return (
     <div className="flex items-center gap-2.5 justify-end my-2">
@@ -24,7 +24,7 @@ export function Pager({ page, onPageChange }: PagerProps) {
       </button>
 
       <span className="text-xs text-muted-foreground px-2 whitespace-nowrap">
-        Página {page}/{MAX_PAGE}
+        Página {page}/{maxPage}
       </span>
 
       <select
@@ -41,10 +41,10 @@ export function Pager({ page, onPageChange }: PagerProps) {
 
       <button
         onClick={() => onPageChange(page + 1)}
-        disabled={page >= MAX_PAGE}
+        disabled={page >= maxPage}
         className={cn(
           "w-10 h-9 rounded-xl grid place-items-center border border-white/10 bg-white/[0.06] transition-all",
-          page >= MAX_PAGE ? "opacity-35 cursor-not-allowed" : "hover:-translate-y-0.5 hover:bg-white/10 hover:border-white/20"
+          page >= maxPage ? "opacity-35 cursor-not-allowed" : "hover:-translate-y-0.5 hover:bg-white/10 hover:border-white/20"
         )}
       >
         <ChevronRight className="w-4 h-4" />

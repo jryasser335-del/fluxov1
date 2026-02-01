@@ -6,7 +6,6 @@ import { Chips } from "./Chips";
 import { Pager } from "./Pager";
 import { MediaCard } from "./MediaCard";
 import { SkeletonGrid } from "./Skeleton";
-import { STREAMING_PLATFORMS } from "@/lib/platforms";
 
 interface MediaLink {
   tmdb_id: number;
@@ -21,23 +20,18 @@ const SERIES_FILTERS = [
   { value: "airing_today", label: "Hoy" },
 ];
 
-const PLATFORM_FILTERS = [
-  { value: "all", label: "Todas" },
-  ...STREAMING_PLATFORMS.map((p) => ({ value: p.value, label: p.label })),
-];
-
 interface SeriesViewProps {
   searchQuery: string;
 }
 
 export function SeriesView({ searchQuery }: SeriesViewProps) {
   const [type, setType] = useState("popular");
-  const [platform, setPlatform] = useState("all");
   const [page, setPage] = useState(1);
-  const [series, setSeries] = useState<TMDBResult[]>([]);
+  const [allSeries, setAllSeries] = useState<TMDBResult[]>([]);
   const [mediaLinks, setMediaLinks] = useState<Map<number, MediaLink>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [totalPages, setTotalPages] = useState(20);
 
   // Fetch media links from database
   useEffect(() => {
@@ -55,24 +49,37 @@ export function SeriesView({ searchQuery }: SeriesViewProps) {
       });
   }, []);
 
+  // Fetch multiple pages for more content
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(false);
 
-    fetchTMDB(`tv/${type}?page=${page}`)
-      .then((data) => {
+    const fetchMultiplePages = async () => {
+      try {
+        const pagesToFetch = [page, page + 1, page + 2];
+        const promises = pagesToFetch.map(p => 
+          fetchTMDB(`tv/${type}?page=${p}`)
+        );
+        
+        const results = await Promise.all(promises);
+        
         if (!cancelled) {
-          setSeries(data.results);
+          const combined = results.flatMap(r => r.results);
+          const unique = Array.from(new Map(combined.map(s => [s.id, s])).values());
+          setAllSeries(unique);
+          setTotalPages(Math.min(results[0]?.total_pages || 20, 500));
           setLoading(false);
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setError(true);
           setLoading(false);
         }
-      });
+      }
+    };
+
+    fetchMultiplePages();
 
     return () => {
       cancelled = true;
@@ -84,52 +91,39 @@ export function SeriesView({ searchQuery }: SeriesViewProps) {
     setPage(1);
   };
 
-  const handlePlatformChange = (newPlatform: string) => {
-    setPlatform(newPlatform);
-    setPage(1);
-  };
-
-  // Filter by search and platform
+  // Filter by search only
   const filteredSeries = useMemo(() => {
-    let result = series;
+    let result = allSeries;
     
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((s) => (s.name || "").toLowerCase().includes(q));
     }
     
-    if (platform !== "all") {
-      result = result.filter((s) => {
-        const link = mediaLinks.get(s.id);
-        return link?.platform === platform;
-      });
-    }
-    
     return result;
-  }, [series, searchQuery, platform, mediaLinks]);
+  }, [allSeries, searchQuery]);
 
   const badge = loading
     ? "Cargando…"
-    : searchQuery || platform !== "all"
+    : searchQuery
     ? `${filteredSeries.length} resultados`
-    : `Página ${page}/20 • ${filteredSeries.length} títulos`;
+    : `Página ${page} • ${filteredSeries.length} títulos`;
 
   return (
     <Section title="Series" emoji="📺" badge={badge}>
       <div className="flex flex-wrap gap-4 mb-2">
         <Chips options={SERIES_FILTERS} value={type} onChange={handleTypeChange} />
-        <Chips options={PLATFORM_FILTERS} value={platform} onChange={handlePlatformChange} />
       </div>
-      <Pager page={page} onPageChange={setPage} />
+      <Pager page={page} onPageChange={setPage} maxPage={Math.ceil(totalPages / 3)} />
 
       {loading ? (
-        <SkeletonGrid count={12} />
+        <SkeletonGrid count={24} />
       ) : error ? (
         <div className="text-muted-foreground text-sm py-8 text-center">
           No se pudo cargar TMDB.
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
           {filteredSeries.map((s) => {
             const link = mediaLinks.get(s.id);
             return (
