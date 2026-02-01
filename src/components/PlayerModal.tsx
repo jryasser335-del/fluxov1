@@ -432,7 +432,6 @@ export function PlayerModal() {
               allow="autoplay; encrypted-media; picture-in-picture; fullscreen; accelerometer; gyroscope; clipboard-write"
               allowFullScreen
               referrerPolicy="no-referrer-when-downgrade"
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-modals allow-top-navigation allow-downloads allow-presentation allow-pointer-lock"
               onLoad={handleIframeLoad}
             />
             ) : (
