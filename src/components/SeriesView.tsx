@@ -1,12 +1,13 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { fetchTMDB, TMDBResult } from "@/lib/api";
 import { Section } from "./Section";
 import { Chips } from "./Chips";
-import { Pager } from "./Pager";
 import { MediaCard } from "./MediaCard";
 import { SkeletonGrid } from "./Skeleton";
 import { STREAMING_PLATFORMS, type PlatformValue } from "@/lib/platforms";
 import { DEFAULT_WATCH_REGION, getWatchProviderIdForPlatform } from "@/lib/tmdbWatchProviders";
+import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
+import { Loader2 } from "lucide-react";
 
 const SERIES_FILTERS = [
   { value: "popular", label: "Popular" },
@@ -30,64 +31,78 @@ export function SeriesView({ searchQuery }: SeriesViewProps) {
   const [page, setPage] = useState(1);
   const [allSeries, setAllSeries] = useState<TMDBResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
-  const [totalPages, setTotalPages] = useState(20);
+  const [totalPages, setTotalPages] = useState(500);
+  const [hasMore, setHasMore] = useState(true);
 
-  // Fetch multiple pages for more content
+  // Build the base path for queries
+  const buildBasePath = useCallback(async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const watchRegion = DEFAULT_WATCH_REGION;
+
+    const providerId =
+      platform === "all"
+        ? null
+        : await getWatchProviderIdForPlatform({
+            mediaType: "tv",
+            platform,
+            region: watchRegion,
+          });
+
+    let basePath = "discover/tv?include_adult=false";
+    if (type === "popular") {
+      basePath += "&sort_by=popularity.desc";
+    } else if (type === "top_rated") {
+      basePath += "&sort_by=vote_average.desc&vote_count.gte=200";
+    } else if (type === "on_the_air") {
+      basePath += `&sort_by=first_air_date.desc&first_air_date.lte=${today}`;
+    } else if (type === "airing_today") {
+      basePath += `&sort_by=first_air_date.desc&first_air_date.gte=${today}&first_air_date.lte=${today}`;
+    }
+
+    if (providerId) {
+      basePath += `&with_watch_providers=${providerId}&watch_region=${watchRegion}&with_watch_monetization_types=flatrate`;
+    } else if (platform !== "all") {
+      return null;
+    }
+
+    return basePath;
+  }, [type, platform]);
+
+  // Initial load
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(false);
+    setAllSeries([]);
+    setPage(1);
+    setHasMore(true);
 
-    const fetchMultiplePages = async () => {
+    const fetchInitial = async () => {
       try {
-        const today = new Date().toISOString().slice(0, 10);
-        const watchRegion = DEFAULT_WATCH_REGION;
-
-        const providerId =
-          platform === "all"
-            ? null
-            : await getWatchProviderIdForPlatform({
-                mediaType: "tv",
-                platform,
-                region: watchRegion,
-              });
-
-        // Base query using Discover so that platform filters can work.
-        let basePath = "discover/tv?include_adult=false";
-        if (type === "popular") {
-          basePath += "&sort_by=popularity.desc";
-        } else if (type === "top_rated") {
-          basePath += "&sort_by=vote_average.desc&vote_count.gte=200";
-        } else if (type === "on_the_air") {
-          basePath += `&sort_by=first_air_date.desc&first_air_date.lte=${today}`;
-        } else if (type === "airing_today") {
-          basePath += `&sort_by=first_air_date.desc&first_air_date.gte=${today}&first_air_date.lte=${today}`;
-        }
-
-        if (providerId) {
-          basePath += `&with_watch_providers=${providerId}&watch_region=${watchRegion}&with_watch_monetization_types=flatrate`;
-        } else if (platform !== "all") {
+        const basePath = await buildBasePath();
+        if (basePath === null) {
           if (!cancelled) {
             setAllSeries([]);
             setTotalPages(1);
+            setHasMore(false);
             setLoading(false);
           }
           return;
         }
 
-        const pagesToFetch = [page, page + 1, page + 2];
-        const promises = pagesToFetch.map(p => 
-          fetchTMDB(`${basePath}&page=${p}`)
-        );
-        
+        const pagesToFetch = [1, 2, 3, 4, 5];
+        const promises = pagesToFetch.map(p => fetchTMDB(`${basePath}&page=${p}`));
         const results = await Promise.all(promises);
-        
+
         if (!cancelled) {
           const combined = results.flatMap(r => r.results);
           const unique = Array.from(new Map(combined.map(s => [s.id, s])).values());
           setAllSeries(unique);
-          setTotalPages(Math.min(results[0]?.total_pages || 20, 500));
+          setTotalPages(Math.min(results[0]?.total_pages || 500, 500));
+          setPage(5);
+          setHasMore(5 < Math.min(results[0]?.total_pages || 500, 500));
           setLoading(false);
         }
       } catch {
@@ -98,25 +113,56 @@ export function SeriesView({ searchQuery }: SeriesViewProps) {
       }
     };
 
-    fetchMultiplePages();
+    fetchInitial();
 
     return () => {
       cancelled = true;
     };
-  }, [type, platform, page]);
+  }, [type, platform, buildBasePath]);
 
+  // Load more function for infinite scroll
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+    try {
+      const basePath = await buildBasePath();
+      if (!basePath) {
+        setLoadingMore(false);
+        return;
+      }
+
+      const nextPage = page + 1;
+      const result = await fetchTMDB(`${basePath}&page=${nextPage}`);
+      
+      setAllSeries(prev => {
+        const combined = [...prev, ...result.results];
+        return Array.from(new Map(combined.map(s => [s.id, s])).values());
+      });
+      setPage(nextPage);
+      setHasMore(nextPage < totalPages);
+    } catch (err) {
+      console.error("Error loading more:", err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [page, totalPages, hasMore, loadingMore, buildBasePath]);
+
+  const { sentinelRef } = useInfiniteScroll({
+    hasMore,
+    isLoading: loadingMore,
+    onLoadMore: loadMore,
+  });
 
   const handleTypeChange = (newType: string) => {
     setType(newType);
-    setPage(1);
   };
 
   const handlePlatformChange = (newPlatform: string) => {
     setPlatform(newPlatform as "all" | PlatformValue);
-    setPage(1);
   };
 
-  // Filter by search only (platform is fetched from TMDB via watch providers)
+  // Filter by search only
   const filteredSeries = useMemo(() => {
     let result = allSeries;
     
@@ -131,19 +177,16 @@ export function SeriesView({ searchQuery }: SeriesViewProps) {
   const platformLabel = platform === "all" ? "Todas" : STREAMING_PLATFORMS.find(p => p.value === platform)?.label || platform;
   const badge = loading
     ? "Cargando…"
-    : platform !== "all"
-    ? `${filteredSeries.length} en ${platformLabel}`
     : searchQuery
     ? `${filteredSeries.length} resultados`
-    : `Página ${page} • ${allSeries.length} títulos`;
+    : `${filteredSeries.length} series`;
 
   return (
     <Section title="Series" emoji="📺" badge={badge}>
-      <div className="flex flex-wrap gap-4 mb-2">
+      <div className="flex flex-wrap gap-4 mb-4">
         <Chips options={SERIES_FILTERS} value={type} onChange={handleTypeChange} />
         <Chips options={PLATFORM_FILTERS} value={platform} onChange={handlePlatformChange} />
       </div>
-      <Pager page={page} onPageChange={setPage} maxPage={Math.ceil(totalPages / 3)} />
 
       {loading ? (
         <SkeletonGrid count={24} />
@@ -156,18 +199,32 @@ export function SeriesView({ searchQuery }: SeriesViewProps) {
           TMDB no devolvió resultados para {platformLabel}.
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
-          {filteredSeries.map((s) => {
-            return (
+        <>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
+            {filteredSeries.map((s) => (
               <MediaCard 
                 key={s.id} 
                 item={s} 
                 type="series" 
                 platform={platform === "all" ? null : platform}
               />
-            );
-          })}
-        </div>
+            ))}
+          </div>
+          
+          <div ref={sentinelRef} className="h-4" />
+          
+          {loadingMore && (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          )}
+          
+          {!hasMore && filteredSeries.length > 0 && (
+            <div className="text-center text-muted-foreground text-sm py-6">
+              Has llegado al final del catálogo
+            </div>
+          )}
+        </>
       )}
     </Section>
   );
