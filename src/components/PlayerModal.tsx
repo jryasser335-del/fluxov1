@@ -3,10 +3,12 @@ import { X, Loader2, Maximize2, Volume2, VolumeX, Play, Pause, Rewind, FastForwa
 import Hls from "hls.js";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { useRealtimeSubtitles } from "@/hooks/useRealtimeSubtitles";
+import { supabase } from "@/integrations/supabase/client";
 
 export function PlayerModal() {
   const { isOpen, title, url, contentType, closePlayer } = usePlayerModal();
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [showControls, setShowControls] = useState(true);
@@ -16,6 +18,8 @@ export function PlayerModal() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const controlsTimeout = useRef<NodeJS.Timeout>();
+  const loadingWatchdog = useRef<NodeJS.Timeout>();
+  const fatalErrorCount = useRef(0);
 
   const {
     isEnabled: subtitlesEnabled,
@@ -32,11 +36,27 @@ export function PlayerModal() {
     if (!isOpen) return;
     setIsLoading(true);
     setIsPlaying(true);
+    setLoadError(null);
+    fatalErrorCount.current = 0;
+
+    if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current);
+    // Si no llega a parsear manifiesto / primer fragmento, mostramos error para evitar “Conectando…” infinito.
+    loadingWatchdog.current = setTimeout(() => {
+      setIsLoading(false);
+      setLoadError(
+        "No se pudo conectar al stream. El servidor puede estar bloqueando CORS o el enlace/token expiró."
+      );
+    }, 15000);
 
     return () => {
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
+      }
+
+      if (loadingWatchdog.current) {
+        clearTimeout(loadingWatchdog.current);
+        loadingWatchdog.current = undefined;
       }
     };
   }, [isOpen, url]);
@@ -45,6 +65,7 @@ export function PlayerModal() {
     if (!isOpen || !isHlsStream || !videoRef.current || !url) return;
 
     const video = videoRef.current;
+    let cancelled = false;
 
     // Use proxy for external streams to bypass CORS
     const getProxiedUrl = (streamUrl: string) => {
@@ -69,60 +90,140 @@ export function PlayerModal() {
     console.log("Loading stream:", streamUrl);
 
     if (Hls.isSupported()) {
-      const hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: false,
-        xhrSetup: (xhr) => {
-          xhr.withCredentials = false;
-        },
-        // More permissive settings for various stream sources
-        maxBufferLength: 30,
-        maxMaxBufferLength: 600,
-        maxBufferSize: 60 * 1000 * 1000,
-        maxBufferHole: 0.5,
-        fragLoadingTimeOut: 30000,
-        fragLoadingMaxRetry: 6,
-        manifestLoadingTimeOut: 30000,
-        manifestLoadingMaxRetry: 4,
-        levelLoadingTimeOut: 30000,
-        levelLoadingMaxRetry: 4,
-      });
-      hlsRef.current = hls;
+      const boot = async () => {
+        // Necesario para que el proxy pueda validar JWT sin volverlo un proxy público.
+        // (Hls.js no añade headers por sí solo, así que los añadimos vía xhrSetup)
+        const { data } = await supabase.auth.getSession();
+        const accessToken = data.session?.access_token;
 
-      hls.loadSource(streamUrl);
-      hls.attachMedia(video);
+        if (cancelled) return;
 
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setIsLoading(false);
-        video.play().catch(() => {});
-      });
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: false,
+          xhrSetup: (xhr, requestUrl) => {
+            xhr.withCredentials = false;
 
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        console.warn("HLS error:", data.type, data.details);
-        if (data.fatal) {
-          console.error("HLS fatal error:", data);
-          // Try to recover from fatal errors
-          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-            console.log("Trying to recover from network error...");
-            hls.startLoad();
-          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-            console.log("Trying to recover from media error...");
-            hls.recoverMediaError();
-          } else {
-            setIsLoading(false);
+            // Solo adjuntamos headers cuando la request va al proxy.
+            // Esto evita CORS/preflight extra contra dominios de stream externos.
+            if (
+              accessToken &&
+              typeof requestUrl === "string" &&
+              requestUrl.includes("/functions/v1/stream-proxy")
+            ) {
+              xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
+              xhr.setRequestHeader("apikey", import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
+            }
+          },
+          // More permissive settings for various stream sources
+          maxBufferLength: 30,
+          maxMaxBufferLength: 600,
+          maxBufferSize: 60 * 1000 * 1000,
+          maxBufferHole: 0.5,
+          fragLoadingTimeOut: 30000,
+          fragLoadingMaxRetry: 6,
+          manifestLoadingTimeOut: 30000,
+          manifestLoadingMaxRetry: 4,
+          levelLoadingTimeOut: 30000,
+          levelLoadingMaxRetry: 4,
+        });
+        hlsRef.current = hls;
+
+        const stopLoading = () => {
+          if (loadingWatchdog.current) {
+            clearTimeout(loadingWatchdog.current);
+            loadingWatchdog.current = undefined;
           }
-        }
+          setIsLoading(false);
+        };
+
+        const fail = (message: string) => {
+          stopLoading();
+          setLoadError(message);
+        };
+
+        hls.loadSource(streamUrl);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setLoadError(null);
+          stopLoading();
+          video.play().catch(() => {});
+        });
+
+        // Fallback: a veces MANIFEST_PARSED no llega, pero ya está cargando fragmentos.
+        hls.on(Hls.Events.FRAG_LOADED, () => {
+          if (isLoading) {
+            setLoadError(null);
+            stopLoading();
+          }
+        });
+
+        hls.on(Hls.Events.ERROR, (_, err) => {
+          console.warn("HLS error:", err.type, err.details);
+          if (!err.fatal) return;
+
+          fatalErrorCount.current += 1;
+          console.error("HLS fatal error:", err);
+
+          // Intentamos recuperar 1 vez; si sigue fallando, mostramos error en UI.
+          const attempts = fatalErrorCount.current;
+          if (attempts <= 1) {
+            if (err.type === Hls.ErrorTypes.NETWORK_ERROR) {
+              console.log("Trying to recover from network error...");
+              hls.startLoad();
+              return;
+            }
+            if (err.type === Hls.ErrorTypes.MEDIA_ERROR) {
+              console.log("Trying to recover from media error...");
+              hls.recoverMediaError();
+              return;
+            }
+          }
+
+          const hint =
+            "Este enlace puede requerir una IP específica o el servidor puede estar bloqueando CORS.";
+          fail(`No se pudo cargar el stream (${err.type}). ${hint}`);
+        });
+      };
+
+      boot().catch((e) => {
+        console.error("HLS boot error:", e);
+        setIsLoading(false);
+        setLoadError("No se pudo iniciar el reproductor HLS.");
       });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       // Safari native HLS
-      video.src = url;
-      video.addEventListener("loadedmetadata", () => {
+      video.src = streamUrl;
+      const onLoaded = () => {
+        if (loadingWatchdog.current) {
+          clearTimeout(loadingWatchdog.current);
+          loadingWatchdog.current = undefined;
+        }
+        setLoadError(null);
         setIsLoading(false);
         video.play().catch(() => {});
-      });
+      };
+      const onError = () => {
+        if (loadingWatchdog.current) {
+          clearTimeout(loadingWatchdog.current);
+          loadingWatchdog.current = undefined;
+        }
+        setIsLoading(false);
+        setLoadError("No se pudo cargar el stream en Safari (posible CORS o token expirado).");
+      };
+
+      video.addEventListener("loadedmetadata", onLoaded);
+      video.addEventListener("error", onError);
+
+      return () => {
+        video.removeEventListener("loadedmetadata", onLoaded);
+        video.removeEventListener("error", onError);
+      };
     }
 
     return () => {
+      cancelled = true;
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
@@ -253,6 +354,20 @@ export function PlayerModal() {
 
   if (!isOpen) return null;
 
+  const retryLoad = () => {
+    setLoadError(null);
+    setIsLoading(true);
+    fatalErrorCount.current = 0;
+    // Forzamos re-montaje del HLS destruyendo la instancia; el useEffect la recreará.
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.load();
+    }
+  };
+
   return (
     <div
       onClick={(e) => e.target === e.currentTarget && closePlayer()}
@@ -281,13 +396,44 @@ export function PlayerModal() {
             onMouseLeave={() => setShowControls(false)}
           >
             {/* Loading overlay */}
-            {isLoading && (
+            {isLoading && !loadError && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gradient-radial from-primary/10 via-black/80 to-black z-20">
                 <div className="relative">
                   <div className="w-16 h-16 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
                   <Loader2 className="w-8 h-8 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary animate-pulse" />
                 </div>
                 <span className="text-sm text-white/60 font-medium">Conectando al stream…</span>
+              </div>
+            )}
+
+            {/* Error overlay */}
+            {loadError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gradient-radial from-primary/10 via-black/85 to-black z-20 p-6 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center">
+                  <X className="w-8 h-8 text-white/50" />
+                </div>
+                <div className="max-w-[560px]">
+                  <p className="text-white/80 font-medium">No se pudo cargar el stream</p>
+                  <p className="text-sm text-white/60 mt-2">{loadError}</p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    onClick={retryLoad}
+                    className="h-11 px-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-200 text-sm text-white"
+                  >
+                    Reintentar
+                  </button>
+                  {url && (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-11 px-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-200 text-sm text-white inline-flex items-center"
+                    >
+                      Abrir enlace
+                    </a>
+                  )}
+                </div>
               </div>
             )}
 
