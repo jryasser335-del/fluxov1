@@ -111,6 +111,7 @@ export type Database = {
           id: string
           is_active: boolean
           media_type: Database["public"]["Enums"]["media_type"]
+          platform: string | null
           poster_path: string | null
           season: number | null
           stream_url: string
@@ -124,6 +125,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           media_type: Database["public"]["Enums"]["media_type"]
+          platform?: string | null
           poster_path?: string | null
           season?: number | null
           stream_url: string
@@ -137,6 +139,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           media_type?: Database["public"]["Enums"]["media_type"]
+          platform?: string | null
           poster_path?: string | null
           season?: number | null
           stream_url?: string
