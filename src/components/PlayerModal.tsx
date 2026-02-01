@@ -425,15 +425,15 @@ export function PlayerModal() {
                 </div>
               </>
             ) : isYouTube || url ? (
-              <iframe
-                ref={iframeRef}
-                src={getEmbedUrl(url)}
-                className="w-full h-full"
-                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                allowFullScreen
-                referrerPolicy="no-referrer"
-                onLoad={handleIframeLoad}
-              />
+            <iframe
+              ref={iframeRef}
+              src={getEmbedUrl(url)}
+              className="w-full h-full"
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen; accelerometer; gyroscope; clipboard-write"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+              onLoad={handleIframeLoad}
+            />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-muted-foreground">
                 <div className="w-16 h-16 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center">
