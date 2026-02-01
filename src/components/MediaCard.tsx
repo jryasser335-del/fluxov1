@@ -20,7 +20,7 @@ export function MediaCard({ item, type, streamUrl }: MediaCardProps) {
 
   const handleClick = () => {
     if (hasStream && streamUrl) {
-      openPlayer(title, streamUrl);
+      openPlayer(title, streamUrl, type);
     } else {
       console.log(`No stream available for: ${title}`);
     }
