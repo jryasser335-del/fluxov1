@@ -64,6 +64,8 @@ export interface ESPNEvent {
         shortDisplayName: string;
         abbreviation: string;
         logo: string;
+        color?: string;
+        alternateColor?: string;
       };
     }[];
   }[];
