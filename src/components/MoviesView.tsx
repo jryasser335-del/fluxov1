@@ -6,10 +6,12 @@ import { Chips } from "./Chips";
 import { Pager } from "./Pager";
 import { MediaCard } from "./MediaCard";
 import { SkeletonGrid } from "./Skeleton";
+import { STREAMING_PLATFORMS } from "@/lib/platforms";
 
 interface MediaLink {
   tmdb_id: number;
   stream_url: string;
+  platform: string | null;
 }
 
 const MOVIE_FILTERS = [
@@ -19,15 +21,21 @@ const MOVIE_FILTERS = [
   { value: "upcoming", label: "Próximas" },
 ];
 
+const PLATFORM_FILTERS = [
+  { value: "all", label: "Todas" },
+  ...STREAMING_PLATFORMS.map((p) => ({ value: p.value, label: p.label })),
+];
+
 interface MoviesViewProps {
   searchQuery: string;
 }
 
 export function MoviesView({ searchQuery }: MoviesViewProps) {
   const [type, setType] = useState("popular");
+  const [platform, setPlatform] = useState("all");
   const [page, setPage] = useState(1);
   const [movies, setMovies] = useState<TMDBResult[]>([]);
-  const [mediaLinks, setMediaLinks] = useState<Map<number, string>>(new Map());
+  const [mediaLinks, setMediaLinks] = useState<Map<number, MediaLink>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -35,13 +43,13 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
   useEffect(() => {
     supabase
       .from("media_links")
-      .select("tmdb_id, stream_url")
+      .select("tmdb_id, stream_url, platform")
       .eq("media_type", "movie")
       .eq("is_active", true)
       .then(({ data }) => {
         if (data) {
-          const linksMap = new Map<number, string>();
-          data.forEach((link: MediaLink) => linksMap.set(link.tmdb_id, link.stream_url));
+          const linksMap = new Map<number, MediaLink>();
+          data.forEach((link: MediaLink) => linksMap.set(link.tmdb_id, link));
           setMediaLinks(linksMap);
         }
       });
@@ -76,22 +84,44 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
     setPage(1);
   };
 
-  // Filter by search
+  const handlePlatformChange = (newPlatform: string) => {
+    setPlatform(newPlatform);
+    setPage(1);
+  };
+
+  // Filter by search and platform
   const filteredMovies = useMemo(() => {
-    if (!searchQuery.trim()) return movies;
-    const q = searchQuery.toLowerCase();
-    return movies.filter((m) => (m.title || "").toLowerCase().includes(q));
-  }, [movies, searchQuery]);
+    let result = movies;
+    
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((m) => (m.title || "").toLowerCase().includes(q));
+    }
+    
+    // Filter by platform
+    if (platform !== "all") {
+      result = result.filter((m) => {
+        const link = mediaLinks.get(m.id);
+        return link?.platform === platform;
+      });
+    }
+    
+    return result;
+  }, [movies, searchQuery, platform, mediaLinks]);
 
   const badge = loading
     ? "Cargando…"
-    : searchQuery
+    : searchQuery || platform !== "all"
     ? `${filteredMovies.length} resultados`
     : `Página ${page}/20 • ${filteredMovies.length} títulos`;
 
   return (
     <Section title="Películas" emoji="🎬" badge={badge}>
-      <Chips options={MOVIE_FILTERS} value={type} onChange={handleTypeChange} />
+      <div className="flex flex-wrap gap-4 mb-2">
+        <Chips options={MOVIE_FILTERS} value={type} onChange={handleTypeChange} />
+        <Chips options={PLATFORM_FILTERS} value={platform} onChange={handlePlatformChange} />
+      </div>
       <Pager page={page} onPageChange={setPage} />
 
       {loading ? (
@@ -102,14 +132,18 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
-          {filteredMovies.map((movie) => (
-            <MediaCard 
-              key={movie.id} 
-              item={movie} 
-              type="movie" 
-              streamUrl={mediaLinks.get(movie.id)}
-            />
-          ))}
+          {filteredMovies.map((movie) => {
+            const link = mediaLinks.get(movie.id);
+            return (
+              <MediaCard 
+                key={movie.id} 
+                item={movie} 
+                type="movie" 
+                streamUrl={link?.stream_url}
+                platform={link?.platform}
+              />
+            );
+          })}
         </div>
       )}
     </Section>

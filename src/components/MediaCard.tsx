@@ -1,14 +1,16 @@
 import { TMDB_IMG } from "@/lib/constants";
 import { TMDBResult } from "@/lib/api";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
+import { getPlatformLabel, getPlatformColor } from "@/lib/platforms";
 
-interface MediaCardProps {
+export interface MediaCardProps {
   item: TMDBResult;
   type: "movie" | "series" | "dorama";
   streamUrl?: string;
+  platform?: string | null;
 }
 
-export function MediaCard({ item, type, streamUrl }: MediaCardProps) {
+export function MediaCard({ item, type, streamUrl, platform }: MediaCardProps) {
   const { openPlayer } = usePlayerModal();
   const title = item.title || item.name || "";
   const date = item.release_date || item.first_air_date || "";
@@ -46,9 +48,22 @@ export function MediaCard({ item, type, streamUrl }: MediaCardProps) {
 
       {/* Top tags */}
       <div className="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center gap-2 z-10">
-        <span className="text-[11px] px-2.5 py-1.5 rounded-full border border-white/15 bg-black/30">
-          {type.toUpperCase()}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] px-2.5 py-1.5 rounded-full border border-white/15 bg-black/30">
+            {type.toUpperCase()}
+          </span>
+          {platform && (
+            <span 
+              className="text-[11px] px-2.5 py-1.5 rounded-full border border-white/20 bg-black/40 font-medium"
+              style={{ 
+                borderColor: `${getPlatformColor(platform)}50`,
+                color: getPlatformColor(platform) 
+              }}
+            >
+              {getPlatformLabel(platform)}
+            </span>
+          )}
+        </div>
         <span className={`text-[11px] px-2.5 py-1.5 rounded-full border ${hasStream ? 'border-success/35 text-green-200' : 'border-destructive/35 text-red-200'} bg-black/30`}>
           {hasStream ? "PLAY" : "NO LINK"}
         </span>

@@ -2,9 +2,17 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchTMDB, TMDBResult } from "@/lib/api";
 import { TMDB_IMG } from "@/lib/constants";
+import { STREAMING_PLATFORMS, getPlatformLabel } from "@/lib/platforms";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Search, Plus, Save, Trash2, Loader2, Link as LinkIcon, X } from "lucide-react";
 import {
@@ -26,6 +34,7 @@ interface MediaLink {
   season: number | null;
   episode: number | null;
   is_active: boolean;
+  platform: string | null;
 }
 
 interface AdminMediaProps {
@@ -46,6 +55,7 @@ export function AdminMedia({ mediaType, title }: AdminMediaProps) {
     stream_url: "",
     season: "",
     episode: "",
+    platform: "",
   });
 
   useEffect(() => {
@@ -106,6 +116,7 @@ export function AdminMedia({ mediaType, title }: AdminMediaProps) {
         stream_url: newLink.stream_url,
         season: newLink.season ? parseInt(newLink.season) : null,
         episode: newLink.episode ? parseInt(newLink.episode) : null,
+        platform: newLink.platform || null,
       })
       .select()
       .single();
@@ -119,7 +130,7 @@ export function AdminMedia({ mediaType, title }: AdminMediaProps) {
     } else {
       setMediaLinks([data as MediaLink, ...mediaLinks]);
       setSelectedMedia(null);
-      setNewLink({ stream_url: "", season: "", episode: "" });
+      setNewLink({ stream_url: "", season: "", episode: "", platform: "" });
       setIsDialogOpen(false);
       toast.success("Link agregado");
     }
@@ -134,6 +145,7 @@ export function AdminMedia({ mediaType, title }: AdminMediaProps) {
         season: link.season,
         episode: link.episode,
         is_active: link.is_active,
+        platform: link.platform,
       })
       .eq("id", link.id);
 
@@ -280,6 +292,27 @@ export function AdminMedia({ mediaType, title }: AdminMediaProps) {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label>Plataforma</Label>
+                  <Select
+                    value={newLink.platform}
+                    onValueChange={(value) =>
+                      setNewLink({ ...newLink, platform: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona plataforma..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {STREAMING_PLATFORMS.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
                 {mediaType !== "movie" && (
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
@@ -336,6 +369,7 @@ export function AdminMedia({ mediaType, title }: AdminMediaProps) {
                   TMDB: {link.tmdb_id}
                   {link.season && ` • T${link.season}`}
                   {link.episode && `E${link.episode}`}
+                  {link.platform && ` • ${getPlatformLabel(link.platform)}`}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -351,23 +385,49 @@ export function AdminMedia({ mediaType, title }: AdminMediaProps) {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <LinkIcon className="w-3 h-3" />
-                Stream URL
-              </Label>
-              <Input
-                value={link.stream_url}
-                onChange={(e) =>
-                  setMediaLinks(
-                    mediaLinks.map((l) =>
-                      l.id === link.id ? { ...l, stream_url: e.target.value } : l
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <LinkIcon className="w-3 h-3" />
+                  Stream URL
+                </Label>
+                <Input
+                  value={link.stream_url}
+                  onChange={(e) =>
+                    setMediaLinks(
+                      mediaLinks.map((l) =>
+                        l.id === link.id ? { ...l, stream_url: e.target.value } : l
+                      )
                     )
-                  )
-                }
-                placeholder="https://...m3u8"
-                className="text-sm"
-              />
+                  }
+                  placeholder="https://...m3u8"
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Plataforma</Label>
+                <Select
+                  value={link.platform || ""}
+                  onValueChange={(value) =>
+                    setMediaLinks(
+                      mediaLinks.map((l) =>
+                        l.id === link.id ? { ...l, platform: value || null } : l
+                      )
+                    )
+                  }
+                >
+                  <SelectTrigger className="text-sm">
+                    <SelectValue placeholder="Sin plataforma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STREAMING_PLATFORMS.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="flex justify-end gap-2">
