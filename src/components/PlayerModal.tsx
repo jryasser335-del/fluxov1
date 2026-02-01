@@ -48,6 +48,13 @@ export function PlayerModal() {
 
     // Use proxy for external streams to bypass CORS
     const getProxiedUrl = (streamUrl: string) => {
+      // Skip proxy for streams with IP-bound tokens (they won't work through proxy)
+      const hasIpToken = streamUrl.includes("token=") || streamUrl.includes("ip=");
+      if (hasIpToken) {
+        console.log("Stream has IP-bound token, loading directly:", streamUrl);
+        return streamUrl;
+      }
+      
       // Check if it's an external stream that needs proxying
       const isExternalStream = !streamUrl.includes(window.location.hostname) && 
                                !streamUrl.includes("supabase.co");
