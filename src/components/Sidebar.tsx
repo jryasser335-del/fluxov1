@@ -1,9 +1,9 @@
-import { Tv, Film, Clapperboard, Theater, Trophy, Settings, Sparkles } from "lucide-react";
+import { Tv, Film, Clapperboard, Theater, Trophy, Settings, Sparkles, Library } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 
-export type ViewType = "canales" | "peliculas" | "series" | "doramas" | "eventos";
+export type ViewType = "canales" | "peliculas" | "series" | "doramas" | "eventos" | "catalogo";
 
 interface SidebarProps {
   activeView: ViewType;
@@ -11,6 +11,12 @@ interface SidebarProps {
 }
 
 const navItems: { view: ViewType; label: string; icon: React.ReactNode; gradient: string }[] = [
+  { 
+    view: "catalogo", 
+    label: "CATÁLOGO", 
+    icon: <Library className="w-5 h-5" />,
+    gradient: "from-yellow-500 to-orange-400"
+  },
   { 
     view: "canales", 
     label: "CANALES", 

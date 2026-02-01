@@ -11,6 +11,8 @@ interface TopBarProps {
 export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps) {
   const getPlaceholder = () => {
     switch (activeView) {
+      case "catalogo":
+        return "Buscar en catálogo…";
       case "peliculas":
         return "Buscar película…";
       case "series":

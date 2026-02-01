@@ -8,10 +8,11 @@ import { MoviesView } from "@/components/MoviesView";
 import { SeriesView } from "@/components/SeriesView";
 import { DoramasView } from "@/components/DoramasView";
 import { EventsView } from "@/components/EventsView";
+import { CatalogView } from "@/components/CatalogView";
 
 const Index = () => {
   const [showIntro, setShowIntro] = useState(true);
-  const [activeView, setActiveView] = useState<ViewType>("canales");
+  const [activeView, setActiveView] = useState<ViewType>("catalogo");
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleViewChange = (view: ViewType) => {
@@ -40,6 +41,7 @@ const Index = () => {
           />
           
           <div className="mt-2">
+            {activeView === "catalogo" && <CatalogView searchQuery={searchQuery} />}
             {activeView === "canales" && <ChannelsView />}
             {activeView === "peliculas" && <MoviesView searchQuery={searchQuery} />}
             {activeView === "series" && <SeriesView searchQuery={searchQuery} />}
