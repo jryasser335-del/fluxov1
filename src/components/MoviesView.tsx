@@ -1,10 +1,16 @@
 import { useState, useEffect, useMemo } from "react";
 import { fetchTMDB, TMDBResult } from "@/lib/api";
+import { supabase } from "@/integrations/supabase/client";
 import { Section } from "./Section";
 import { Chips } from "./Chips";
 import { Pager } from "./Pager";
 import { MediaCard } from "./MediaCard";
 import { SkeletonGrid } from "./Skeleton";
+
+interface MediaLink {
+  tmdb_id: number;
+  stream_url: string;
+}
 
 const MOVIE_FILTERS = [
   { value: "popular", label: "Popular" },
@@ -21,8 +27,25 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
   const [type, setType] = useState("popular");
   const [page, setPage] = useState(1);
   const [movies, setMovies] = useState<TMDBResult[]>([]);
+  const [mediaLinks, setMediaLinks] = useState<Map<number, string>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  // Fetch media links from database
+  useEffect(() => {
+    supabase
+      .from("media_links")
+      .select("tmdb_id, stream_url")
+      .eq("media_type", "movie")
+      .eq("is_active", true)
+      .then(({ data }) => {
+        if (data) {
+          const linksMap = new Map<number, string>();
+          data.forEach((link: MediaLink) => linksMap.set(link.tmdb_id, link.stream_url));
+          setMediaLinks(linksMap);
+        }
+      });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,7 +103,12 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
           {filteredMovies.map((movie) => (
-            <MediaCard key={movie.id} item={movie} type="movie" />
+            <MediaCard 
+              key={movie.id} 
+              item={movie} 
+              type="movie" 
+              streamUrl={mediaLinks.get(movie.id)}
+            />
           ))}
         </div>
       )}

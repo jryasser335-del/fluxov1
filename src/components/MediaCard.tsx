@@ -5,9 +5,10 @@ import { usePlayerModal } from "@/hooks/usePlayerModal";
 interface MediaCardProps {
   item: TMDBResult;
   type: "movie" | "series" | "dorama";
+  streamUrl?: string;
 }
 
-export function MediaCard({ item, type }: MediaCardProps) {
+export function MediaCard({ item, type, streamUrl }: MediaCardProps) {
   const { openPlayer } = usePlayerModal();
   const title = item.title || item.name || "";
   const date = item.release_date || item.first_air_date || "";
@@ -15,15 +16,13 @@ export function MediaCard({ item, type }: MediaCardProps) {
   const rating = item.vote_average ? item.vote_average.toFixed(1) : "—";
   const posterUrl = item.poster_path ? `${TMDB_IMG}${item.poster_path}` : "";
   
-  // For demo - no real streams. In production, you'd fetch links from a backend
-  const hasStream = false;
+  const hasStream = !!streamUrl;
 
   const handleClick = () => {
-    if (hasStream) {
-      openPlayer(title, ""); // Would use real stream URL
+    if (hasStream && streamUrl) {
+      openPlayer(title, streamUrl);
     } else {
-      // Demo alert
-      console.log(`Clicked: ${title}`);
+      console.log(`No stream available for: ${title}`);
     }
   };
 
