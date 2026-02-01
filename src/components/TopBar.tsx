@@ -34,7 +34,7 @@ export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps)
     <div className="flex items-center justify-between gap-4 p-3 rounded-2xl border border-white/10 bg-black/50 backdrop-blur-xl flex-wrap">
       {/* Brand */}
       <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-black border border-white/15 overflow-hidden p-1">
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-black overflow-hidden p-1">
           <img src="https://images.seeklogo.com/logo-png/48/1/fluxo-logo-png_seeklogo-485780.png" alt="Fluxo" className="w-full h-full object-contain" />
         </div>
         <div className="flex flex-col leading-tight">
