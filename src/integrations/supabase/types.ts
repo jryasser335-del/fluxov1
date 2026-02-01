@@ -50,6 +50,99 @@ export type Database = {
         }
         Relationships: []
       }
+      events: {
+        Row: {
+          created_at: string
+          description: string | null
+          event_date: string
+          id: string
+          is_active: boolean
+          is_live: boolean
+          league: string | null
+          name: string
+          sport: string | null
+          stream_url: string | null
+          team_away: string | null
+          team_home: string | null
+          thumbnail: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          event_date: string
+          id?: string
+          is_active?: boolean
+          is_live?: boolean
+          league?: string | null
+          name: string
+          sport?: string | null
+          stream_url?: string | null
+          team_away?: string | null
+          team_home?: string | null
+          thumbnail?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          id?: string
+          is_active?: boolean
+          is_live?: boolean
+          league?: string | null
+          name?: string
+          sport?: string | null
+          stream_url?: string | null
+          team_away?: string | null
+          team_home?: string | null
+          thumbnail?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      media_links: {
+        Row: {
+          created_at: string
+          episode: number | null
+          id: string
+          is_active: boolean
+          media_type: Database["public"]["Enums"]["media_type"]
+          poster_path: string | null
+          season: number | null
+          stream_url: string
+          title: string
+          tmdb_id: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          episode?: number | null
+          id?: string
+          is_active?: boolean
+          media_type: Database["public"]["Enums"]["media_type"]
+          poster_path?: string | null
+          season?: number | null
+          stream_url: string
+          title: string
+          tmdb_id: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          episode?: number | null
+          id?: string
+          is_active?: boolean
+          media_type?: Database["public"]["Enums"]["media_type"]
+          poster_path?: string | null
+          season?: number | null
+          stream_url?: string
+          title?: string
+          tmdb_id?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -86,6 +179,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      media_type: "movie" | "series" | "dorama"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -214,6 +308,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      media_type: ["movie", "series", "dorama"],
     },
   },
 } as const
