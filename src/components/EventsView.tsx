@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { RefreshCw, Search, Heart } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { RefreshCw, Search } from "lucide-react";
 import { fetchESPNScoreboard, ESPNEvent } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Section } from "./Section";
 import { Chips } from "./Chips";
 import { Input } from "@/components/ui/input";
+import { EventCard } from "./events/EventCard";
 import { SkeletonEventCard } from "./Skeleton";
 
 const EVENT_FILTERS = [
@@ -37,8 +38,7 @@ export function EventsView() {
     return new Set(saved ? JSON.parse(saved) : []);
   });
 
-  // Fetch event links from database
-  const fetchEventLinks = async () => {
+  const fetchEventLinks = useCallback(async () => {
     const { data, error } = await supabase
       .from("events")
       .select("espn_id, stream_url, is_active")
@@ -54,9 +54,9 @@ export function EventsView() {
       });
       setEventLinks(linksMap);
     }
-  };
+  }, []);
 
-  const loadEvents = async () => {
+  const loadEvents = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchESPNScoreboard(league);
@@ -70,13 +70,11 @@ export function EventsView() {
       setEvents([]);
     }
     setLoading(false);
-  };
+  }, [league]);
 
-  // Initial fetch and realtime subscription
   useEffect(() => {
     fetchEventLinks();
 
-    // Subscribe to realtime changes on events table
     const channel = supabase
       .channel('events-realtime')
       .on(
@@ -87,7 +85,6 @@ export function EventsView() {
           table: 'events'
         },
         () => {
-          // Refetch links when any event changes
           fetchEventLinks();
         }
       )
@@ -96,20 +93,20 @@ export function EventsView() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [fetchEventLinks]);
 
   useEffect(() => {
     loadEvents();
-  }, [league]);
+  }, [loadEvents]);
 
   useEffect(() => {
     if (!autoRefresh) return;
     const interval = setInterval(() => {
       loadEvents();
       fetchEventLinks();
-    }, 60000); // 1 minute
+    }, 60000);
     return () => clearInterval(interval);
-  }, [autoRefresh, league]);
+  }, [autoRefresh, loadEvents, fetchEventLinks]);
 
   const toggleFavorite = (eventId: string) => {
     setFavorites((prev) => {
@@ -127,7 +124,6 @@ export function EventsView() {
   const filteredEvents = useMemo(() => {
     let list = events;
 
-    // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter((e) => {
@@ -139,7 +135,6 @@ export function EventsView() {
       });
     }
 
-    // Type filter
     if (filter === "live") {
       list = list.filter((e) => e.competitions?.[0]?.status?.type?.state === "in");
     } else if (filter === "fav") {
@@ -148,7 +143,6 @@ export function EventsView() {
       list = list.filter((e) => !eventLinks.has(e.id));
     }
 
-    // Sort: live -> upcoming -> finished
     const rank = (state: string) => (state === "in" ? 0 : state === "pre" ? 1 : 2);
     list.sort((a, b) => {
       const stateA = a.competitions?.[0]?.status?.type?.state || "";
@@ -169,8 +163,6 @@ export function EventsView() {
 
     if (link) {
       openPlayer(title, link);
-    } else {
-      console.log(`No link for event: ${event.id}`);
     }
   };
 
@@ -189,192 +181,90 @@ export function EventsView() {
       emoji="🏟️"
       badge={loading ? "Cargando…" : `${filteredEvents.length} eventos`}
     >
-      {/* League selector */}
-      <div className="flex flex-wrap gap-2 items-center mb-3">
-        <select
-          value={league}
-          onChange={(e) => setLeague(e.target.value)}
-          className="h-10 rounded-full px-3 border border-white/10 bg-[#0b0b10] text-foreground outline-none"
-        >
-          {LEAGUE_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value} className="bg-[#0b0b10]">
-              {opt.label}
-            </option>
-          ))}
-        </select>
+      {/* Controls */}
+      <div className="flex flex-col gap-3 mb-4">
+        {/* League selector and refresh */}
+        <div className="flex flex-wrap gap-2 items-center">
+          <select
+            value={league}
+            onChange={(e) => setLeague(e.target.value)}
+            className="h-10 rounded-xl px-3 border border-white/10 bg-white/[0.04] text-foreground outline-none focus:border-primary/40 transition-colors"
+          >
+            {LEAGUE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value} className="bg-background">
+                {opt.label}
+              </option>
+            ))}
+          </select>
 
-        <button
-          onClick={() => { loadEvents(); fetchEventLinks(); }}
-          className="h-10 px-3 rounded-full border border-white/10 bg-white/[0.04] text-foreground hover:border-white/20 flex items-center gap-2"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Actualizar
-        </button>
-      </div>
+          <button
+            onClick={() => { loadEvents(); fetchEventLinks(); }}
+            className="h-10 px-4 rounded-xl border border-white/10 bg-white/[0.04] text-foreground hover:border-primary/30 hover:bg-white/[0.06] flex items-center gap-2 transition-all"
+          >
+            <RefreshCw className="w-4 h-4" />
+            <span className="hidden sm:inline">Actualizar</span>
+          </button>
+        </div>
 
-      {/* Filters and search */}
-      <div className="flex flex-wrap gap-3 items-center justify-between mb-3">
-        <Chips options={EVENT_FILTERS} value={filter} onChange={setFilter} />
+        {/* Filters and search */}
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <Chips options={EVENT_FILTERS} value={filter} onChange={setFilter} />
 
-        <div className="flex gap-2 items-center flex-wrap">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar equipo o evento..."
-              className="pl-9 h-10 rounded-full border-white/10 bg-white/[0.05] w-56"
-            />
+          <div className="flex gap-2 items-center w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-initial">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar equipo..."
+                className="pl-9 h-10 rounded-xl border-white/10 bg-white/[0.04] w-full sm:w-52"
+              />
+            </div>
+
+            <label className="flex gap-2 items-center px-3 py-2 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-foreground/80 cursor-pointer hover:border-white/20 transition-colors whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={autoRefresh}
+                onChange={(e) => setAutoRefresh(e.target.checked)}
+                className="accent-primary"
+              />
+              Auto
+            </label>
           </div>
-
-          <label className="flex gap-2 items-center px-3 py-2 rounded-full border border-white/10 bg-white/[0.04] text-sm text-white/80 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={autoRefresh}
-              onChange={(e) => setAutoRefresh(e.target.checked)}
-              className="accent-primary"
-            />
-            Auto
-          </label>
         </div>
       </div>
 
       {/* Events grid */}
       {loading ? (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
             <SkeletonEventCard key={i} />
           ))}
         </div>
       ) : filteredEvents.length === 0 ? (
-        <div className="text-muted-foreground text-sm py-8 text-center">
-          No hay resultados con ese filtro.
+        <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-muted border border-white/10 flex items-center justify-center text-2xl">
+            🏟️
+          </div>
+          <div>
+            <p className="text-foreground font-medium mb-1">Sin resultados</p>
+            <p className="text-muted-foreground text-sm">No hay eventos con ese filtro.</p>
+          </div>
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(340px,1fr))] gap-3">
-          {filteredEvents.map((event) => {
-            const comp = event.competitions?.[0];
-            const status = comp?.status?.type;
-            const isLive = status?.state === "in";
-            const isFinal = status?.state === "post";
-            const competitors = comp?.competitors || [];
-            const away = competitors.find((c) => c.homeAway === "away") || competitors[0];
-            const home = competitors.find((c) => c.homeAway === "home") || competitors[1];
-            const hasLink = eventLinks.has(event.id);
-            const isFav = favorites.has(event.id);
-
-            let clockTxt = "";
-            if (isLive) {
-              const period = comp?.status?.period ? `Q${comp.status.period}` : "";
-              const clock = comp?.status?.displayClock || "";
-              clockTxt = [period, clock].filter(Boolean).join(" • ");
-            } else if (isFinal) {
-              clockTxt = status?.shortDetail || "Final";
-            } else {
-              clockTxt = formatTime(comp?.date || event.date);
-            }
-
-            return (
-              <div
-                key={event.id}
-                className="rounded-2xl border border-white/10 bg-white/[0.035] p-3.5 shadow-card transition-all duration-150 hover:-translate-y-0.5 hover:border-primary/30"
-              >
-                {/* Header */}
-                <div className="flex items-start justify-between gap-2 mb-3">
-                  <div>
-                    <div className="text-xs font-bold tracking-wide">{leagueInfo.name}</div>
-                    {leagueInfo.sub && (
-                      <div className="text-muted-foreground text-[11px]">{leagueInfo.sub}</div>
-                    )}
-                  </div>
-                  <div className="text-xs px-2.5 py-1.5 rounded-full border border-white/10 bg-black/25 flex items-center gap-2">
-                    {isLive && <span className="w-2 h-2 rounded-full bg-destructive animate-pulse-glow" />}
-                    {isLive ? "EN VIVO" : isFinal ? "FINAL" : "PRONTO"}
-                  </div>
-                </div>
-
-                {/* Match */}
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 p-2.5 rounded-xl border border-white/[0.08] bg-black/30">
-                  {/* Away team */}
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-11 h-11 rounded-xl border border-white/10 bg-white/[0.06] flex items-center justify-center overflow-hidden">
-                      {away?.team?.logo ? (
-                        <img
-                          src={away.team.logo}
-                          alt={away.team.displayName}
-                          className="w-full h-full object-contain"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <span>🏷️</span>
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-bold text-sm leading-tight">{away?.team?.shortDisplayName || "Equipo"}</div>
-                      <div className="text-muted-foreground text-[11px]">{away?.team?.abbreviation}</div>
-                    </div>
-                  </div>
-
-                  {/* Score */}
-                  <div className="flex flex-col items-center min-w-[84px]">
-                    <div className="font-display text-2xl tracking-wider">
-                      {away?.score || "—"} <span className="opacity-55">:</span> {home?.score || "—"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">{clockTxt}</div>
-                  </div>
-
-                  {/* Home team */}
-                  <div className="flex items-center gap-2.5 justify-end text-right">
-                    <div>
-                      <div className="font-bold text-sm leading-tight">{home?.team?.shortDisplayName || "Equipo"}</div>
-                      <div className="text-muted-foreground text-[11px]">{home?.team?.abbreviation}</div>
-                    </div>
-                    <div className="w-11 h-11 rounded-xl border border-white/10 bg-white/[0.06] flex items-center justify-center overflow-hidden">
-                      {home?.team?.logo ? (
-                        <img
-                          src={home.team.logo}
-                          alt={home.team.displayName}
-                          className="w-full h-full object-contain"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <span>🏷️</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer */}
-                <div className="flex justify-between items-center mt-2.5 gap-2">
-                  <div className="text-xs text-muted-foreground">
-                    {formatTime(comp?.date || event.date)}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => toggleFavorite(event.id)}
-                      className={`h-9 px-3 rounded-full border text-sm transition-all duration-150 hover:-translate-y-0.5 ${
-                        isFav ? "border-destructive/40 bg-destructive/10" : "border-white/10 bg-white/[0.05]"
-                      }`}
-                    >
-                      <Heart className={`w-4 h-4 ${isFav ? "fill-destructive text-destructive" : ""}`} />
-                    </button>
-                    <button
-                      onClick={() => handleEventClick(event)}
-                      className={`h-9 px-3 rounded-full border text-sm transition-all duration-150 hover:-translate-y-0.5 ${
-                        hasLink ? "border-primary/35 bg-primary/15" : "border-white/10 bg-white/[0.05]"
-                      }`}
-                    >
-                      {hasLink ? "Ver" : "Sin link"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredEvents.map((event) => (
+            <EventCard
+              key={event.id}
+              event={event}
+              leagueInfo={leagueInfo}
+              hasLink={eventLinks.has(event.id)}
+              isFavorite={favorites.has(event.id)}
+              onToggleFavorite={() => toggleFavorite(event.id)}
+              onClick={() => handleEventClick(event)}
+              formatTime={formatTime}
+            />
+          ))}
         </div>
       )}
     </Section>
