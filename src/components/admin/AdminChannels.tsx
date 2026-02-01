@@ -20,6 +20,8 @@ interface Channel {
   name: string;
   logo: string | null;
   stream: string | null;
+  stream_url_2: string | null;
+  stream_url_3: string | null;
   is_active: boolean;
   sort_order: number;
 }
@@ -34,6 +36,8 @@ export function AdminChannels() {
     name: "",
     logo: "",
     stream: "",
+    stream_url_2: "",
+    stream_url_3: "",
   });
 
   useEffect(() => {
@@ -62,6 +66,8 @@ export function AdminChannels() {
         name: channel.name,
         logo: channel.logo,
         stream: channel.stream,
+        stream_url_2: channel.stream_url_2,
+        stream_url_3: channel.stream_url_3,
         is_active: channel.is_active,
       })
       .eq("id", channel.id);
@@ -98,6 +104,8 @@ export function AdminChannels() {
         name: newChannel.name,
         logo: newChannel.logo || null,
         stream: newChannel.stream || "",
+        stream_url_2: newChannel.stream_url_2 || null,
+        stream_url_3: newChannel.stream_url_3 || null,
         sort_order: channels.length + 1,
       })
       .select()
@@ -111,7 +119,7 @@ export function AdminChannels() {
       }
     } else {
       setChannels([...channels, data]);
-      setNewChannel({ key: "", name: "", logo: "", stream: "" });
+      setNewChannel({ key: "", name: "", logo: "", stream: "", stream_url_2: "", stream_url_3: "" });
       setIsDialogOpen(false);
       toast.success("Canal creado");
     }
@@ -172,12 +180,32 @@ export function AdminChannels() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Stream URL</Label>
+                <Label>Stream URL (Opción 1)</Label>
                 <Input
                   placeholder="https://...m3u8"
                   value={newChannel.stream}
                   onChange={(e) =>
                     setNewChannel({ ...newChannel, stream: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Stream URL 2 (Opción 2)</Label>
+                <Input
+                  placeholder="https://...m3u8 (alternativo)"
+                  value={newChannel.stream_url_2}
+                  onChange={(e) =>
+                    setNewChannel({ ...newChannel, stream_url_2: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Stream URL 3 (Opción 3)</Label>
+                <Input
+                  placeholder="https://...m3u8 (alternativo)"
+                  value={newChannel.stream_url_3}
+                  onChange={(e) =>
+                    setNewChannel({ ...newChannel, stream_url_3: e.target.value })
                   }
                 />
               </div>
@@ -263,7 +291,7 @@ export function AdminChannels() {
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground flex items-center gap-1">
                   <LinkIcon className="w-3 h-3" />
-                  Stream URL
+                  Stream URL (Opción 1)
                 </Label>
                 <Input
                   value={channel.stream || ""}
@@ -277,6 +305,44 @@ export function AdminChannels() {
                     )
                   }
                   placeholder="https://...m3u8"
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  Opción 2
+                </Label>
+                <Input
+                  value={channel.stream_url_2 || ""}
+                  onChange={(e) =>
+                    setChannels(
+                      channels.map((c) =>
+                        c.id === channel.id
+                          ? { ...c, stream_url_2: e.target.value }
+                          : c
+                      )
+                    )
+                  }
+                  placeholder="URL alternativa..."
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs text-muted-foreground">
+                  Opción 3
+                </Label>
+                <Input
+                  value={channel.stream_url_3 || ""}
+                  onChange={(e) =>
+                    setChannels(
+                      channels.map((c) =>
+                        c.id === channel.id
+                          ? { ...c, stream_url_3: e.target.value }
+                          : c
+                      )
+                    )
+                  }
+                  placeholder="URL alternativa..."
                   className="text-sm"
                 />
               </div>

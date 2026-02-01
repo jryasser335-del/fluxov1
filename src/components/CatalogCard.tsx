@@ -53,7 +53,7 @@ export function CatalogCard({ item, episodes }: CatalogCardProps) {
     if (isSeriesOrDorama && hasMultipleEpisodes) {
       setShowEpisodes(true);
     } else {
-      openPlayer(item.title, item.stream_url, item.media_type);
+      openPlayer(item.title, { url1: item.stream_url }, item.media_type);
     }
   };
 
@@ -61,7 +61,7 @@ export function CatalogCard({ item, episodes }: CatalogCardProps) {
     const epTitle = ep.season && ep.episode 
       ? `${ep.title} - T${ep.season}E${ep.episode}`
       : ep.title;
-    openPlayer(epTitle, ep.stream_url, ep.media_type);
+    openPlayer(epTitle, { url1: ep.stream_url }, ep.media_type);
     setShowEpisodes(false);
   };
 
