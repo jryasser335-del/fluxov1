@@ -137,10 +137,23 @@ export function PlayerModal() {
   };
 
   const toggleFullscreen = () => {
-    const container = videoRef.current?.parentElement;
+    const video = videoRef.current;
+    if (!video) return;
+
+    // iOS Safari uses webkitEnterFullscreen on video element directly
+    if ((video as any).webkitEnterFullscreen) {
+      (video as any).webkitEnterFullscreen();
+      return;
+    }
+
+    // Standard fullscreen API for other browsers
+    const container = video.parentElement;
     if (container) {
       if (document.fullscreenElement) {
         document.exitFullscreen();
+      } else if ((container as any).webkitRequestFullscreen) {
+        // Safari desktop
+        (container as any).webkitRequestFullscreen();
       } else {
         container.requestFullscreen();
       }
@@ -195,7 +208,7 @@ export function PlayerModal() {
 
             {isHlsStream ? (
               <>
-                <video
+              <video
                   ref={videoRef}
                   className="w-full h-full object-contain bg-black"
                   playsInline
@@ -203,6 +216,8 @@ export function PlayerModal() {
                   muted={isMuted}
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleTimeUpdate}
+                  webkit-playsinline="true"
+                  x-webkit-airplay="allow"
                 />
 
                 {/* Custom controls for HLS */}

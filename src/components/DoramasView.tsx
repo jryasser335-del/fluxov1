@@ -8,6 +8,7 @@ import { STREAMING_PLATFORMS, type PlatformValue } from "@/lib/platforms";
 import { DEFAULT_WATCH_REGION, getWatchProviderIdForPlatform } from "@/lib/tmdbWatchProviders";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const LANG_FILTERS = [
   { value: "ko", label: "K-Drama" },
@@ -25,6 +26,12 @@ const PLATFORM_FILTERS = [
   ...STREAMING_PLATFORMS.map((p) => ({ value: p.value, label: p.label })),
 ];
 
+interface MediaLink {
+  tmdb_id: number;
+  stream_url: string;
+  platform: string | null;
+}
+
 interface DoramasViewProps {
   searchQuery: string;
 }
@@ -35,6 +42,7 @@ export function DoramasView({ searchQuery }: DoramasViewProps) {
   const [platform, setPlatform] = useState<"all" | PlatformValue>("all");
   const [page, setPage] = useState(1);
   const [allDoramas, setAllDoramas] = useState<TMDBResult[]>([]);
+  const [mediaLinks, setMediaLinks] = useState<Map<number, MediaLink>>(new Map());
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
@@ -66,6 +74,26 @@ export function DoramasView({ searchQuery }: DoramasViewProps) {
 
     return basePath;
   }, [lang, type, platform]);
+
+  // Fetch media links from database
+  useEffect(() => {
+    const fetchMediaLinks = async () => {
+      const { data } = await supabase
+        .from("media_links")
+        .select("tmdb_id, stream_url, platform")
+        .eq("media_type", "dorama")
+        .eq("is_active", true);
+      
+      if (data) {
+        const linksMap = new Map<number, MediaLink>();
+        data.forEach((link) => {
+          linksMap.set(link.tmdb_id, link);
+        });
+        setMediaLinks(linksMap);
+      }
+    };
+    fetchMediaLinks();
+  }, []);
 
   // Initial load
   useEffect(() => {
@@ -204,14 +232,18 @@ export function DoramasView({ searchQuery }: DoramasViewProps) {
       ) : (
         <>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
-            {filteredDoramas.map((d) => (
-              <MediaCard 
-                key={d.id} 
-                item={d} 
-                type="dorama" 
-                platform={platform === "all" ? null : platform}
-              />
-            ))}
+            {filteredDoramas.map((d) => {
+              const link = mediaLinks.get(d.id);
+              return (
+                <MediaCard 
+                  key={d.id} 
+                  item={d} 
+                  type="dorama" 
+                  streamUrl={link?.stream_url}
+                  platform={link?.platform || (platform === "all" ? null : platform)}
+                />
+              );
+            })}
           </div>
           
           <div ref={sentinelRef} className="h-4" />
