@@ -1,13 +1,48 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from "react";
+import { IntroScreen } from "@/components/IntroScreen";
+import { Sidebar, ViewType } from "@/components/Sidebar";
+import { TopBar } from "@/components/TopBar";
+import { PlayerModal } from "@/components/PlayerModal";
+import { ChannelsView } from "@/components/ChannelsView";
+import { MoviesView } from "@/components/MoviesView";
+import { SeriesView } from "@/components/SeriesView";
+import { DoramasView } from "@/components/DoramasView";
+import { EventsView } from "@/components/EventsView";
 
 const Index = () => {
+  const [showIntro, setShowIntro] = useState(true);
+  const [activeView, setActiveView] = useState<ViewType>("canales");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleViewChange = (view: ViewType) => {
+    setActiveView(view);
+    setSearchQuery("");
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <>
+      {showIntro && <IntroScreen onComplete={() => setShowIntro(false)} />}
+      
+      <div className="grid grid-cols-[86px_1fr] max-md:grid-cols-[78px_1fr] min-h-screen">
+        <Sidebar activeView={activeView} onViewChange={handleViewChange} />
+        
+        <main className="p-4 pb-7 overflow-x-hidden">
+          <TopBar
+            activeView={activeView}
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
+          
+          {activeView === "canales" && <ChannelsView />}
+          {activeView === "peliculas" && <MoviesView searchQuery={searchQuery} />}
+          {activeView === "series" && <SeriesView searchQuery={searchQuery} />}
+          {activeView === "doramas" && <DoramasView searchQuery={searchQuery} />}
+          {activeView === "eventos" && <EventsView />}
+        </main>
       </div>
-    </div>
+
+      <PlayerModal />
+    </>
   );
 };
 
