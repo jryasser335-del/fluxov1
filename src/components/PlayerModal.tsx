@@ -140,21 +140,52 @@ export function PlayerModal() {
     const video = videoRef.current;
     if (!video) return;
 
-    // iOS Safari uses webkitEnterFullscreen on video element directly
-    if ((video as any).webkitEnterFullscreen) {
-      (video as any).webkitEnterFullscreen();
+    // Check if already in fullscreen
+    const isCurrentlyFullscreen = !!(
+      document.fullscreenElement ||
+      (document as any).webkitFullscreenElement ||
+      (video as any).webkitDisplayingFullscreen
+    );
+
+    if (isCurrentlyFullscreen) {
+      // Exit fullscreen
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      } else if ((video as any).webkitExitFullscreen) {
+        (video as any).webkitExitFullscreen();
+      }
       return;
     }
 
-    // Standard fullscreen API for other browsers
+    // iOS Safari - use webkitEnterFullscreen directly on video element
+    // This is the ONLY method that works on iPhone
+    if ((video as any).webkitEnterFullscreen) {
+      try {
+        (video as any).webkitEnterFullscreen();
+        return;
+      } catch (e) {
+        console.log("webkitEnterFullscreen failed, trying alternatives");
+      }
+    }
+
+    // iOS Safari alternative - webkitSetPresentationMode
+    if ((video as any).webkitSetPresentationMode) {
+      try {
+        (video as any).webkitSetPresentationMode("fullscreen");
+        return;
+      } catch (e) {
+        console.log("webkitSetPresentationMode failed");
+      }
+    }
+
+    // Standard Fullscreen API for desktop browsers
     const container = video.parentElement;
     if (container) {
-      if (document.fullscreenElement) {
-        document.exitFullscreen();
-      } else if ((container as any).webkitRequestFullscreen) {
-        // Safari desktop
+      if ((container as any).webkitRequestFullscreen) {
         (container as any).webkitRequestFullscreen();
-      } else {
+      } else if (container.requestFullscreen) {
         container.requestFullscreen();
       }
     }
