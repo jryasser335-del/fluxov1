@@ -42,7 +42,7 @@ export function DoramasView({ searchQuery }: DoramasViewProps) {
     fetchTMDB(path)
       .then((data) => {
         if (!cancelled) {
-          setDoramas(data.results.slice(0, 24));
+          setDoramas(data.results);
           setLoading(false);
         }
       })
@@ -98,7 +98,7 @@ export function DoramasView({ searchQuery }: DoramasViewProps) {
           No se pudo cargar TMDB.
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
           {filteredDoramas.map((d) => (
             <MediaCard key={d.id} item={d} type="dorama" />
           ))}

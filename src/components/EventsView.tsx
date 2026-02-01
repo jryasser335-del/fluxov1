@@ -372,11 +372,6 @@ export function EventsView() {
                     </button>
                   </div>
                 </div>
-
-                {/* Event ID for debugging */}
-                <div className="mt-2 text-[11px] text-white/40 font-mono select-text">
-                  ID: {event.id}
-                </div>
               </div>
             );
           })}

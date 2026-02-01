@@ -55,7 +55,7 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
     fetchTMDB(`movie/${type}?page=${page}`)
       .then((data) => {
         if (!cancelled) {
-          setMovies(data.results.slice(0, 24));
+          setMovies(data.results);
           setLoading(false);
         }
       })
@@ -101,7 +101,7 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
           No se pudo cargar TMDB.
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
           {filteredMovies.map((movie) => (
             <MediaCard 
               key={movie.id} 
