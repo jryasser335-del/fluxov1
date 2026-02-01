@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
         display: ['Oswald', 'sans-serif'],
+        tech: ['Space Grotesk', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -26,6 +27,7 @@ export default {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          glow: "hsl(var(--primary-glow))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -38,6 +40,10 @@ export default {
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
@@ -72,11 +78,18 @@ export default {
         sm: "calc(var(--radius) - 4px)",
         xl: "calc(var(--radius) + 4px)",
         "2xl": "calc(var(--radius) + 8px)",
+        "3xl": "1.5rem",
       },
       boxShadow: {
-        'cinema': '0 22px 80px rgba(0,0,0,.85)',
-        'card': '0 20px 60px rgba(0,0,0,.55)',
-        'glow': '0 0 18px hsl(263 70% 50% / 0.35)',
+        'cinema': '0 25px 100px -20px rgba(0,0,0,.9)',
+        'card': '0 20px 60px -15px rgba(0,0,0,.6)',
+        'glow': '0 0 20px hsl(270 100% 65% / 0.3)',
+        'glow-lg': '0 0 40px hsl(270 100% 65% / 0.4)',
+        'inner-glow': 'inset 0 1px 0 hsl(0 0% 100% / 0.1)',
+      },
+      transitionDuration: {
+        '400': '400ms',
+        '600': '600ms',
       },
       keyframes: {
         "accordion-down": {
