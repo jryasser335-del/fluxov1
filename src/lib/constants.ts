@@ -15,10 +15,35 @@ export const CHANNELS = [
 ];
 
 export const LEAGUE_OPTIONS = [
-  { value: "nba", label: "NBA" },
-  { value: "eng.1", label: "Premier League" },
-  { value: "eng.2", label: "Championship" },
-  { value: "esp.1", label: "LaLiga" },
-  { value: "ita.1", label: "Serie A" },
-  { value: "ger.1", label: "Bundesliga" },
+  // US Sports
+  { value: "nba", label: "🏀 NBA" },
+  { value: "nfl", label: "🏈 NFL" },
+  { value: "mlb", label: "⚾ MLB" },
+  { value: "nhl", label: "🏒 NHL" },
+  { value: "mls", label: "⚽ MLS" },
+  
+  // European Soccer
+  { value: "eng.1", label: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League" },
+  { value: "esp.1", label: "🇪🇸 LaLiga" },
+  { value: "ger.1", label: "🇩🇪 Bundesliga" },
+  { value: "ita.1", label: "🇮🇹 Serie A" },
+  { value: "fra.1", label: "🇫🇷 Ligue 1" },
+  { value: "ned.1", label: "🇳🇱 Eredivisie" },
+  { value: "por.1", label: "🇵🇹 Liga Portugal" },
+  
+  // UEFA Competitions
+  { value: "uefa.champions", label: "🏆 Champions League" },
+  { value: "uefa.europa", label: "🥈 Europa League" },
+  { value: "uefa.conference", label: "🥉 Conference League" },
+  
+  // Americas
+  { value: "mex.1", label: "🇲🇽 Liga MX" },
+  { value: "arg.1", label: "🇦🇷 Liga Argentina" },
+  { value: "bra.1", label: "🇧🇷 Brasileirão" },
+  { value: "conmebol.libertadores", label: "🏆 Copa Libertadores" },
+  { value: "conmebol.sudamericana", label: "🏆 Copa Sudamericana" },
+  
+  // Other
+  { value: "eng.2", label: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Championship" },
+  { value: "esp.2", label: "🇪🇸 LaLiga 2" },
 ];

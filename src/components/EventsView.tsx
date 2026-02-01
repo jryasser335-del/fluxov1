@@ -72,8 +72,30 @@ export function EventsView() {
     setLoading(false);
   };
 
+  // Initial fetch and realtime subscription
   useEffect(() => {
     fetchEventLinks();
+
+    // Subscribe to realtime changes on events table
+    const channel = supabase
+      .channel('events-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'events'
+        },
+        () => {
+          // Refetch links when any event changes
+          fetchEventLinks();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {

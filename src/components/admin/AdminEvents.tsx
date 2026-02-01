@@ -40,19 +40,37 @@ interface EventLink {
 }
 
 const LEAGUES = [
+  // US Sports
   { key: "nba", name: "NBA", sport: "Basketball" },
   { key: "nfl", name: "NFL", sport: "Football" },
   { key: "mlb", name: "MLB", sport: "Baseball" },
   { key: "nhl", name: "NHL", sport: "Hockey" },
-  { key: "esp.1", name: "La Liga", sport: "Soccer" },
+  { key: "mls", name: "MLS", sport: "Soccer" },
+  
+  // European Soccer
   { key: "eng.1", name: "Premier League", sport: "Soccer" },
+  { key: "esp.1", name: "LaLiga", sport: "Soccer" },
   { key: "ger.1", name: "Bundesliga", sport: "Soccer" },
   { key: "ita.1", name: "Serie A", sport: "Soccer" },
   { key: "fra.1", name: "Ligue 1", sport: "Soccer" },
-  { key: "mex.1", name: "Liga MX", sport: "Soccer" },
-  { key: "usa.1", name: "MLS", sport: "Soccer" },
+  { key: "ned.1", name: "Eredivisie", sport: "Soccer" },
+  { key: "por.1", name: "Liga Portugal", sport: "Soccer" },
+  
+  // UEFA Competitions
   { key: "uefa.champions", name: "Champions League", sport: "Soccer" },
   { key: "uefa.europa", name: "Europa League", sport: "Soccer" },
+  { key: "uefa.conference", name: "Conference League", sport: "Soccer" },
+  
+  // Americas
+  { key: "mex.1", name: "Liga MX", sport: "Soccer" },
+  { key: "arg.1", name: "Liga Argentina", sport: "Soccer" },
+  { key: "bra.1", name: "Brasileirão", sport: "Soccer" },
+  { key: "conmebol.libertadores", name: "Copa Libertadores", sport: "Soccer" },
+  { key: "conmebol.sudamericana", name: "Copa Sudamericana", sport: "Soccer" },
+  
+  // Other European
+  { key: "eng.2", name: "Championship", sport: "Soccer" },
+  { key: "esp.2", name: "LaLiga 2", sport: "Soccer" },
 ];
 
 export function AdminEvents() {
