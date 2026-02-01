@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Save, Trash2, Loader2, Link as LinkIcon, Calendar } from "lucide-react";
+import { Plus, Save, Trash2, Loader2, Link as LinkIcon, Calendar, Check, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -36,14 +36,9 @@ export function AdminEvents() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newEvent, setNewEvent] = useState({
     name: "",
-    description: "",
     event_date: "",
     sport: "",
     league: "",
-    team_home: "",
-    team_away: "",
-    stream_url: "",
-    thumbnail: "",
   });
 
   useEffect(() => {
@@ -74,14 +69,9 @@ export function AdminEvents() {
       .from("events")
       .insert({
         name: newEvent.name,
-        description: newEvent.description || null,
         event_date: newEvent.event_date,
         sport: newEvent.sport || null,
         league: newEvent.league || null,
-        team_home: newEvent.team_home || null,
-        team_away: newEvent.team_away || null,
-        stream_url: newEvent.stream_url || null,
-        thumbnail: newEvent.thumbnail || null,
       })
       .select()
       .single();
@@ -92,45 +82,55 @@ export function AdminEvents() {
       setEvents([...events, data]);
       setNewEvent({
         name: "",
-        description: "",
         event_date: "",
         sport: "",
         league: "",
-        team_home: "",
-        team_away: "",
-        stream_url: "",
-        thumbnail: "",
       });
       setIsDialogOpen(false);
       toast.success("Evento creado");
     }
   };
 
-  const updateEvent = async (event: Event) => {
+  const updateStreamUrl = async (event: Event, stream_url: string) => {
     setSaving(event.id);
     const { error } = await supabase
       .from("events")
-      .update({
-        name: event.name,
-        description: event.description,
-        event_date: event.event_date,
-        sport: event.sport,
-        league: event.league,
-        team_home: event.team_home,
-        team_away: event.team_away,
-        stream_url: event.stream_url,
-        thumbnail: event.thumbnail,
-        is_live: event.is_live,
-        is_active: event.is_active,
-      })
+      .update({ stream_url })
       .eq("id", event.id);
 
     if (error) {
-      toast.error("Error al guardar");
+      toast.error("Error al guardar link");
     } else {
-      toast.success("Evento actualizado");
+      setEvents(events.map((e) => (e.id === event.id ? { ...e, stream_url } : e)));
+      toast.success("Link guardado");
     }
     setSaving(null);
+  };
+
+  const toggleLive = async (event: Event, is_live: boolean) => {
+    const { error } = await supabase
+      .from("events")
+      .update({ is_live })
+      .eq("id", event.id);
+
+    if (error) {
+      toast.error("Error al cambiar estado");
+    } else {
+      setEvents(events.map((e) => (e.id === event.id ? { ...e, is_live } : e)));
+    }
+  };
+
+  const toggleActive = async (event: Event, is_active: boolean) => {
+    const { error } = await supabase
+      .from("events")
+      .update({ is_active })
+      .eq("id", event.id);
+
+    if (error) {
+      toast.error("Error al cambiar estado");
+    } else {
+      setEvents(events.map((e) => (e.id === event.id ? { ...e, is_active } : e)));
+    }
   };
 
   const deleteEvent = async (id: string) => {
@@ -160,10 +160,10 @@ export function AdminEvents() {
           <DialogTrigger asChild>
             <Button>
               <Plus className="w-4 h-4 mr-2" />
-              Agregar Evento
+              Nuevo Evento
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-card border-border max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogContent className="bg-card border-border max-w-md">
             <DialogHeader>
               <DialogTitle>Nuevo Evento</DialogTitle>
             </DialogHeader>
@@ -213,51 +213,6 @@ export function AdminEvents() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Equipo Local</Label>
-                  <Input
-                    placeholder="Lakers"
-                    value={newEvent.team_home}
-                    onChange={(e) =>
-                      setNewEvent({ ...newEvent, team_home: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Equipo Visitante</Label>
-                  <Input
-                    placeholder="Warriors"
-                    value={newEvent.team_away}
-                    onChange={(e) =>
-                      setNewEvent({ ...newEvent, team_away: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Stream URL</Label>
-                <Input
-                  placeholder="https://...m3u8"
-                  value={newEvent.stream_url}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, stream_url: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Thumbnail URL</Label>
-                <Input
-                  placeholder="https://..."
-                  value={newEvent.thumbnail}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, thumbnail: e.target.value })
-                  }
-                />
-              </div>
-
               <Button onClick={addEvent} className="w-full">
                 Crear Evento
               </Button>
@@ -266,120 +221,18 @@ export function AdminEvents() {
         </Dialog>
       </div>
 
-      <div className="space-y-4">
+      {/* Events List - Focused on Links */}
+      <div className="space-y-2">
         {events.map((event) => (
-          <div key={event.id} className="glass-panel rounded-xl p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <span className="font-semibold">{event.name}</span>
-                  <div className="text-xs text-muted-foreground">
-                    {new Date(event.event_date).toLocaleString("es-ES")}
-                    {event.league && ` • ${event.league}`}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={event.is_live}
-                    onCheckedChange={(checked) => {
-                      const updated = { ...event, is_live: checked };
-                      setEvents(events.map((e) => (e.id === event.id ? updated : e)));
-                      updateEvent(updated);
-                    }}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {event.is_live ? "🔴 EN VIVO" : "Programado"}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">
-                  Equipo Local
-                </Label>
-                <Input
-                  value={event.team_home || ""}
-                  onChange={(e) =>
-                    setEvents(
-                      events.map((ev) =>
-                        ev.id === event.id ? { ...ev, team_home: e.target.value } : ev
-                      )
-                    )
-                  }
-                  placeholder="Equipo local"
-                  className="text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">
-                  Equipo Visitante
-                </Label>
-                <Input
-                  value={event.team_away || ""}
-                  onChange={(e) =>
-                    setEvents(
-                      events.map((ev) =>
-                        ev.id === event.id ? { ...ev, team_away: e.target.value } : ev
-                      )
-                    )
-                  }
-                  placeholder="Equipo visitante"
-                  className="text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                <LinkIcon className="w-3 h-3" />
-                Stream URL
-              </Label>
-              <Input
-                value={event.stream_url || ""}
-                onChange={(e) =>
-                  setEvents(
-                    events.map((ev) =>
-                      ev.id === event.id ? { ...ev, stream_url: e.target.value } : ev
-                    )
-                  )
-                }
-                placeholder="https://...m3u8"
-                className="text-sm"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => deleteEvent(event.id)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => updateEvent(event)}
-                disabled={saving === event.id}
-              >
-                {saving === event.id ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-1" />
-                    Guardar
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
+          <EventRow
+            key={event.id}
+            event={event}
+            saving={saving === event.id}
+            onUpdateStream={(url) => updateStreamUrl(event, url)}
+            onToggleLive={(live) => toggleLive(event, live)}
+            onToggleActive={(active) => toggleActive(event, active)}
+            onDelete={() => deleteEvent(event.id)}
+          />
         ))}
 
         {events.length === 0 && (
@@ -387,6 +240,119 @@ export function AdminEvents() {
             No hay eventos. Agrega el primero.
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+interface EventRowProps {
+  event: Event;
+  saving: boolean;
+  onUpdateStream: (url: string) => void;
+  onToggleLive: (live: boolean) => void;
+  onToggleActive: (active: boolean) => void;
+  onDelete: () => void;
+}
+
+function EventRow({ event, saving, onUpdateStream, onToggleLive, onToggleActive, onDelete }: EventRowProps) {
+  const [streamUrl, setStreamUrl] = useState(event.stream_url || "");
+  const hasLink = Boolean(event.stream_url);
+  const isModified = streamUrl !== (event.stream_url || "");
+
+  return (
+    <div className={`glass-panel rounded-xl p-3 flex flex-col gap-3 ${!event.is_active ? 'opacity-50' : ''}`}>
+      {/* Header Row */}
+      <div className="flex items-center gap-3 flex-wrap">
+        {/* Status indicator */}
+        <div className={`w-2 h-2 rounded-full ${event.is_live ? 'bg-red-500 animate-pulse' : hasLink ? 'bg-green-500' : 'bg-yellow-500'}`} />
+        
+        {/* Event info */}
+        <div className="flex-1 min-w-[200px]">
+          <div className="font-medium text-sm">{event.name}</div>
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <Calendar className="w-3 h-3" />
+            {new Date(event.event_date).toLocaleString("es-ES", {
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit"
+            })}
+            {event.league && <span className="text-primary">• {event.league}</span>}
+          </div>
+        </div>
+
+        {/* Quick status badges */}
+        <div className="flex items-center gap-2">
+          {hasLink ? (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+              CON LINK
+            </span>
+          ) : (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+              SIN LINK
+            </span>
+          )}
+        </div>
+
+        {/* Live toggle */}
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={event.is_live}
+            onCheckedChange={onToggleLive}
+            className="scale-75"
+          />
+          <span className="text-[10px] text-muted-foreground w-12">
+            {event.is_live ? "🔴 LIVE" : "OFF"}
+          </span>
+        </div>
+
+        {/* Active toggle */}
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={event.is_active}
+            onCheckedChange={onToggleActive}
+            className="scale-75"
+          />
+          <span className="text-[10px] text-muted-foreground w-12">
+            {event.is_active ? "Activo" : "Oculto"}
+          </span>
+        </div>
+
+        {/* Delete */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-destructive hover:bg-destructive/20"
+          onClick={onDelete}
+        >
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Stream URL Input Row */}
+      <div className="flex items-center gap-2">
+        <LinkIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+        <Input
+          value={streamUrl}
+          onChange={(e) => setStreamUrl(e.target.value)}
+          placeholder="Pega el link del stream aquí..."
+          className="text-sm h-9 flex-1"
+        />
+        <Button
+          size="sm"
+          onClick={() => onUpdateStream(streamUrl)}
+          disabled={saving || !isModified}
+          className="h-9 px-3"
+        >
+          {saving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <>
+              <Save className="w-4 h-4 mr-1" />
+              Guardar
+            </>
+          )}
+        </Button>
       </div>
     </div>
   );
