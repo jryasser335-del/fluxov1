@@ -6,7 +6,6 @@ import { Chips } from "./Chips";
 import { Pager } from "./Pager";
 import { MediaCard } from "./MediaCard";
 import { SkeletonGrid } from "./Skeleton";
-import { STREAMING_PLATFORMS } from "@/lib/platforms";
 
 interface MediaLink {
   tmdb_id: number;
@@ -21,23 +20,19 @@ const MOVIE_FILTERS = [
   { value: "upcoming", label: "Próximas" },
 ];
 
-const PLATFORM_FILTERS = [
-  { value: "all", label: "Todas" },
-  ...STREAMING_PLATFORMS.map((p) => ({ value: p.value, label: p.label })),
-];
-
 interface MoviesViewProps {
   searchQuery: string;
 }
 
 export function MoviesView({ searchQuery }: MoviesViewProps) {
   const [type, setType] = useState("popular");
-  const [platform, setPlatform] = useState("all");
   const [page, setPage] = useState(1);
   const [movies, setMovies] = useState<TMDBResult[]>([]);
+  const [allMovies, setAllMovies] = useState<TMDBResult[]>([]);
   const [mediaLinks, setMediaLinks] = useState<Map<number, MediaLink>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [totalPages, setTotalPages] = useState(20);
 
   // Fetch media links from database
   useEffect(() => {
@@ -55,24 +50,38 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
       });
   }, []);
 
+  // Fetch multiple pages for more content
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(false);
 
-    fetchTMDB(`movie/${type}?page=${page}`)
-      .then((data) => {
+    const fetchMultiplePages = async () => {
+      try {
+        const pagesToFetch = [page, page + 1, page + 2];
+        const promises = pagesToFetch.map(p => 
+          fetchTMDB(`movie/${type}?page=${p}`)
+        );
+        
+        const results = await Promise.all(promises);
+        
         if (!cancelled) {
-          setMovies(data.results);
+          const combined = results.flatMap(r => r.results);
+          // Remove duplicates
+          const unique = Array.from(new Map(combined.map(m => [m.id, m])).values());
+          setAllMovies(unique);
+          setTotalPages(Math.min(results[0]?.total_pages || 20, 500));
           setLoading(false);
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setError(true);
           setLoading(false);
         }
-      });
+      }
+    };
+
+    fetchMultiplePages();
 
     return () => {
       cancelled = true;
@@ -84,54 +93,39 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
     setPage(1);
   };
 
-  const handlePlatformChange = (newPlatform: string) => {
-    setPlatform(newPlatform);
-    setPage(1);
-  };
-
-  // Filter by search and platform
+  // Filter by search only
   const filteredMovies = useMemo(() => {
-    let result = movies;
+    let result = allMovies;
     
-    // Filter by search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((m) => (m.title || "").toLowerCase().includes(q));
     }
     
-    // Filter by platform
-    if (platform !== "all") {
-      result = result.filter((m) => {
-        const link = mediaLinks.get(m.id);
-        return link?.platform === platform;
-      });
-    }
-    
     return result;
-  }, [movies, searchQuery, platform, mediaLinks]);
+  }, [allMovies, searchQuery]);
 
   const badge = loading
     ? "Cargando…"
-    : searchQuery || platform !== "all"
+    : searchQuery
     ? `${filteredMovies.length} resultados`
-    : `Página ${page}/20 • ${filteredMovies.length} títulos`;
+    : `Página ${page} • ${filteredMovies.length} títulos`;
 
   return (
     <Section title="Películas" emoji="🎬" badge={badge}>
       <div className="flex flex-wrap gap-4 mb-2">
         <Chips options={MOVIE_FILTERS} value={type} onChange={handleTypeChange} />
-        <Chips options={PLATFORM_FILTERS} value={platform} onChange={handlePlatformChange} />
       </div>
-      <Pager page={page} onPageChange={setPage} />
+      <Pager page={page} onPageChange={setPage} maxPage={Math.ceil(totalPages / 3)} />
 
       {loading ? (
-        <SkeletonGrid count={12} />
+        <SkeletonGrid count={24} />
       ) : error ? (
         <div className="text-muted-foreground text-sm py-8 text-center">
           No se pudo cargar TMDB.
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
           {filteredMovies.map((movie) => {
             const link = mediaLinks.get(movie.id);
             return (

@@ -6,7 +6,6 @@ import { Chips } from "./Chips";
 import { Pager } from "./Pager";
 import { MediaCard } from "./MediaCard";
 import { SkeletonGrid } from "./Skeleton";
-import { STREAMING_PLATFORMS } from "@/lib/platforms";
 
 interface MediaLink {
   tmdb_id: number;
@@ -25,11 +24,6 @@ const TYPE_FILTERS = [
   { value: "top", label: "Top" },
 ];
 
-const PLATFORM_FILTERS = [
-  { value: "all", label: "Todas" },
-  ...STREAMING_PLATFORMS.map((p) => ({ value: p.value, label: p.label })),
-];
-
 interface DoramasViewProps {
   searchQuery: string;
 }
@@ -37,12 +31,12 @@ interface DoramasViewProps {
 export function DoramasView({ searchQuery }: DoramasViewProps) {
   const [lang, setLang] = useState("ko");
   const [type, setType] = useState("trending");
-  const [platform, setPlatform] = useState("all");
   const [page, setPage] = useState(1);
-  const [doramas, setDoramas] = useState<TMDBResult[]>([]);
+  const [allDoramas, setAllDoramas] = useState<TMDBResult[]>([]);
   const [mediaLinks, setMediaLinks] = useState<Map<number, MediaLink>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [totalPages, setTotalPages] = useState(20);
 
   // Fetch media links from database
   useEffect(() => {
@@ -60,29 +54,41 @@ export function DoramasView({ searchQuery }: DoramasViewProps) {
       });
   }, []);
 
+  // Fetch multiple pages for more content
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setError(false);
 
-    const path =
-      type === "top"
-        ? `discover/tv?with_original_language=${lang}&sort_by=vote_average.desc&vote_count.gte=200&page=${page}`
-        : `discover/tv?with_original_language=${lang}&sort_by=popularity.desc&page=${page}`;
-
-    fetchTMDB(path)
-      .then((data) => {
+    const fetchMultiplePages = async () => {
+      try {
+        const pagesToFetch = [page, page + 1, page + 2];
+        const basePath = type === "top"
+          ? `discover/tv?with_original_language=${lang}&sort_by=vote_average.desc&vote_count.gte=200`
+          : `discover/tv?with_original_language=${lang}&sort_by=popularity.desc`;
+        
+        const promises = pagesToFetch.map(p => 
+          fetchTMDB(`${basePath}&page=${p}`)
+        );
+        
+        const results = await Promise.all(promises);
+        
         if (!cancelled) {
-          setDoramas(data.results);
+          const combined = results.flatMap(r => r.results);
+          const unique = Array.from(new Map(combined.map(d => [d.id, d])).values());
+          setAllDoramas(unique);
+          setTotalPages(Math.min(results[0]?.total_pages || 20, 500));
           setLoading(false);
         }
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setError(true);
           setLoading(false);
         }
-      });
+      }
+    };
+
+    fetchMultiplePages();
 
     return () => {
       cancelled = true;
@@ -99,55 +105,42 @@ export function DoramasView({ searchQuery }: DoramasViewProps) {
     setPage(1);
   };
 
-  const handlePlatformChange = (newPlatform: string) => {
-    setPlatform(newPlatform);
-    setPage(1);
-  };
-
-  // Filter by search and platform
+  // Filter by search only
   const filteredDoramas = useMemo(() => {
-    let result = doramas;
+    let result = allDoramas;
     
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter((d) => (d.name || "").toLowerCase().includes(q));
     }
     
-    if (platform !== "all") {
-      result = result.filter((d) => {
-        const link = mediaLinks.get(d.id);
-        return link?.platform === platform;
-      });
-    }
-    
     return result;
-  }, [doramas, searchQuery, platform, mediaLinks]);
+  }, [allDoramas, searchQuery]);
 
   const langName = lang === "ko" ? "K-Drama" : lang === "ja" ? "J-Drama" : "C-Drama";
   const typeName = type === "top" ? "Top" : "Tendencias";
   const badge = loading
     ? "Cargando…"
-    : searchQuery || platform !== "all"
+    : searchQuery
     ? `${filteredDoramas.length} resultados`
-    : `${langName} • ${typeName} • Página ${page}/20`;
+    : `${langName} • ${typeName} • Página ${page}`;
 
   return (
     <Section title="Doramas" emoji="🎎" badge={badge}>
       <div className="flex flex-wrap gap-4 mb-2">
         <Chips options={LANG_FILTERS} value={lang} onChange={handleLangChange} />
         <Chips options={TYPE_FILTERS} value={type} onChange={handleTypeChange} />
-        <Chips options={PLATFORM_FILTERS} value={platform} onChange={handlePlatformChange} />
       </div>
-      <Pager page={page} onPageChange={setPage} />
+      <Pager page={page} onPageChange={setPage} maxPage={Math.ceil(totalPages / 3)} />
 
       {loading ? (
-        <SkeletonGrid count={12} />
+        <SkeletonGrid count={24} />
       ) : error ? (
         <div className="text-muted-foreground text-sm py-8 text-center">
           No se pudo cargar TMDB.
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
           {filteredDoramas.map((d) => {
             const link = mediaLinks.get(d.id);
             return (
