@@ -46,6 +46,21 @@ export function PlayerModal() {
 
     const video = videoRef.current;
 
+    // Use proxy for external streams to bypass CORS
+    const getProxiedUrl = (streamUrl: string) => {
+      // Check if it's an external stream that needs proxying
+      const isExternalStream = !streamUrl.includes(window.location.hostname) && 
+                               !streamUrl.includes("supabase.co");
+      if (isExternalStream) {
+        const proxyUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-proxy?url=${encodeURIComponent(streamUrl)}`;
+        return proxyUrl;
+      }
+      return streamUrl;
+    };
+
+    const streamUrl = getProxiedUrl(url);
+    console.log("Loading stream:", streamUrl);
+
     if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
@@ -58,16 +73,16 @@ export function PlayerModal() {
         maxMaxBufferLength: 600,
         maxBufferSize: 60 * 1000 * 1000,
         maxBufferHole: 0.5,
-        fragLoadingTimeOut: 20000,
+        fragLoadingTimeOut: 30000,
         fragLoadingMaxRetry: 6,
-        manifestLoadingTimeOut: 20000,
+        manifestLoadingTimeOut: 30000,
         manifestLoadingMaxRetry: 4,
-        levelLoadingTimeOut: 20000,
+        levelLoadingTimeOut: 30000,
         levelLoadingMaxRetry: 4,
       });
       hlsRef.current = hls;
 
-      hls.loadSource(url);
+      hls.loadSource(streamUrl);
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
