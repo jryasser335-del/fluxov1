@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Loader2, Maximize2, Volume2, VolumeX, Play, Pause } from "lucide-react";
+import { X, Loader2, Maximize2, Volume2, VolumeX, Play, Pause, Rewind, FastForward } from "lucide-react";
 import Hls from "hls.js";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 
 export function PlayerModal() {
-  const { isOpen, title, url, closePlayer } = usePlayerModal();
+  const { isOpen, title, url, contentType, closePlayer } = usePlayerModal();
   const [isLoading, setIsLoading] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
   const [showControls, setShowControls] = useState(true);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -16,6 +18,7 @@ export function PlayerModal() {
 
   const isHlsStream = url?.includes(".m3u8");
   const isYouTube = url?.includes("youtube.com") || url?.includes("youtu.be");
+  const isLiveContent = contentType === "live";
 
   useEffect(() => {
     if (!isOpen) return;
@@ -103,6 +106,31 @@ export function PlayerModal() {
     }
   };
 
+  const seek = (seconds: number) => {
+    if (videoRef.current && !isLiveContent) {
+      videoRef.current.currentTime = Math.max(0, Math.min(videoRef.current.currentTime + seconds, duration));
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
+      setDuration(videoRef.current.duration || 0);
+    }
+  };
+
+  const handleSeekBar = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (videoRef.current && !isLiveContent) {
+      videoRef.current.currentTime = Number(e.target.value);
+    }
+  };
+
+  const formatTime = (time: number) => {
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
   const toggleFullscreen = () => {
     const container = videoRef.current?.parentElement;
     if (container) {
@@ -131,7 +159,7 @@ export function PlayerModal() {
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] bg-black/20">
           <div className="flex items-center gap-3">
-            <div className="w-3 h-3 rounded-full bg-destructive animate-pulse" />
+            {isLiveContent && <div className="w-3 h-3 rounded-full bg-destructive animate-pulse" />}
             <h2 className="font-display text-lg tracking-wider text-white/90">{title || "Reproductor"}</h2>
           </div>
           <button
@@ -168,6 +196,8 @@ export function PlayerModal() {
                   playsInline
                   autoPlay
                   muted={isMuted}
+                  onTimeUpdate={handleTimeUpdate}
+                  onLoadedMetadata={handleTimeUpdate}
                 />
 
                 {/* Custom controls for HLS */}
@@ -176,8 +206,33 @@ export function PlayerModal() {
                     showControls ? "opacity-100" : "opacity-0"
                   }`}
                 >
+                  {/* Progress bar for movies/series */}
+                  {!isLiveContent && duration > 0 && (
+                    <div className="mb-3 flex items-center gap-3">
+                      <span className="text-xs text-white/60 w-12">{formatTime(currentTime)}</span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={duration}
+                        value={currentTime}
+                        onChange={handleSeekBar}
+                        className="flex-1 h-1 bg-white/20 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer"
+                      />
+                      <span className="text-xs text-white/60 w-12 text-right">{formatTime(duration)}</span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
+                      {/* Rewind button for non-live content */}
+                      {!isLiveContent && (
+                        <button
+                          onClick={() => seek(-10)}
+                          className="w-11 h-11 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-200"
+                        >
+                          <Rewind className="w-5 h-5 text-white" />
+                        </button>
+                      )}
                       <button
                         onClick={togglePlay}
                         className="w-11 h-11 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-200"
@@ -188,6 +243,15 @@ export function PlayerModal() {
                           <Play className="w-5 h-5 text-white ml-0.5" />
                         )}
                       </button>
+                      {/* Fast forward button for non-live content */}
+                      {!isLiveContent && (
+                        <button
+                          onClick={() => seek(10)}
+                          className="w-11 h-11 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-200"
+                        >
+                          <FastForward className="w-5 h-5 text-white" />
+                        </button>
+                      )}
                       <button
                         onClick={toggleMute}
                         className="w-11 h-11 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-200"
@@ -201,10 +265,13 @@ export function PlayerModal() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-destructive/20 border border-destructive/30">
-                        <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-                        <span className="text-xs font-bold text-destructive uppercase tracking-wider">En vivo</span>
-                      </div>
+                      {/* Only show "En vivo" badge for live content */}
+                      {isLiveContent && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-destructive/20 border border-destructive/30">
+                          <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+                          <span className="text-xs font-bold text-destructive uppercase tracking-wider">En vivo</span>
+                        </div>
+                      )}
                       <button
                         onClick={toggleFullscreen}
                         className="w-11 h-11 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-200"
@@ -238,7 +305,9 @@ export function PlayerModal() {
 
         {/* Footer info */}
         <div className="px-5 py-3 border-t border-white/[0.06] bg-black/20 flex items-center justify-between">
-          <span className="text-xs text-white/40">Stream en tiempo real</span>
+          <span className="text-xs text-white/40">
+            {isLiveContent ? "Stream en tiempo real" : "Reproduciendo película"}
+          </span>
           <div className="flex items-center gap-2 text-xs text-white/40">
             <span className="w-2 h-2 rounded-full bg-green-500" />
             Conectado
