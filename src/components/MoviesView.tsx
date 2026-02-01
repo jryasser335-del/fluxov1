@@ -6,6 +6,7 @@ import { Chips } from "./Chips";
 import { Pager } from "./Pager";
 import { MediaCard } from "./MediaCard";
 import { SkeletonGrid } from "./Skeleton";
+import { STREAMING_PLATFORMS } from "@/lib/platforms";
 
 interface MediaLink {
   tmdb_id: number;
@@ -20,14 +21,19 @@ const MOVIE_FILTERS = [
   { value: "upcoming", label: "Próximas" },
 ];
 
+const PLATFORM_FILTERS = [
+  { value: "all", label: "Todas" },
+  ...STREAMING_PLATFORMS.map((p) => ({ value: p.value, label: p.label })),
+];
+
 interface MoviesViewProps {
   searchQuery: string;
 }
 
 export function MoviesView({ searchQuery }: MoviesViewProps) {
   const [type, setType] = useState("popular");
+  const [platform, setPlatform] = useState("all");
   const [page, setPage] = useState(1);
-  const [movies, setMovies] = useState<TMDBResult[]>([]);
   const [allMovies, setAllMovies] = useState<TMDBResult[]>([]);
   const [mediaLinks, setMediaLinks] = useState<Map<number, MediaLink>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -67,7 +73,6 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
         
         if (!cancelled) {
           const combined = results.flatMap(r => r.results);
-          // Remove duplicates
           const unique = Array.from(new Map(combined.map(m => [m.id, m])).values());
           setAllMovies(unique);
           setTotalPages(Math.min(results[0]?.total_pages || 20, 500));
@@ -93,9 +98,21 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
     setPage(1);
   };
 
-  // Filter by search only
+  const handlePlatformChange = (newPlatform: string) => {
+    setPlatform(newPlatform);
+  };
+
+  // Filter by search and platform
   const filteredMovies = useMemo(() => {
     let result = allMovies;
+    
+    // Filter by platform - only show movies that have a link with that platform
+    if (platform !== "all") {
+      result = result.filter((m) => {
+        const link = mediaLinks.get(m.id);
+        return link && link.platform === platform;
+      });
+    }
     
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -103,18 +120,22 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
     }
     
     return result;
-  }, [allMovies, searchQuery]);
+  }, [allMovies, platform, mediaLinks, searchQuery]);
 
+  const platformLabel = platform === "all" ? "Todas" : STREAMING_PLATFORMS.find(p => p.value === platform)?.label || platform;
   const badge = loading
     ? "Cargando…"
+    : platform !== "all"
+    ? `${filteredMovies.length} en ${platformLabel}`
     : searchQuery
     ? `${filteredMovies.length} resultados`
-    : `Página ${page} • ${filteredMovies.length} títulos`;
+    : `Página ${page} • ${allMovies.length} títulos`;
 
   return (
     <Section title="Películas" emoji="🎬" badge={badge}>
       <div className="flex flex-wrap gap-4 mb-2">
         <Chips options={MOVIE_FILTERS} value={type} onChange={handleTypeChange} />
+        <Chips options={PLATFORM_FILTERS} value={platform} onChange={handlePlatformChange} />
       </div>
       <Pager page={page} onPageChange={setPage} maxPage={Math.ceil(totalPages / 3)} />
 
@@ -123,6 +144,10 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
       ) : error ? (
         <div className="text-muted-foreground text-sm py-8 text-center">
           No se pudo cargar TMDB.
+        </div>
+      ) : filteredMovies.length === 0 && platform !== "all" ? (
+        <div className="text-muted-foreground text-sm py-8 text-center">
+          No hay películas de {platformLabel} agregadas. Agrega enlaces en el panel Admin.
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">

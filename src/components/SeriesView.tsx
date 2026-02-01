@@ -6,6 +6,7 @@ import { Chips } from "./Chips";
 import { Pager } from "./Pager";
 import { MediaCard } from "./MediaCard";
 import { SkeletonGrid } from "./Skeleton";
+import { STREAMING_PLATFORMS } from "@/lib/platforms";
 
 interface MediaLink {
   tmdb_id: number;
@@ -20,12 +21,18 @@ const SERIES_FILTERS = [
   { value: "airing_today", label: "Hoy" },
 ];
 
+const PLATFORM_FILTERS = [
+  { value: "all", label: "Todas" },
+  ...STREAMING_PLATFORMS.map((p) => ({ value: p.value, label: p.label })),
+];
+
 interface SeriesViewProps {
   searchQuery: string;
 }
 
 export function SeriesView({ searchQuery }: SeriesViewProps) {
   const [type, setType] = useState("popular");
+  const [platform, setPlatform] = useState("all");
   const [page, setPage] = useState(1);
   const [allSeries, setAllSeries] = useState<TMDBResult[]>([]);
   const [mediaLinks, setMediaLinks] = useState<Map<number, MediaLink>>(new Map());
@@ -91,9 +98,21 @@ export function SeriesView({ searchQuery }: SeriesViewProps) {
     setPage(1);
   };
 
-  // Filter by search only
+  const handlePlatformChange = (newPlatform: string) => {
+    setPlatform(newPlatform);
+  };
+
+  // Filter by search and platform
   const filteredSeries = useMemo(() => {
     let result = allSeries;
+    
+    // Filter by platform - only show series that have a link with that platform
+    if (platform !== "all") {
+      result = result.filter((s) => {
+        const link = mediaLinks.get(s.id);
+        return link && link.platform === platform;
+      });
+    }
     
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -101,18 +120,22 @@ export function SeriesView({ searchQuery }: SeriesViewProps) {
     }
     
     return result;
-  }, [allSeries, searchQuery]);
+  }, [allSeries, platform, mediaLinks, searchQuery]);
 
+  const platformLabel = platform === "all" ? "Todas" : STREAMING_PLATFORMS.find(p => p.value === platform)?.label || platform;
   const badge = loading
     ? "Cargando…"
+    : platform !== "all"
+    ? `${filteredSeries.length} en ${platformLabel}`
     : searchQuery
     ? `${filteredSeries.length} resultados`
-    : `Página ${page} • ${filteredSeries.length} títulos`;
+    : `Página ${page} • ${allSeries.length} títulos`;
 
   return (
     <Section title="Series" emoji="📺" badge={badge}>
       <div className="flex flex-wrap gap-4 mb-2">
         <Chips options={SERIES_FILTERS} value={type} onChange={handleTypeChange} />
+        <Chips options={PLATFORM_FILTERS} value={platform} onChange={handlePlatformChange} />
       </div>
       <Pager page={page} onPageChange={setPage} maxPage={Math.ceil(totalPages / 3)} />
 
@@ -121,6 +144,10 @@ export function SeriesView({ searchQuery }: SeriesViewProps) {
       ) : error ? (
         <div className="text-muted-foreground text-sm py-8 text-center">
           No se pudo cargar TMDB.
+        </div>
+      ) : filteredSeries.length === 0 && platform !== "all" ? (
+        <div className="text-muted-foreground text-sm py-8 text-center">
+          No hay series de {platformLabel} agregadas. Agrega enlaces en el panel Admin.
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
