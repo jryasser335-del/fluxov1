@@ -3,6 +3,7 @@ import { RefreshCw, Search, Heart } from "lucide-react";
 import { fetchESPNScoreboard, ESPNEvent } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
+import { supabase } from "@/integrations/supabase/client";
 import { Section } from "./Section";
 import { Chips } from "./Chips";
 import { Input } from "@/components/ui/input";
@@ -15,8 +16,11 @@ const EVENT_FILTERS = [
   { value: "nolink", label: "Sin link" },
 ];
 
-// Demo event links - in production these would come from a backend
-const EVENT_LINKS: Record<string, string> = {};
+interface EventLink {
+  espn_id: string;
+  stream_url: string | null;
+  is_active: boolean;
+}
 
 export function EventsView() {
   const { openPlayer } = usePlayerModal();
@@ -27,10 +31,30 @@ export function EventsView() {
   const [events, setEvents] = useState<ESPNEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [leagueInfo, setLeagueInfo] = useState({ name: "", sub: "" });
+  const [eventLinks, setEventLinks] = useState<Map<string, string>>(new Map());
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("fluxoFavEvents");
     return new Set(saved ? JSON.parse(saved) : []);
   });
+
+  // Fetch event links from database
+  const fetchEventLinks = async () => {
+    const { data, error } = await supabase
+      .from("events")
+      .select("espn_id, stream_url, is_active")
+      .eq("is_active", true)
+      .not("espn_id", "is", null);
+
+    if (!error && data) {
+      const linksMap = new Map<string, string>();
+      data.forEach((event: EventLink) => {
+        if (event.espn_id && event.stream_url) {
+          linksMap.set(event.espn_id, event.stream_url);
+        }
+      });
+      setEventLinks(linksMap);
+    }
+  };
 
   const loadEvents = async () => {
     setLoading(true);
@@ -49,12 +73,19 @@ export function EventsView() {
   };
 
   useEffect(() => {
+    fetchEventLinks();
+  }, []);
+
+  useEffect(() => {
     loadEvents();
   }, [league]);
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const interval = setInterval(loadEvents, 60000); // 1 minute
+    const interval = setInterval(() => {
+      loadEvents();
+      fetchEventLinks();
+    }, 60000); // 1 minute
     return () => clearInterval(interval);
   }, [autoRefresh, league]);
 
@@ -92,7 +123,7 @@ export function EventsView() {
     } else if (filter === "fav") {
       list = list.filter((e) => favorites.has(e.id));
     } else if (filter === "nolink") {
-      list = list.filter((e) => !EVENT_LINKS[e.id]);
+      list = list.filter((e) => !eventLinks.has(e.id));
     }
 
     // Sort: live -> upcoming -> finished
@@ -104,10 +135,10 @@ export function EventsView() {
     });
 
     return list;
-  }, [events, searchQuery, filter, favorites]);
+  }, [events, searchQuery, filter, favorites, eventLinks]);
 
   const handleEventClick = (event: ESPNEvent) => {
-    const link = EVENT_LINKS[event.id];
+    const link = eventLinks.get(event.id);
     const comp = event.competitions?.[0];
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
@@ -151,7 +182,7 @@ export function EventsView() {
         </select>
 
         <button
-          onClick={loadEvents}
+          onClick={() => { loadEvents(); fetchEventLinks(); }}
           className="h-10 px-3 rounded-full border border-white/10 bg-white/[0.04] text-foreground hover:border-white/20 flex items-center gap-2"
         >
           <RefreshCw className="w-4 h-4" />
@@ -207,7 +238,7 @@ export function EventsView() {
             const competitors = comp?.competitors || [];
             const away = competitors.find((c) => c.homeAway === "away") || competitors[0];
             const home = competitors.find((c) => c.homeAway === "home") || competitors[1];
-            const hasLink = !!EVENT_LINKS[event.id];
+            const hasLink = eventLinks.has(event.id);
             const isFav = favorites.has(event.id);
 
             let clockTxt = "";
