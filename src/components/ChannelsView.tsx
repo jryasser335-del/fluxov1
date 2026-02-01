@@ -4,6 +4,13 @@ import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { Section } from "./Section";
 import { Loader2 } from "lucide-react";
 
+const SUPABASE_URL = "https://tizmocegplamrmpfxvdu.supabase.co";
+
+function getProxiedLogoUrl(logoUrl: string | null): string | null {
+  if (!logoUrl) return null;
+  return `${SUPABASE_URL}/functions/v1/logo-proxy?url=${encodeURIComponent(logoUrl)}`;
+}
+
 interface Channel {
   id: string;
   key: string;
@@ -67,7 +74,7 @@ export function ChannelsView() {
               <div className="w-12 h-12 rounded-xl border border-white/10 bg-black/30 flex items-center justify-center overflow-hidden">
                 {channel.logo ? (
                   <img
-                    src={channel.logo}
+                    src={getProxiedLogoUrl(channel.logo) || ""}
                     alt={channel.name}
                     className="w-full h-full object-contain"
                     onError={(e) => {

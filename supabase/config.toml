@@ -1,1 +1,4 @@
 project_id = "tizmocegplamrmpfxvdu"
+
+[functions.logo-proxy]
+verify_jwt = false
