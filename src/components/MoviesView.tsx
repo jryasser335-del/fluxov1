@@ -1,18 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { fetchTMDB, TMDBResult } from "@/lib/api";
-import { supabase } from "@/integrations/supabase/client";
 import { Section } from "./Section";
 import { Chips } from "./Chips";
 import { Pager } from "./Pager";
 import { MediaCard } from "./MediaCard";
 import { SkeletonGrid } from "./Skeleton";
-import { STREAMING_PLATFORMS } from "@/lib/platforms";
-
-interface MediaLink {
-  tmdb_id: number;
-  stream_url: string;
-  platform: string | null;
-}
+import { STREAMING_PLATFORMS, type PlatformValue } from "@/lib/platforms";
+import { DEFAULT_WATCH_REGION, getWatchProviderIdForPlatform } from "@/lib/tmdbWatchProviders";
 
 const MOVIE_FILTERS = [
   { value: "popular", label: "Popular" },
@@ -32,29 +26,12 @@ interface MoviesViewProps {
 
 export function MoviesView({ searchQuery }: MoviesViewProps) {
   const [type, setType] = useState("popular");
-  const [platform, setPlatform] = useState("all");
+  const [platform, setPlatform] = useState<"all" | PlatformValue>("all");
   const [page, setPage] = useState(1);
   const [allMovies, setAllMovies] = useState<TMDBResult[]>([]);
-  const [mediaLinks, setMediaLinks] = useState<Map<number, MediaLink>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [totalPages, setTotalPages] = useState(20);
-
-  // Fetch media links from database
-  useEffect(() => {
-    supabase
-      .from("media_links")
-      .select("tmdb_id, stream_url, platform")
-      .eq("media_type", "movie")
-      .eq("is_active", true)
-      .then(({ data }) => {
-        if (data) {
-          const linksMap = new Map<number, MediaLink>();
-          data.forEach((link: MediaLink) => linksMap.set(link.tmdb_id, link));
-          setMediaLinks(linksMap);
-        }
-      });
-  }, []);
 
   // Fetch multiple pages for more content
   useEffect(() => {
@@ -64,9 +41,45 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
 
     const fetchMultiplePages = async () => {
       try {
+        const today = new Date().toISOString().slice(0, 10);
+        const watchRegion = DEFAULT_WATCH_REGION;
+
+        const providerId =
+          platform === "all"
+            ? null
+            : await getWatchProviderIdForPlatform({
+                mediaType: "movie",
+                platform,
+                region: watchRegion,
+              });
+
+        // Base query using Discover so that platform filters can work.
+        let basePath = "discover/movie?include_adult=false&include_video=false";
+        if (type === "popular") {
+          basePath += "&sort_by=popularity.desc";
+        } else if (type === "top_rated") {
+          basePath += "&sort_by=vote_average.desc&vote_count.gte=200";
+        } else if (type === "now_playing") {
+          basePath += `&sort_by=primary_release_date.desc&primary_release_date.lte=${today}`;
+        } else if (type === "upcoming") {
+          basePath += `&sort_by=primary_release_date.asc&primary_release_date.gte=${today}`;
+        }
+
+        if (providerId) {
+          basePath += `&with_watch_providers=${providerId}&watch_region=${watchRegion}&with_watch_monetization_types=flatrate`;
+        } else if (platform !== "all") {
+          // Platform selected but provider id not found for this region
+          if (!cancelled) {
+            setAllMovies([]);
+            setTotalPages(1);
+            setLoading(false);
+          }
+          return;
+        }
+
         const pagesToFetch = [page, page + 1, page + 2];
         const promises = pagesToFetch.map(p => 
-          fetchTMDB(`movie/${type}?page=${p}`)
+          fetchTMDB(`${basePath}&page=${p}`)
         );
         
         const results = await Promise.all(promises);
@@ -91,7 +104,7 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [type, page]);
+  }, [type, platform, page]);
 
   const handleTypeChange = (newType: string) => {
     setType(newType);
@@ -99,20 +112,13 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
   };
 
   const handlePlatformChange = (newPlatform: string) => {
-    setPlatform(newPlatform);
+    setPlatform(newPlatform as "all" | PlatformValue);
+    setPage(1);
   };
 
-  // Filter by search and platform
+  // Filter by search only (platform is fetched from TMDB via watch providers)
   const filteredMovies = useMemo(() => {
     let result = allMovies;
-    
-    // Filter by platform - only show movies that have a link with that platform
-    if (platform !== "all") {
-      result = result.filter((m) => {
-        const link = mediaLinks.get(m.id);
-        return link && link.platform === platform;
-      });
-    }
     
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -120,7 +126,7 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
     }
     
     return result;
-  }, [allMovies, platform, mediaLinks, searchQuery]);
+  }, [allMovies, searchQuery]);
 
   const platformLabel = platform === "all" ? "Todas" : STREAMING_PLATFORMS.find(p => p.value === platform)?.label || platform;
   const badge = loading
@@ -147,19 +153,17 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
         </div>
       ) : filteredMovies.length === 0 && platform !== "all" ? (
         <div className="text-muted-foreground text-sm py-8 text-center">
-          No hay películas de {platformLabel} agregadas. Agrega enlaces en el panel Admin.
+          TMDB no devolvió resultados para {platformLabel}.
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
           {filteredMovies.map((movie) => {
-            const link = mediaLinks.get(movie.id);
             return (
               <MediaCard 
                 key={movie.id} 
                 item={movie} 
                 type="movie" 
-                streamUrl={link?.stream_url}
-                platform={link?.platform}
+                platform={platform === "all" ? null : platform}
               />
             );
           })}
