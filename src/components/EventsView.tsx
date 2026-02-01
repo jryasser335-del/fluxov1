@@ -20,6 +20,8 @@ const EVENT_FILTERS = [
 interface EventLink {
   espn_id: string;
   stream_url: string | null;
+  stream_url_2: string | null;
+  stream_url_3: string | null;
   is_active: boolean;
 }
 
@@ -32,7 +34,7 @@ export function EventsView() {
   const [events, setEvents] = useState<ESPNEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [leagueInfo, setLeagueInfo] = useState({ name: "", sub: "" });
-  const [eventLinks, setEventLinks] = useState<Map<string, string>>(new Map());
+  const [eventLinks, setEventLinks] = useState<Map<string, { url1: string; url2?: string; url3?: string }>>(new Map());
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("fluxoFavEvents");
     return new Set(saved ? JSON.parse(saved) : []);
@@ -41,15 +43,19 @@ export function EventsView() {
   const fetchEventLinks = useCallback(async () => {
     const { data, error } = await supabase
       .from("events")
-      .select("espn_id, stream_url, is_active")
+      .select("espn_id, stream_url, stream_url_2, stream_url_3, is_active")
       .eq("is_active", true)
       .not("espn_id", "is", null);
 
     if (!error && data) {
-      const linksMap = new Map<string, string>();
+      const linksMap = new Map<string, { url1: string; url2?: string; url3?: string }>();
       data.forEach((event: EventLink) => {
         if (event.espn_id && event.stream_url) {
-          linksMap.set(event.espn_id, event.stream_url);
+          linksMap.set(event.espn_id, {
+            url1: event.stream_url,
+            url2: event.stream_url_2 || undefined,
+            url3: event.stream_url_3 || undefined,
+          });
         }
       });
       setEventLinks(linksMap);

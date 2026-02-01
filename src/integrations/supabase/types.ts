@@ -24,6 +24,8 @@ export type Database = {
           name: string
           sort_order: number
           stream: string | null
+          stream_url_2: string | null
+          stream_url_3: string | null
           updated_at: string
         }
         Insert: {
@@ -35,6 +37,8 @@ export type Database = {
           name: string
           sort_order?: number
           stream?: string | null
+          stream_url_2?: string | null
+          stream_url_3?: string | null
           updated_at?: string
         }
         Update: {
@@ -46,6 +50,8 @@ export type Database = {
           name?: string
           sort_order?: number
           stream?: string | null
+          stream_url_2?: string | null
+          stream_url_3?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -63,6 +69,8 @@ export type Database = {
           name: string
           sport: string | null
           stream_url: string | null
+          stream_url_2: string | null
+          stream_url_3: string | null
           team_away: string | null
           team_home: string | null
           thumbnail: string | null
@@ -80,6 +88,8 @@ export type Database = {
           name: string
           sport?: string | null
           stream_url?: string | null
+          stream_url_2?: string | null
+          stream_url_3?: string | null
           team_away?: string | null
           team_home?: string | null
           thumbnail?: string | null
@@ -97,6 +107,8 @@ export type Database = {
           name?: string
           sport?: string | null
           stream_url?: string | null
+          stream_url_2?: string | null
+          stream_url_3?: string | null
           team_away?: string | null
           team_home?: string | null
           thumbnail?: string | null

@@ -34,6 +34,8 @@ interface EventLink {
   team_home: string | null;
   team_away: string | null;
   stream_url: string | null;
+  stream_url_2: string | null;
+  stream_url_3: string | null;
   thumbnail: string | null;
   is_live: boolean;
   is_active: boolean;
@@ -178,18 +180,18 @@ export function AdminEvents() {
     }
   };
 
-  const updateStreamUrl = async (event: EventLink, stream_url: string) => {
+  const updateStreamUrls = async (event: EventLink, urls: { stream_url?: string; stream_url_2?: string; stream_url_3?: string }) => {
     setSaving(event.id);
     const { error } = await supabase
       .from("events")
-      .update({ stream_url })
+      .update(urls)
       .eq("id", event.id);
 
     if (error) {
-      toast.error("Error al guardar link");
+      toast.error("Error al guardar links");
     } else {
-      setEventLinks(eventLinks.map(e => e.id === event.id ? { ...e, stream_url } : e));
-      toast.success("Link guardado");
+      setEventLinks(eventLinks.map(e => e.id === event.id ? { ...e, ...urls } : e));
+      toast.success("Links guardados");
     }
     setSaving(null);
   };
@@ -387,7 +389,7 @@ export function AdminEvents() {
             key={event.id}
             event={event}
             saving={saving === event.id}
-            onUpdateStream={(url) => updateStreamUrl(event, url)}
+            onUpdateStreams={(urls) => updateStreamUrls(event, urls)}
             onToggleLive={(live) => toggleLive(event, live)}
             onToggleActive={(active) => toggleActive(event, active)}
             onDelete={() => deleteEventLink(event.id)}
@@ -407,16 +409,30 @@ export function AdminEvents() {
 interface EventRowProps {
   event: EventLink;
   saving: boolean;
-  onUpdateStream: (url: string) => void;
+  onUpdateStreams: (urls: { stream_url?: string; stream_url_2?: string; stream_url_3?: string }) => void;
   onToggleLive: (live: boolean) => void;
   onToggleActive: (active: boolean) => void;
   onDelete: () => void;
 }
 
-function EventRow({ event, saving, onUpdateStream, onToggleLive, onToggleActive, onDelete }: EventRowProps) {
+function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive, onDelete }: EventRowProps) {
   const [streamUrl, setStreamUrl] = useState(event.stream_url || "");
+  const [streamUrl2, setStreamUrl2] = useState(event.stream_url_2 || "");
+  const [streamUrl3, setStreamUrl3] = useState(event.stream_url_3 || "");
   const hasLink = Boolean(event.stream_url);
-  const isModified = streamUrl !== (event.stream_url || "");
+  
+  const isModified = 
+    streamUrl !== (event.stream_url || "") ||
+    streamUrl2 !== (event.stream_url_2 || "") ||
+    streamUrl3 !== (event.stream_url_3 || "");
+
+  const handleSave = () => {
+    onUpdateStreams({
+      stream_url: streamUrl || undefined,
+      stream_url_2: streamUrl2 || undefined,
+      stream_url_3: streamUrl3 || undefined,
+    });
+  };
 
   return (
     <div className={`glass-panel rounded-xl p-3 space-y-3 ${!event.is_active ? 'opacity-50' : ''}`}>
@@ -492,30 +508,58 @@ function EventRow({ event, saving, onUpdateStream, onToggleLive, onToggleActive,
         </Button>
       </div>
 
-      {/* Stream URL Input Row */}
-      <div className="flex items-center gap-2">
-        <LinkIcon className="w-4 h-4 text-muted-foreground shrink-0" />
-        <Input
-          value={streamUrl}
-          onChange={(e) => setStreamUrl(e.target.value)}
-          placeholder="Pega el link del stream aquí..."
-          className="text-sm h-9 flex-1"
-        />
-        <Button
-          size="sm"
-          onClick={() => onUpdateStream(streamUrl)}
-          disabled={saving || !isModified}
-          className="h-9 px-3"
-        >
-          {saving ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <>
-              <Save className="w-4 h-4 mr-1" />
-              Guardar
-            </>
-          )}
-        </Button>
+      {/* Stream URLs */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="w-4 flex justify-center shrink-0">
+            <span className="text-[10px] font-bold text-primary">1</span>
+          </div>
+          <Input
+            value={streamUrl}
+            onChange={(e) => setStreamUrl(e.target.value)}
+            placeholder="Opción 1 (principal)..."
+            className="text-sm h-9 flex-1"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 flex justify-center shrink-0">
+            <span className="text-[10px] font-bold text-muted-foreground">2</span>
+          </div>
+          <Input
+            value={streamUrl2}
+            onChange={(e) => setStreamUrl2(e.target.value)}
+            placeholder="Opción 2 (alternativo)..."
+            className="text-sm h-9 flex-1"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 flex justify-center shrink-0">
+            <span className="text-[10px] font-bold text-muted-foreground">3</span>
+          </div>
+          <Input
+            value={streamUrl3}
+            onChange={(e) => setStreamUrl3(e.target.value)}
+            placeholder="Opción 3 (alternativo)..."
+            className="text-sm h-9 flex-1"
+          />
+        </div>
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={saving || !isModified}
+            className="h-9 px-4"
+          >
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <Save className="w-4 h-4 mr-1" />
+                Guardar Links
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -12,6 +12,8 @@ interface Channel {
   name: string;
   logo: string | null;
   stream: string | null;
+  stream_url_2: string | null;
+  stream_url_3: string | null;
   is_active: boolean;
 }
 
@@ -56,7 +58,11 @@ export function ChannelsView() {
 
   const handleChannelClick = (channel: Channel) => {
     if (channel.stream) {
-      openPlayer(channel.name, channel.stream);
+      openPlayer(channel.name, {
+        url1: channel.stream,
+        url2: channel.stream_url_2 || undefined,
+        url3: channel.stream_url_3 || undefined,
+      });
     }
   };
 

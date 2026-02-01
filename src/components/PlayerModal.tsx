@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { X, Loader2, Maximize2, Volume2, VolumeX, Play, Pause, Rewind, FastForward, Subtitles } from "lucide-react";
 import Hls from "hls.js";
-import { usePlayerModal } from "@/hooks/usePlayerModal";
+import { usePlayerModal, StreamUrls } from "@/hooks/usePlayerModal";
 import { useRealtimeSubtitles } from "@/hooks/useRealtimeSubtitles";
 import { supabase } from "@/integrations/supabase/client";
 
 export function PlayerModal() {
-  const { isOpen, title, url, contentType, closePlayer } = usePlayerModal();
+  const { isOpen, title, urls, contentType, closePlayer } = usePlayerModal();
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(false);
@@ -14,6 +14,7 @@ export function PlayerModal() {
   const [showControls, setShowControls] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [activeOption, setActiveOption] = useState<1 | 2 | 3>(1);
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -28,9 +29,33 @@ export function PlayerModal() {
     toggleSubtitles,
   } = useRealtimeSubtitles(videoRef);
 
+  // Get current URL based on active option
+  const getCurrentUrl = () => {
+    if (activeOption === 2 && urls.url2) return urls.url2;
+    if (activeOption === 3 && urls.url3) return urls.url3;
+    return urls.url1;
+  };
+
+  const url = getCurrentUrl();
   const isHlsStream = url?.includes(".m3u8");
   const isYouTube = url?.includes("youtube.com") || url?.includes("youtu.be");
   const isLiveContent = contentType === "live";
+
+  // Available options
+  const availableOptions = [
+    { num: 1 as const, url: urls.url1 },
+    { num: 2 as const, url: urls.url2 },
+    { num: 3 as const, url: urls.url3 },
+  ].filter(opt => opt.url);
+
+  const hasMultipleOptions = availableOptions.length > 1;
+
+  // Reset to option 1 when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setActiveOption(1);
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -40,7 +65,7 @@ export function PlayerModal() {
     fatalErrorCount.current = 0;
 
     if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current);
-    // Si no llega a parsear manifiesto / primer fragmento, mostramos error para evitar “Conectando…” infinito.
+    // Si no llega a parsear manifiesto / primer fragmento, mostramos error para evitar "Conectando…" infinito.
     loadingWatchdog.current = setTimeout(() => {
       setIsLoading(false);
       setLoadError(
@@ -59,7 +84,7 @@ export function PlayerModal() {
         loadingWatchdog.current = undefined;
       }
     };
-  }, [isOpen, url]);
+  }, [isOpen, url, activeOption]);
 
   useEffect(() => {
     if (!isOpen || !isHlsStream || !videoRef.current || !url) return;
@@ -598,12 +623,35 @@ export function PlayerModal() {
           </div>
         </div>
 
-        {/* Footer info */}
-        <div className="px-5 py-3 border-t border-white/[0.06] bg-black/20 flex items-center justify-between">
-          <span className="text-xs text-white/40">
-            {isLiveContent ? "Stream en tiempo real" : "Reproduciendo película"}
-          </span>
+        {/* Footer with stream options */}
+        <div className="px-5 py-3 border-t border-white/[0.06] bg-black/20 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            {hasMultipleOptions ? (
+              <div className="flex items-center gap-1.5">
+                {availableOptions.map((opt) => (
+                  <button
+                    key={opt.num}
+                    onClick={() => setActiveOption(opt.num)}
+                    className={`h-8 px-3 rounded-lg text-xs font-medium transition-all duration-200 ${
+                      activeOption === opt.num
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-white/[0.06] text-white/60 hover:bg-white/10 hover:text-white/80 border border-white/10"
+                    }`}
+                  >
+                    Opción {opt.num}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span className="text-xs text-white/40">
+                {isLiveContent ? "Stream en tiempo real" : "Reproduciendo película"}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2 text-xs text-white/40">
+            {hasMultipleOptions && (
+              <span className="text-white/30">Opción {activeOption}</span>
+            )}
             <span className="w-2 h-2 rounded-full bg-green-500" />
             Conectado
           </div>
