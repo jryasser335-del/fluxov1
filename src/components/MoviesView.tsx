@@ -8,6 +8,7 @@ import { STREAMING_PLATFORMS, type PlatformValue } from "@/lib/platforms";
 import { DEFAULT_WATCH_REGION, getWatchProviderIdForPlatform } from "@/lib/tmdbWatchProviders";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const MOVIE_FILTERS = [
   { value: "popular", label: "Popular" },
@@ -21,6 +22,12 @@ const PLATFORM_FILTERS = [
   ...STREAMING_PLATFORMS.map((p) => ({ value: p.value, label: p.label })),
 ];
 
+interface MediaLink {
+  tmdb_id: number;
+  stream_url: string;
+  platform: string | null;
+}
+
 interface MoviesViewProps {
   searchQuery: string;
 }
@@ -30,6 +37,7 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
   const [platform, setPlatform] = useState<"all" | PlatformValue>("all");
   const [page, setPage] = useState(1);
   const [allMovies, setAllMovies] = useState<TMDBResult[]>([]);
+  const [mediaLinks, setMediaLinks] = useState<Map<number, MediaLink>>(new Map());
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
@@ -69,6 +77,26 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
 
     return basePath;
   }, [type, platform]);
+
+  // Fetch media links from database
+  useEffect(() => {
+    const fetchMediaLinks = async () => {
+      const { data } = await supabase
+        .from("media_links")
+        .select("tmdb_id, stream_url, platform")
+        .eq("media_type", "movie")
+        .eq("is_active", true);
+      
+      if (data) {
+        const linksMap = new Map<number, MediaLink>();
+        data.forEach((link) => {
+          linksMap.set(link.tmdb_id, link);
+        });
+        setMediaLinks(linksMap);
+      }
+    };
+    fetchMediaLinks();
+  }, []);
 
   // Initial load
   useEffect(() => {
@@ -202,14 +230,18 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
       ) : (
         <>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
-            {filteredMovies.map((movie) => (
-              <MediaCard 
-                key={movie.id} 
-                item={movie} 
-                type="movie" 
-                platform={platform === "all" ? null : platform}
-              />
-            ))}
+            {filteredMovies.map((movie) => {
+              const link = mediaLinks.get(movie.id);
+              return (
+                <MediaCard 
+                  key={movie.id} 
+                  item={movie} 
+                  type="movie" 
+                  streamUrl={link?.stream_url}
+                  platform={link?.platform || (platform === "all" ? null : platform)}
+                />
+              );
+            })}
           </div>
           
           {/* Infinite scroll sentinel */}
