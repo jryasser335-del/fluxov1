@@ -1,4 +1,4 @@
-import { Search, Maximize, Sparkles, Zap } from "lucide-react";
+import { Search, Maximize, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ViewType } from "./Sidebar";
 
@@ -75,16 +75,6 @@ export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps)
             className="relative pl-11 pr-4 h-11 rounded-full border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.06] focus:bg-white/[0.08] focus:border-primary/40 transition-all duration-300 placeholder:text-white/30"
           />
         </div>
-
-        {/* Mode pill */}
-        <button className="h-11 px-4 rounded-full border border-white/[0.08] bg-gradient-to-r from-white/[0.04] to-transparent text-foreground flex items-center gap-2.5 hover:border-primary/30 hover:from-primary/10 transition-all duration-300 group">
-          <div className="relative">
-            <span className="w-2.5 h-2.5 rounded-full bg-gradient-to-br from-primary to-purple-400 block" />
-            <span className="absolute inset-0 w-2.5 h-2.5 rounded-full bg-primary animate-ping opacity-40" />
-          </div>
-          <span className="text-sm font-medium">Cinema</span>
-          <Sparkles className="w-3.5 h-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-        </button>
 
         {/* Fullscreen */}
         <button

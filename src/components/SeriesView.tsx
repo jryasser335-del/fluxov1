@@ -32,7 +32,7 @@ export function SeriesView({ searchQuery }: SeriesViewProps) {
     fetchTMDB(`tv/${type}?page=${page}`)
       .then((data) => {
         if (!cancelled) {
-          setSeries(data.results.slice(0, 24));
+          setSeries(data.results);
           setLoading(false);
         }
       })
@@ -78,7 +78,7 @@ export function SeriesView({ searchQuery }: SeriesViewProps) {
           No se pudo cargar TMDB.
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
           {filteredSeries.map((s) => (
             <MediaCard key={s.id} item={s} type="series" />
           ))}
