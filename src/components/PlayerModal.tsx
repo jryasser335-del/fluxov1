@@ -49,7 +49,21 @@ export function PlayerModal() {
     if (Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
-        lowLatencyMode: true,
+        lowLatencyMode: false,
+        xhrSetup: (xhr) => {
+          xhr.withCredentials = false;
+        },
+        // More permissive settings for various stream sources
+        maxBufferLength: 30,
+        maxMaxBufferLength: 600,
+        maxBufferSize: 60 * 1000 * 1000,
+        maxBufferHole: 0.5,
+        fragLoadingTimeOut: 20000,
+        fragLoadingMaxRetry: 6,
+        manifestLoadingTimeOut: 20000,
+        manifestLoadingMaxRetry: 4,
+        levelLoadingTimeOut: 20000,
+        levelLoadingMaxRetry: 4,
       });
       hlsRef.current = hls;
 
@@ -62,9 +76,19 @@ export function PlayerModal() {
       });
 
       hls.on(Hls.Events.ERROR, (_, data) => {
+        console.warn("HLS error:", data.type, data.details);
         if (data.fatal) {
           console.error("HLS fatal error:", data);
-          setIsLoading(false);
+          // Try to recover from fatal errors
+          if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+            console.log("Trying to recover from network error...");
+            hls.startLoad();
+          } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+            console.log("Trying to recover from media error...");
+            hls.recoverMediaError();
+          } else {
+            setIsLoading(false);
+          }
         }
       });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
