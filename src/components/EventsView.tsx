@@ -8,6 +8,7 @@ import { Section } from "./Section";
 import { Chips } from "./Chips";
 import { Input } from "@/components/ui/input";
 import { EventCard } from "./events/EventCard";
+import { EventInfoBanner } from "./events/EventInfoBanner";
 import { SkeletonEventCard } from "./Skeleton";
 
 const EVENT_FILTERS = [
@@ -240,9 +241,12 @@ export function EventsView() {
         </div>
       </div>
 
+      {/* Info banner */}
+      <EventInfoBanner />
+
       {/* Events grid */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {Array.from({ length: 6 }).map((_, i) => (
             <SkeletonEventCard key={i} />
           ))}
@@ -258,14 +262,15 @@ export function EventsView() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredEvents.map((event) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {filteredEvents.map((event, index) => (
             <EventCard
               key={event.id}
               event={event}
               leagueInfo={leagueInfo}
               hasLink={eventLinks.has(event.id)}
               isFavorite={favorites.has(event.id)}
+              isFeatured={index < 2 && event.competitions?.[0]?.status?.type?.state === "in"}
               onToggleFavorite={() => toggleFavorite(event.id)}
               onClick={() => handleEventClick(event)}
               formatTime={formatTime}
