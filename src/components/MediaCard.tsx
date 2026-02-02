@@ -2,6 +2,8 @@ import { TMDB_IMG } from "@/lib/constants";
 import { TMDBResult } from "@/lib/api";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { getPlatformLabel, getPlatformColor } from "@/lib/platforms";
+import { Play } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface MediaCardProps {
   item: TMDBResult;
@@ -15,73 +17,93 @@ export function MediaCard({ item, type, streamUrl, platform }: MediaCardProps) {
   const title = item.title || item.name || "";
   const date = item.release_date || item.first_air_date || "";
   const year = date ? date.slice(0, 4) : "—";
-  const rating = item.vote_average ? item.vote_average.toFixed(1) : "—";
+  const rating = item.vote_average ? item.vote_average.toFixed(1) : null;
   const posterUrl = item.poster_path ? `${TMDB_IMG}${item.poster_path}` : "";
   
   const hasStream = !!streamUrl;
 
+  // Rating color based on score
+  const getRatingColor = (score: number) => {
+    if (score >= 8) return "bg-green-500 text-white";
+    if (score >= 6) return "bg-yellow-500 text-black";
+    return "bg-red-500 text-white";
+  };
+
   const handleClick = () => {
     if (hasStream && streamUrl) {
       openPlayer(title, { url1: streamUrl }, type);
-    } else {
-      console.log(`No stream available for: ${title}`);
     }
   };
 
   return (
     <div
       onClick={handleClick}
-      className="relative rounded-xl overflow-hidden border border-white/10 bg-white/[0.04] min-h-[320px] cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:border-primary/35 hover:shadow-card group"
+      className={cn(
+        "relative rounded-lg overflow-hidden aspect-[2/3] cursor-pointer group",
+        "transition-all duration-300",
+        hasStream && "hover:scale-[1.03] hover:shadow-2xl hover:shadow-black/50"
+      )}
     >
-      {/* Poster */}
+      {/* Poster Image */}
       {posterUrl ? (
-        <div
-          className="absolute inset-0 bg-cover bg-center scale-[1.03] saturate-[1.05] contrast-[1.02]"
-          style={{ backgroundImage: `url(${posterUrl})` }}
+        <img
+          src={posterUrl}
+          alt={title}
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-muted to-background" />
-      )}
-      
-      {/* Gradient overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-black/50 to-black/95" />
-
-      {/* Top tags */}
-      <div className="absolute top-2.5 left-2.5 right-2.5 flex justify-between items-center gap-2 z-10">
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] px-2.5 py-1.5 rounded-full border border-white/15 bg-black/30">
-            {type.toUpperCase()}
-          </span>
-          {platform && (
-            <span 
-              className="text-[11px] px-2.5 py-1.5 rounded-full border border-white/20 bg-black/40 font-medium"
-              style={{ 
-                borderColor: `${getPlatformColor(platform)}50`,
-                color: getPlatformColor(platform) 
-              }}
-            >
-              {getPlatformLabel(platform)}
-            </span>
-          )}
+        <div className="absolute inset-0 bg-gradient-to-br from-muted to-background flex items-center justify-center">
+          <span className="text-4xl opacity-50">🎬</span>
         </div>
-        <span className={`text-[11px] px-2.5 py-1.5 rounded-full border ${hasStream ? 'border-success/35 text-green-200' : 'border-destructive/35 text-red-200'} bg-black/30`}>
-          {hasStream ? "PLAY" : "NO LINK"}
-        </span>
+      )}
+
+      {/* Rating badge - top right corner */}
+      {rating && parseFloat(rating) > 0 && (
+        <div className={cn(
+          "absolute top-2 right-2 z-20 px-2 py-0.5 rounded-md text-xs font-bold",
+          getRatingColor(parseFloat(rating))
+        )}>
+          {rating}
+        </div>
+      )}
+
+      {/* Platform badge - top left */}
+      {platform && (
+        <div 
+          className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black/60 backdrop-blur-sm border border-white/10"
+          style={{ color: getPlatformColor(platform) }}
+        >
+          {getPlatformLabel(platform)}
+        </div>
+      )}
+
+      {/* Hover overlay with play button */}
+      <div className={cn(
+        "absolute inset-0 bg-black/60 flex items-center justify-center transition-opacity duration-300",
+        hasStream ? "opacity-0 group-hover:opacity-100" : "opacity-0"
+      )}>
+        <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center transform scale-75 group-hover:scale-100 transition-transform duration-300">
+          <Play className="w-6 h-6 text-white fill-white ml-1" />
+        </div>
       </div>
 
-      {/* Bottom info */}
-      <div className="absolute left-3 right-3 bottom-3 z-10">
-        <h3 className="text-sm font-semibold leading-tight mb-1.5 drop-shadow-[0_10px_28px_rgba(0,0,0,0.65)] line-clamp-2">
+      {/* Bottom gradient for title */}
+      <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black via-black/80 to-transparent" />
+      
+      {/* Title and year */}
+      <div className="absolute inset-x-0 bottom-0 p-3 z-10">
+        <h3 className="text-sm font-semibold text-white leading-tight line-clamp-2 mb-1">
           {title}
         </h3>
-        <div className="flex items-center justify-between text-xs text-white/70">
-          <span>{year}</span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded bg-gradient-to-br from-accent to-secondary shadow-glow" />
-            {rating}
-          </span>
-        </div>
+        <p className="text-xs text-white/60">{year}</p>
       </div>
+
+      {/* No stream indicator */}
+      {!hasStream && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+          <span className="text-xs text-white/50 bg-black/50 px-2 py-1 rounded">Sin enlace</span>
+        </div>
+      )}
     </div>
   );
 }

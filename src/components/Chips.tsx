@@ -11,10 +11,10 @@ export function Chip({ active, onClick, children }: ChipProps) {
     <button
       onClick={onClick}
       className={cn(
-        "px-3 py-2 rounded-full border text-xs transition-all duration-150",
+        "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
         active
-          ? "border-primary/45 bg-primary/10 text-foreground"
-          : "border-white/10 bg-white/[0.04] text-white/85 hover:-translate-y-0.5 hover:border-white/20"
+          ? "bg-primary text-white"
+          : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white/80"
       )}
     >
       {children}

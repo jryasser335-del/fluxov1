@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { fetchTMDB, TMDBResult } from "@/lib/api";
 import { Section } from "./Section";
 import { Chips } from "./Chips";
@@ -7,8 +7,9 @@ import { SkeletonGrid } from "./Skeleton";
 import { STREAMING_PLATFORMS, type PlatformValue } from "@/lib/platforms";
 import { DEFAULT_WATCH_REGION, getWatchProviderIdForPlatform } from "@/lib/tmdbWatchProviders";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Flame, Sparkles, TrendingUp, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 
 const MOVIE_FILTERS = [
   { value: "popular", label: "Popular" },
@@ -32,11 +33,88 @@ interface MoviesViewProps {
   searchQuery: string;
 }
 
+// Carousel component for horizontal scrolling
+function MovieCarousel({ 
+  title, 
+  icon, 
+  movies, 
+  mediaLinks 
+}: { 
+  title: string; 
+  icon: React.ReactNode;
+  movies: TMDBResult[]; 
+  mediaLinks: Map<number, MediaLink>;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = 300;
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
+  if (movies.length === 0) return null;
+
+  return (
+    <div className="mb-8">
+      <div className="flex items-center gap-3 mb-4">
+        {icon}
+        <h3 className="text-lg font-semibold text-white">{title}</h3>
+      </div>
+      
+      <div className="relative group">
+        {/* Left arrow */}
+        <button
+          onClick={() => scroll('left')}
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/80 border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black"
+        >
+          <ChevronLeft className="w-5 h-5 text-white" />
+        </button>
+        
+        {/* Carousel */}
+        <div 
+          ref={scrollRef}
+          className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth pb-2"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {movies.map((movie) => {
+            const link = mediaLinks.get(movie.id);
+            return (
+              <div key={movie.id} className="flex-shrink-0 w-[160px]">
+                <MediaCard 
+                  item={movie} 
+                  type="movie" 
+                  streamUrl={link?.stream_url}
+                  platform={link?.platform}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Right arrow */}
+        <button
+          onClick={() => scroll('right')}
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/80 border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black"
+        >
+          <ChevronRight className="w-5 h-5 text-white" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function MoviesView({ searchQuery }: MoviesViewProps) {
   const [type, setType] = useState("popular");
   const [platform, setPlatform] = useState<"all" | PlatformValue>("all");
   const [page, setPage] = useState(1);
   const [allMovies, setAllMovies] = useState<TMDBResult[]>([]);
+  const [trendingMovies, setTrendingMovies] = useState<TMDBResult[]>([]);
+  const [topRatedMovies, setTopRatedMovies] = useState<TMDBResult[]>([]);
   const [mediaLinks, setMediaLinks] = useState<Map<number, MediaLink>>(new Map());
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -72,7 +150,7 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
     if (providerId) {
       basePath += `&with_watch_providers=${providerId}&watch_region=${watchRegion}&with_watch_monetization_types=flatrate`;
     } else if (platform !== "all") {
-      return null; // Platform not found
+      return null;
     }
 
     return basePath;
@@ -98,6 +176,23 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
     fetchMediaLinks();
   }, []);
 
+  // Fetch trending and top rated for carousels
+  useEffect(() => {
+    const fetchCarouselData = async () => {
+      try {
+        const [trending, topRated] = await Promise.all([
+          fetchTMDB("trending/movie/week"),
+          fetchTMDB("movie/top_rated")
+        ]);
+        setTrendingMovies(trending.results?.slice(0, 20) || []);
+        setTopRatedMovies(topRated.results?.slice(0, 20) || []);
+      } catch (err) {
+        console.error("Error fetching carousel data:", err);
+      }
+    };
+    fetchCarouselData();
+  }, []);
+
   // Initial load
   useEffect(() => {
     let cancelled = false;
@@ -120,7 +215,6 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
           return;
         }
 
-        // Fetch first 5 pages initially for more content
         const pagesToFetch = [1, 2, 3, 4, 5];
         const promises = pagesToFetch.map(p => fetchTMDB(`${basePath}&page=${p}`));
         const results = await Promise.all(promises);
@@ -204,15 +298,14 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
   }, [allMovies, searchQuery]);
 
   const platformLabel = platform === "all" ? "Todas" : STREAMING_PLATFORMS.find(p => p.value === platform)?.label || platform;
-  const badge = loading
-    ? "Cargando…"
-    : searchQuery
-    ? `${filteredMovies.length} resultados`
-    : `${filteredMovies.length} películas`;
+
+  // When searching, show grid mode
+  const isSearching = searchQuery.trim().length > 0;
 
   return (
-    <Section title="Películas" emoji="🎬" badge={badge}>
-      <div className="flex flex-wrap gap-4 mb-4">
+    <div className="space-y-2">
+      {/* Filters */}
+      <div className="flex flex-wrap gap-4 mb-6">
         <Chips options={MOVIE_FILTERS} value={type} onChange={handleTypeChange} />
         <Chips options={PLATFORM_FILTERS} value={platform} onChange={handlePlatformChange} />
       </div>
@@ -223,13 +316,10 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
         <div className="text-muted-foreground text-sm py-8 text-center">
           No se pudo cargar TMDB.
         </div>
-      ) : filteredMovies.length === 0 && platform !== "all" ? (
-        <div className="text-muted-foreground text-sm py-8 text-center">
-          TMDB no devolvió resultados para {platformLabel}.
-        </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
+      ) : isSearching ? (
+        // Search results grid
+        <Section title="Resultados" emoji="🔍" badge={`${filteredMovies.length} películas`}>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
             {filteredMovies.map((movie) => {
               const link = mediaLinks.get(movie.id);
               return (
@@ -243,23 +333,67 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
               );
             })}
           </div>
-          
-          {/* Infinite scroll sentinel */}
-          <div ref={sentinelRef} className="h-4" />
-          
-          {loadingMore && (
-            <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        </Section>
+      ) : (
+        <>
+          {/* Trending carousel */}
+          <MovieCarousel
+            title="Tendencias"
+            icon={<Flame className="w-5 h-5 text-orange-500" />}
+            movies={trendingMovies}
+            mediaLinks={mediaLinks}
+          />
+
+          {/* New releases carousel */}
+          <MovieCarousel
+            title="Nuevos Estrenos"
+            icon={<Sparkles className="w-5 h-5 text-purple-400" />}
+            movies={filteredMovies.slice(0, 20)}
+            mediaLinks={mediaLinks}
+          />
+
+          {/* Top rated carousel */}
+          <MovieCarousel
+            title="Mejor Valoradas"
+            icon={<Star className="w-5 h-5 text-yellow-500" />}
+            movies={topRatedMovies}
+            mediaLinks={mediaLinks}
+          />
+
+          {/* All movies section */}
+          <Section title="Todas las Películas" emoji="🎬" badge={`${filteredMovies.length} películas`}>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+              {filteredMovies.slice(20).map((movie) => {
+                const link = mediaLinks.get(movie.id);
+                return (
+                  <MediaCard 
+                    key={movie.id} 
+                    item={movie} 
+                    type="movie" 
+                    streamUrl={link?.stream_url}
+                    platform={link?.platform || (platform === "all" ? null : platform)}
+                  />
+                );
+              })}
             </div>
-          )}
-          
-          {!hasMore && filteredMovies.length > 0 && (
-            <div className="text-center text-muted-foreground text-sm py-6">
-              Has llegado al final del catálogo
-            </div>
-          )}
+            
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="h-4" />
+            
+            {loadingMore && (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            )}
+            
+            {!hasMore && filteredMovies.length > 0 && (
+              <div className="text-center text-muted-foreground text-sm py-6">
+                Has llegado al final del catálogo
+              </div>
+            )}
+          </Section>
         </>
       )}
-    </Section>
+    </div>
   );
 }

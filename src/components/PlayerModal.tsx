@@ -216,10 +216,21 @@ export function PlayerModal() {
 
     if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current);
     loadingWatchdog.current = setTimeout(() => {
-      setIsLoading(false);
-      setLoadError(
-        "No se pudo conectar al stream. El servidor puede estar bloqueando CORS o el enlace/token expiró."
-      );
+      // Only show error if video is not playing and has no data
+      const video = videoRef.current;
+      const hasVideoData = video && video.readyState >= 2; // HAVE_CURRENT_DATA or higher
+      const isVideoPlaying = video && !video.paused && video.currentTime > 0;
+      
+      if (!hasVideoData && !isVideoPlaying) {
+        setIsLoading(false);
+        setLoadError(
+          "No se pudo conectar al stream. El servidor puede estar bloqueando CORS o el enlace/token expiró."
+        );
+      } else {
+        // Video is actually playing, just stop loading indicator
+        setIsLoading(false);
+        setLoadError(null);
+      }
     }, 15000);
 
     return () => {
@@ -323,10 +334,19 @@ export function PlayerModal() {
         });
 
         hls.on(Hls.Events.FRAG_LOADED, () => {
-          if (isLoading) {
-            setLoadError(null);
-            stopLoading();
-          }
+          setLoadError(null);
+          stopLoading();
+        });
+        
+        // Also clear error when video starts playing
+        video.addEventListener('playing', () => {
+          setLoadError(null);
+          stopLoading();
+        });
+        
+        video.addEventListener('canplay', () => {
+          setLoadError(null);
+          stopLoading();
         });
 
         // Track buffer and bitrate
