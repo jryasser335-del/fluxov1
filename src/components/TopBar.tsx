@@ -1,6 +1,7 @@
 import { Search, Maximize, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ViewType } from "./Sidebar";
+import { HistoryButton } from "./HistoryButton";
 
 interface TopBarProps {
   activeView: ViewType;
@@ -75,6 +76,9 @@ export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps)
             className="relative pl-11 pr-4 h-11 rounded-full border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.06] focus:bg-white/[0.08] focus:border-primary/40 transition-all duration-300 placeholder:text-white/30"
           />
         </div>
+
+        {/* History button */}
+        <HistoryButton />
 
         {/* Fullscreen */}
         <button
