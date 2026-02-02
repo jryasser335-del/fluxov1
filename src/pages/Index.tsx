@@ -8,6 +8,7 @@ import { MoviesView } from "@/components/MoviesView";
 import { SeriesView } from "@/components/SeriesView";
 import { DoramasView } from "@/components/DoramasView";
 import { EventsView } from "@/components/EventsView";
+import { NotificationCenter } from "@/components/NotificationCenter";
 
 const Index = () => {
   const [showIntro, setShowIntro] = useState(true);
@@ -50,6 +51,7 @@ const Index = () => {
       </div>
 
       <PlayerModal />
+      <NotificationCenter />
     </>
   );
 };

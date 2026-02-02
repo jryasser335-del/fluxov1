@@ -2,6 +2,7 @@ import { Heart, Play, Link2Off, Clock, Trophy, Tv, Star, Flame, Radio } from "lu
 import { ESPNEvent } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { EventCountdown } from "./EventCountdown";
+import { EventShareButton } from "./EventShareButton";
 
 interface EventCardProps {
   event: ESPNEvent;
@@ -317,7 +318,14 @@ export function EventCard({
           </div>
 
           {/* Action buttons - Premium styling */}
-          <div className="flex gap-2 flex-shrink-0">
+          <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
+            {/* Share button */}
+            <EventShareButton 
+              eventId={event.id} 
+              title={`${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`}
+              eventDate={comp?.date || event.date}
+            />
+
             {/* Favorite button */}
             <button
               onClick={(e) => {
@@ -325,7 +333,7 @@ export function EventCard({
                 onToggleFavorite();
               }}
               className={cn(
-                "h-9 w-9 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center transition-all duration-300",
+                "h-8 w-8 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center transition-all duration-300",
                 "border backdrop-blur-sm",
                 isFavorite
                   ? "bg-gradient-to-br from-red-500/30 to-pink-500/30 border-red-500/40 text-red-400 shadow-lg shadow-red-500/20"
@@ -333,7 +341,7 @@ export function EventCard({
               )}
             >
               <Heart
-                className={cn("w-4 h-4 sm:w-4.5 sm:h-4.5 transition-transform", isFavorite && "fill-current scale-110")}
+                className={cn("w-3.5 h-3.5 sm:w-4 sm:h-4 transition-transform", isFavorite && "fill-current scale-110")}
               />
             </button>
 
@@ -344,7 +352,7 @@ export function EventCard({
                 if (hasLink) onClick();
               }}
               className={cn(
-                "h-9 sm:h-10 px-4 sm:px-5 rounded-xl flex items-center gap-2 text-xs sm:text-sm font-bold transition-all duration-300",
+                "h-8 sm:h-9 px-3 sm:px-4 rounded-xl flex items-center gap-1.5 sm:gap-2 text-xs font-bold transition-all duration-300",
                 "border",
                 hasLink
                   ? "bg-gradient-to-r from-primary via-purple-500 to-primary text-white border-primary/50 hover:shadow-xl hover:shadow-primary/30 hover:scale-[1.02] active:scale-[0.98]"
@@ -353,13 +361,12 @@ export function EventCard({
             >
               {hasLink ? (
                 <>
-                  <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
+                  <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-current" />
                   <span>VER</span>
-                  <Star className="w-3 h-3 text-yellow-300 fill-yellow-300 hidden sm:block" />
                 </>
               ) : (
                 <>
-                  <Link2Off className="w-3.5 h-3.5" />
+                  <Link2Off className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                   <span>N/A</span>
                 </>
               )}
