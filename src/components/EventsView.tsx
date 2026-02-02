@@ -1,15 +1,16 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { RefreshCw, Search } from "lucide-react";
 import { fetchESPNScoreboard, ESPNEvent } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "./Section";
-import { Chips } from "./Chips";
-import { Input } from "@/components/ui/input";
 import { EventCard } from "./events/EventCard";
 import { EventInfoBanner } from "./events/EventInfoBanner";
+import { EventsStats } from "./events/EventsStats";
+import { PremiumFilters } from "./events/PremiumFilters";
+import { FeaturedMatch } from "./events/FeaturedMatch";
 import { SkeletonEventCard } from "./Skeleton";
+import { Trophy, Sparkles } from "lucide-react";
 
 const EVENT_FILTERS = [
   { value: "all", label: "Todos" },
@@ -160,6 +161,36 @@ export function EventsView() {
     return list;
   }, [events, searchQuery, filter, favorites, eventLinks]);
 
+  // Stats for the dashboard
+  const stats = useMemo(() => {
+    const liveEvents = events.filter(e => e.competitions?.[0]?.status?.type?.state === "in").length;
+    const upcomingEvents = events.filter(e => e.competitions?.[0]?.status?.type?.state === "pre").length;
+    const withLinks = events.filter(e => eventLinks.has(e.id)).length;
+    return { totalEvents: events.length, liveEvents, upcomingEvents, withLinks };
+  }, [events, eventLinks]);
+
+  // Get featured match (first live event with link, or first event with link)
+  const featuredEvent = useMemo(() => {
+    const liveWithLink = events.find(e => 
+      e.competitions?.[0]?.status?.type?.state === "in" && eventLinks.has(e.id)
+    );
+    if (liveWithLink) return liveWithLink;
+    
+    const anyWithLink = events.find(e => eventLinks.has(e.id));
+    return anyWithLink;
+  }, [events, eventLinks]);
+
+  // Filter options with counts
+  const filterOptionsWithCounts = useMemo(() => {
+    return EVENT_FILTERS.map(f => ({
+      ...f,
+      count: f.value === "live" ? stats.liveEvents :
+             f.value === "fav" ? favorites.size :
+             f.value === "nolink" ? events.filter(e => !eventLinks.has(e.id)).length :
+             undefined
+    }));
+  }, [stats.liveEvents, favorites.size, events, eventLinks]);
+
   const handleEventClick = (event: ESPNEvent) => {
     const link = eventLinks.get(event.id);
     const comp = event.competitions?.[0];
@@ -182,67 +213,69 @@ export function EventsView() {
     }
   };
 
+  // Events without the featured one
+  const eventsWithoutFeatured = useMemo(() => {
+    if (!featuredEvent) return filteredEvents;
+    return filteredEvents.filter(e => e.id !== featuredEvent.id);
+  }, [filteredEvents, featuredEvent]);
+
   return (
     <Section
       title="Eventos"
       emoji="🏟️"
       badge={loading ? "Cargando…" : `${filteredEvents.length} eventos`}
     >
-      {/* Controls */}
-      <div className="flex flex-col gap-3 mb-4">
-        {/* League selector and refresh */}
-        <div className="flex flex-wrap gap-2 items-center">
-          <select
-            value={league}
-            onChange={(e) => setLeague(e.target.value)}
-            className="h-10 rounded-xl px-3 border border-white/10 bg-white/[0.04] text-foreground outline-none focus:border-primary/40 transition-colors"
-          >
-            {LEAGUE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value} className="bg-background">
-                {opt.label}
-              </option>
-            ))}
-          </select>
-
-          <button
-            onClick={() => { loadEvents(); fetchEventLinks(); }}
-            className="h-10 px-4 rounded-xl border border-white/10 bg-white/[0.04] text-foreground hover:border-primary/30 hover:bg-white/[0.06] flex items-center gap-2 transition-all"
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span className="hidden sm:inline">Actualizar</span>
-          </button>
-        </div>
-
-        {/* Filters and search */}
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-          <Chips options={EVENT_FILTERS} value={filter} onChange={setFilter} />
-
-          <div className="flex gap-2 items-center w-full sm:w-auto">
-            <div className="relative flex-1 sm:flex-initial">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar equipo..."
-                className="pl-9 h-10 rounded-xl border-white/10 bg-white/[0.04] w-full sm:w-52"
-              />
-            </div>
-
-            <label className="flex gap-2 items-center px-3 py-2 rounded-xl border border-white/10 bg-white/[0.04] text-sm text-foreground/80 cursor-pointer hover:border-white/20 transition-colors whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="accent-primary"
-              />
-              Auto
-            </label>
+      {/* Premium header */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary/30 to-purple-500/30 border border-primary/30 flex items-center justify-center">
+            <Trophy className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-display font-bold text-white flex items-center gap-2">
+              {leagueInfo.name || "Liga"}
+              <Sparkles className="w-4 h-4 text-yellow-400" />
+            </h2>
+            <p className="text-sm text-white/50">Partidos en tiempo real</p>
           </div>
         </div>
       </div>
 
+      {/* Stats dashboard */}
+      <EventsStats 
+        totalEvents={stats.totalEvents}
+        liveEvents={stats.liveEvents}
+        upcomingEvents={stats.upcomingEvents}
+        withLinks={stats.withLinks}
+      />
+
       {/* Info banner */}
       <EventInfoBanner />
+
+      {/* Featured match */}
+      {featuredEvent && !loading && (
+        <FeaturedMatch
+          event={featuredEvent}
+          hasLink={eventLinks.has(featuredEvent.id)}
+          onClick={() => handleEventClick(featuredEvent)}
+        />
+      )}
+
+      {/* Premium filters */}
+      <PremiumFilters
+        league={league}
+        onLeagueChange={setLeague}
+        leagueOptions={LEAGUE_OPTIONS}
+        filter={filter}
+        onFilterChange={setFilter}
+        filterOptions={filterOptionsWithCounts}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        autoRefresh={autoRefresh}
+        onAutoRefreshChange={setAutoRefresh}
+        onRefresh={() => { loadEvents(); fetchEventLinks(); }}
+        isLoading={loading}
+      />
 
       {/* Events grid */}
       {loading ? (
@@ -251,30 +284,42 @@ export function EventsView() {
             <SkeletonEventCard key={i} />
           ))}
         </div>
-      ) : filteredEvents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-4 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-muted border border-white/10 flex items-center justify-center text-2xl">
-            🏟️
+      ) : eventsWithoutFeatured.length === 0 ? (
+        <div className="relative flex flex-col items-center justify-center py-16 gap-6 text-center">
+          {/* Background glow */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-64 h-64 bg-primary/10 rounded-full blur-[100px]" />
           </div>
-          <div>
-            <p className="text-foreground font-medium mb-1">Sin resultados</p>
-            <p className="text-muted-foreground text-sm">No hay eventos con ese filtro.</p>
+          
+          <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center">
+            <span className="text-4xl">🏟️</span>
+          </div>
+          <div className="relative">
+            <p className="text-xl font-display font-bold text-white mb-2">Sin resultados</p>
+            <p className="text-muted-foreground max-w-sm">
+              No hay eventos que coincidan con los filtros seleccionados. Prueba a cambiar la liga o los filtros.
+            </p>
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filteredEvents.map((event, index) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              leagueInfo={leagueInfo}
-              hasLink={eventLinks.has(event.id)}
-              isFavorite={favorites.has(event.id)}
-              isFeatured={index < 2 && event.competitions?.[0]?.status?.type?.state === "in"}
-              onToggleFavorite={() => toggleFavorite(event.id)}
-              onClick={() => handleEventClick(event)}
-              formatTime={formatTime}
-            />
+          {eventsWithoutFeatured.map((event, index) => (
+            <div 
+              key={event.id} 
+              className="animate-card-entrance"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <EventCard
+                event={event}
+                leagueInfo={leagueInfo}
+                hasLink={eventLinks.has(event.id)}
+                isFavorite={favorites.has(event.id)}
+                isFeatured={false}
+                onToggleFavorite={() => toggleFavorite(event.id)}
+                onClick={() => handleEventClick(event)}
+                formatTime={formatTime}
+              />
+            </div>
           ))}
         </div>
       )}
