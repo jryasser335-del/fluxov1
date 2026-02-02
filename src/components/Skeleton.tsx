@@ -1,8 +1,16 @@
+import { cn } from "@/lib/utils";
+
 export function SkeletonCard() {
   return (
-    <div className="rounded-lg overflow-hidden aspect-[2/3]">
+    <div className="rounded-2xl overflow-hidden aspect-[2/3] border border-white/5">
       <div className="w-full h-full bg-gradient-to-r from-white/[0.05] via-white/10 to-white/[0.05] bg-[length:200%_100%] animate-shimmer" />
     </div>
+  );
+}
+
+export function Skeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn("animate-shimmer rounded-xl bg-gradient-to-r from-white/[0.05] via-white/10 to-white/[0.05] bg-[length:200%_100%]", className)} />
   );
 }
 

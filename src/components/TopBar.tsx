@@ -1,4 +1,4 @@
-import { Search, Maximize, Bell, User } from "lucide-react";
+import { Search, Maximize, Zap } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ViewType } from "./Sidebar";
 import { HistoryButton } from "./HistoryButton";
@@ -10,6 +10,23 @@ interface TopBarProps {
 }
 
 export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps) {
+  const getTitle = () => {
+    switch (activeView) {
+      case "canales":
+        return "CANALES EN VIVO";
+      case "peliculas":
+        return "PELÍCULAS";
+      case "series":
+        return "SERIES";
+      case "doramas":
+        return "DORAMAS";
+      case "eventos":
+        return "EVENTOS DEPORTIVOS";
+      default:
+        return "STREAMING";
+    }
+  };
+
   const getPlaceholder = () => {
     switch (activeView) {
       case "peliculas":
@@ -33,60 +50,43 @@ export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps)
     }
   };
 
-  const navItems = [
-    { label: "Inicio", active: true },
-    { label: "Películas", active: activeView === "peliculas" },
-    { label: "Series", active: activeView === "series" },
-    { label: "Mi Lista", active: false },
-  ];
-
   return (
-    <header className="flex items-center justify-between gap-6 py-4 px-6 animate-fade-in">
-      {/* Brand */}
-      <div className="flex items-center gap-8">
-        <span className="font-bold text-xl text-primary tracking-wide">StreamFlow</span>
-        
-        {/* Navigation */}
-        <nav className="hidden md:flex items-center gap-6">
-          {navItems.map((item) => (
-            <button
-              key={item.label}
-              className={`text-sm transition-colors ${
-                item.active 
-                  ? "text-white font-medium" 
-                  : "text-white/50 hover:text-white/80"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
+    <header className="flex items-center justify-between gap-4 py-4 animate-fade-in">
+      {/* Title with gradient */}
+      <div className="flex items-center gap-3">
+        <div className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-accent/10 border border-primary/30">
+          <Zap className="w-4 h-4 text-primary" />
+        </div>
+        <h1 className="font-display text-lg md:text-xl tracking-wider bg-gradient-to-r from-white via-white to-white/60 bg-clip-text text-transparent">
+          {getTitle()}
+        </h1>
       </div>
 
-      {/* Search and controls */}
-      <div className="flex items-center gap-4">
+      {/* Search + controls */}
+      <div className="flex items-center gap-3">
         {/* Search */}
-        <div className="relative hidden sm:block">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-          <Input
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={getPlaceholder()}
-            className="w-64 pl-10 pr-4 h-10 rounded-full border-white/10 bg-white/5 hover:bg-white/10 focus:bg-white/10 focus:border-primary/40 transition-all placeholder:text-white/30"
-          />
+        <div className="relative group">
+          <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-primary/30 to-accent/20 opacity-0 group-focus-within:opacity-100 blur transition-opacity" />
+          <div className="relative flex items-center">
+            <Search className="absolute left-3.5 w-4 h-4 text-white/40 pointer-events-none" />
+            <Input
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+              placeholder={getPlaceholder()}
+              className="w-48 md:w-64 pl-10 pr-4 h-11 rounded-full border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.06] focus:bg-white/[0.06] focus:border-primary/40 transition-all duration-300 placeholder:text-white/30"
+            />
+          </div>
         </div>
 
         {/* History button */}
         <HistoryButton />
 
-        {/* Notifications */}
-        <button className="relative w-10 h-10 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/5 transition-all">
-          <Bell className="w-5 h-5" />
-        </button>
-
-        {/* User */}
-        <button className="w-9 h-9 rounded-full bg-primary/80 flex items-center justify-center hover:bg-primary transition-colors">
-          <User className="w-4 h-4 text-white" />
+        {/* Fullscreen */}
+        <button
+          onClick={handleFullscreen}
+          className="h-11 w-11 rounded-full border border-white/[0.08] bg-white/[0.04] text-foreground flex items-center justify-center hover:border-primary/30 hover:bg-primary/10 transition-all duration-300 group"
+        >
+          <Maximize className="w-4 h-4 transition-transform group-hover:scale-110" />
         </button>
       </div>
     </header>

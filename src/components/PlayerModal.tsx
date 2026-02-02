@@ -2,18 +2,25 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { 
   X, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Play, Pause, 
   Rewind, FastForward, Subtitles, Settings, Share2, PictureInPicture2,
-  MonitorPlay, Keyboard, BarChart3, ChevronUp
+  MonitorPlay, Keyboard, BarChart3, Moon, Cast, Music, Smartphone, Signal
 } from "lucide-react";
 import Hls from "hls.js";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { useRealtimeSubtitles } from "@/hooks/useRealtimeSubtitles";
 import { useWatchHistory } from "@/hooks/useWatchHistory";
+import { useSleepTimer } from "@/hooks/useSleepTimer";
+import { useAmbientMode } from "@/hooks/useAmbientMode";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { KeyboardShortcuts } from "./player/KeyboardShortcuts";
 import { QuickSettings } from "./player/QuickSettings";
 import { StreamStats } from "./player/StreamStats";
 import { ShareMenu } from "./player/ShareMenu";
+import { SleepTimerMenu } from "./player/SleepTimerMenu";
+import { CastMenu } from "./player/CastMenu";
+import { AudioMixer } from "./player/AudioMixer";
+import { QualitySelector } from "./player/QualitySelector";
+import { GestureGuide } from "./player/GestureGuide";
 import { toast } from "sonner";
 
 export function PlayerModal() {
@@ -40,7 +47,15 @@ export function PlayerModal() {
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [showQuickSettings, setShowQuickSettings] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [showSleepTimer, setShowSleepTimer] = useState(false);
+  const [showCastMenu, setShowCastMenu] = useState(false);
+  const [showAudioMixer, setShowAudioMixer] = useState(false);
+  const [showQualitySelector, setShowQualitySelector] = useState(false);
+  const [showGestureGuide, setShowGestureGuide] = useState(false);
+  const [ambientEnabled, setAmbientEnabled] = useState(false);
   const [streamStats, setStreamStats] = useState({ quality: "Auto", bitrate: 0, buffered: 0 });
+  const [availableQualities, setAvailableQualities] = useState<string[]>(["Auto", "1080p", "720p", "480p", "360p"]);
+  const [currentQuality, setCurrentQuality] = useState("Auto");
   
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -50,6 +65,10 @@ export function PlayerModal() {
   const controlsTimeout = useRef<NodeJS.Timeout>();
   const loadingWatchdog = useRef<NodeJS.Timeout>();
   const fatalErrorCount = useRef(0);
+
+  // Premium hooks
+  const sleepTimer = useSleepTimer();
+  const ambientMode = useAmbientMode(videoRef);
 
   const {
     isEnabled: subtitlesEnabled,
@@ -90,15 +109,28 @@ export function PlayerModal() {
     }
   }, [isOpen, title, urls.url1, addToHistory]);
 
-  // Reset to option 1 when modal opens
+  // Reset states when modal opens
   useEffect(() => {
     if (isOpen) {
       setActiveOption(1);
       setShowKeyboardShortcuts(false);
       setShowQuickSettings(false);
       setShowShareMenu(false);
+      setShowSleepTimer(false);
+      setShowCastMenu(false);
+      setShowAudioMixer(false);
+      setShowQualitySelector(false);
+      setShowGestureGuide(false);
     }
   }, [isOpen]);
+
+  // Handle sleep timer timeout
+  const handleSleepTimeout = useCallback(() => {
+    if (videoRef.current) {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+  }, []);
 
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -850,7 +882,7 @@ export function PlayerModal() {
                     </div>
 
                     {/* Right controls */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       {/* Live badge */}
                       {isLiveContent && (
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-destructive/20 border border-destructive/30 mr-2">
@@ -866,11 +898,89 @@ export function PlayerModal() {
                         </div>
                       )}
 
+                      {/* Sleep timer indicator */}
+                      {sleepTimer.isActive && sleepTimer.remainingTime && (
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30">
+                          <Moon className="w-3 h-3 text-purple-400" />
+                          <span className="text-xs font-mono text-purple-400">{sleepTimer.formatTime(sleepTimer.remainingTime)}</span>
+                        </div>
+                      )}
+
+                      {/* Quality selector */}
+                      <div className="relative hidden sm:block">
+                        <button
+                          onClick={() => setShowQualitySelector(!showQualitySelector)}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                          title="Calidad"
+                        >
+                          <Signal className="w-4 h-4 text-white" />
+                        </button>
+                        <QualitySelector
+                          isOpen={showQualitySelector}
+                          onClose={() => setShowQualitySelector(false)}
+                          currentQuality={currentQuality}
+                          availableQualities={availableQualities}
+                          onSelectQuality={(q) => {
+                            setCurrentQuality(q);
+                            toast.success(`Calidad: ${q}`);
+                          }}
+                        />
+                      </div>
+
+                      {/* Audio mixer */}
+                      <div className="relative hidden sm:block">
+                        <button
+                          onClick={() => setShowAudioMixer(!showAudioMixer)}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                          title="Audio"
+                        >
+                          <Music className="w-4 h-4 text-white" />
+                        </button>
+                        <AudioMixer isOpen={showAudioMixer} onClose={() => setShowAudioMixer(false)} />
+                      </div>
+
+                      {/* Sleep timer */}
+                      <div className="relative hidden sm:block">
+                        <button
+                          onClick={() => setShowSleepTimer(!showSleepTimer)}
+                          className={cn(
+                            "w-9 h-9 rounded-xl flex items-center justify-center border transition-all",
+                            sleepTimer.isActive
+                              ? "bg-purple-500/30 border-purple-500/50"
+                              : "bg-white/10 border-white/10 hover:bg-white/20"
+                          )}
+                          title="Temporizador de sueño"
+                        >
+                          <Moon className={cn("w-4 h-4", sleepTimer.isActive ? "text-purple-400" : "text-white")} />
+                        </button>
+                        <SleepTimerMenu
+                          isOpen={showSleepTimer}
+                          onClose={() => setShowSleepTimer(false)}
+                          isActive={sleepTimer.isActive}
+                          remainingTime={sleepTimer.remainingTime}
+                          formatTime={sleepTimer.formatTime}
+                          onSetTimer={(mins) => sleepTimer.startTimer(mins, handleSleepTimeout)}
+                          onCancelTimer={sleepTimer.cancelTimer}
+                        />
+                      </div>
+
+                      {/* Cast */}
+                      <div className="relative hidden sm:block">
+                        <button
+                          onClick={() => setShowCastMenu(!showCastMenu)}
+                          className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                          title="Transmitir"
+                        >
+                          <Cast className="w-4 h-4 text-white" />
+                        </button>
+                        <CastMenu isOpen={showCastMenu} onClose={() => setShowCastMenu(false)} />
+                      </div>
+
                       {/* Share button */}
                       <div className="relative">
                         <button
                           onClick={() => setShowShareMenu(!showShareMenu)}
-                          className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                          className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
                         >
                           <Share2 className="w-4 h-4 text-white" />
                         </button>
@@ -885,7 +995,7 @@ export function PlayerModal() {
                       <button
                         onClick={() => setShowStats(!showStats)}
                         className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center border transition-all",
+                          "w-9 h-9 rounded-xl flex items-center justify-center border transition-all",
                           showStats
                             ? "bg-primary/30 border-primary/50"
                             : "bg-white/10 border-white/10 hover:bg-white/20"
@@ -898,7 +1008,7 @@ export function PlayerModal() {
                       <button
                         onClick={togglePiP}
                         className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center border transition-all",
+                          "w-9 h-9 rounded-xl flex items-center justify-center border transition-all",
                           isPiP
                             ? "bg-primary/30 border-primary/50"
                             : "bg-white/10 border-white/10 hover:bg-white/20"
@@ -913,7 +1023,7 @@ export function PlayerModal() {
                         <button
                           onClick={() => setShowQuickSettings(!showQuickSettings)}
                           className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center border transition-all",
+                            "w-9 h-9 rounded-xl flex items-center justify-center border transition-all",
                             showQuickSettings
                               ? "bg-white/20 border-white/20"
                               : "bg-white/10 border-white/10 hover:bg-white/20"
@@ -944,7 +1054,7 @@ export function PlayerModal() {
                       {/* Fullscreen */}
                       <button
                         onClick={toggleFullscreen}
-                        className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
                         title="Pantalla completa (F)"
                       >
                         {isFullscreen ? (

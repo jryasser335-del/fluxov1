@@ -2,7 +2,7 @@ import { TMDB_IMG } from "@/lib/constants";
 import { TMDBResult } from "@/lib/api";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { getPlatformLabel, getPlatformColor } from "@/lib/platforms";
-import { Play } from "lucide-react";
+import { Play, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface MediaCardProps {
@@ -22,13 +22,6 @@ export function MediaCard({ item, type, streamUrl, platform }: MediaCardProps) {
   
   const hasStream = !!streamUrl;
 
-  // Rating color based on score
-  const getRatingColor = (score: number) => {
-    if (score >= 8) return "bg-green-500 text-white";
-    if (score >= 6) return "bg-yellow-500 text-black";
-    return "bg-red-500 text-white";
-  };
-
   const handleClick = () => {
     if (hasStream && streamUrl) {
       openPlayer(title, { url1: streamUrl }, type);
@@ -39,9 +32,8 @@ export function MediaCard({ item, type, streamUrl, platform }: MediaCardProps) {
     <div
       onClick={handleClick}
       className={cn(
-        "relative rounded-lg overflow-hidden aspect-[2/3] cursor-pointer group",
-        "transition-all duration-300",
-        hasStream && "hover:scale-[1.03] hover:shadow-2xl hover:shadow-black/50"
+        "card-shine glass-panel glass-panel-hover relative rounded-2xl overflow-hidden aspect-[2/3]",
+        hasStream && "cursor-pointer"
       )}
     >
       {/* Poster Image */}
@@ -57,20 +49,18 @@ export function MediaCard({ item, type, streamUrl, platform }: MediaCardProps) {
         </div>
       )}
 
-      {/* Rating badge - top right corner */}
+      {/* Rating badge */}
       {rating && parseFloat(rating) > 0 && (
-        <div className={cn(
-          "absolute top-2 right-2 z-20 px-2 py-0.5 rounded-md text-xs font-bold",
-          getRatingColor(parseFloat(rating))
-        )}>
-          {rating}
+        <div className="absolute top-2 right-2 z-20 flex items-center gap-1 px-2 py-1 rounded-lg bg-black/70 backdrop-blur-sm border border-white/10">
+          <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+          <span className="text-xs font-bold text-white">{rating}</span>
         </div>
       )}
 
-      {/* Platform badge - top left */}
+      {/* Platform badge */}
       {platform && (
         <div 
-          className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-black/60 backdrop-blur-sm border border-white/10"
+          className="absolute top-2 left-2 z-20 px-2 py-1 rounded-lg text-[10px] font-semibold bg-black/70 backdrop-blur-sm border border-white/10"
           style={{ color: getPlatformColor(platform) }}
         >
           {getPlatformLabel(platform)}
@@ -78,16 +68,15 @@ export function MediaCard({ item, type, streamUrl, platform }: MediaCardProps) {
       )}
 
       {/* Hover overlay with play button */}
-      <div className={cn(
-        "absolute inset-0 bg-black/60 flex items-center justify-center transition-opacity duration-300",
-        hasStream ? "opacity-0 group-hover:opacity-100" : "opacity-0"
-      )}>
-        <div className="w-14 h-14 rounded-full bg-primary flex items-center justify-center transform scale-75 group-hover:scale-100 transition-transform duration-300">
-          <Play className="w-6 h-6 text-white fill-white ml-1" />
+      {hasStream && (
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent opacity-0 hover:opacity-100 transition-all duration-300 flex items-center justify-center">
+          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30 transform scale-75 hover:scale-100 transition-transform duration-300">
+            <Play className="w-6 h-6 text-white fill-white ml-1" />
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Bottom gradient for title */}
+      {/* Bottom gradient */}
       <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black via-black/80 to-transparent" />
       
       {/* Title and year */}
@@ -100,8 +89,10 @@ export function MediaCard({ item, type, streamUrl, platform }: MediaCardProps) {
 
       {/* No stream indicator */}
       {!hasStream && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-          <span className="text-xs text-white/50 bg-black/50 px-2 py-1 rounded">Sin enlace</span>
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-[2px]">
+          <span className="text-xs text-white/50 bg-black/60 px-3 py-1.5 rounded-full border border-white/10">
+            Sin enlace
+          </span>
         </div>
       )}
     </div>
