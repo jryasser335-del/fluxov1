@@ -6,26 +6,26 @@
 
 @layer base {
   :root {
-    --background: 220 20% 4%;
+    --background: 0 0% 4%;
     --foreground: 0 0% 95%;
 
-    --card: 220 15% 6%;
+    --card: 0 0% 7%;
     --card-foreground: 0 0% 95%;
 
-    --popover: 220 15% 6%;
+    --popover: 0 0% 7%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 270 100% 65%;
+    --primary: 14 100% 57%;
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 270 100% 70%;
+    --primary-glow: 14 100% 62%;
 
-    --secondary: 220 15% 10%;
+    --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 95%;
 
-    --muted: 220 10% 15%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 55%;
 
-    --accent: 270 80% 60%;
+    --accent: 14 90% 55%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 85% 60%;
@@ -37,30 +37,30 @@
     --warning: 45 100% 55%;
     --warning-foreground: 0 0% 0%;
 
-    --border: 220 15% 12%;
-    --input: 220 15% 12%;
-    --ring: 270 100% 65%;
+    --border: 0 0% 12%;
+    --input: 0 0% 12%;
+    --ring: 14 100% 57%;
 
-    --radius: 1rem;
+    --radius: 0.75rem;
 
-    --panel: 220 20% 100% / 0.04;
-    --panel-hover: 220 20% 100% / 0.08;
-    --stroke: 220 20% 100% / 0.08;
-    --stroke-hover: 220 20% 100% / 0.15;
+    --panel: 0 0% 100% / 0.03;
+    --panel-hover: 0 0% 100% / 0.06;
+    --stroke: 0 0% 100% / 0.06;
+    --stroke-hover: 0 0% 100% / 0.12;
 
-    --gradient-primary: linear-gradient(135deg, hsl(270 100% 65%), hsl(300 80% 55%));
-    --gradient-accent: linear-gradient(135deg, hsl(270 100% 60% / 0.2), hsl(300 80% 55% / 0.1));
-    --gradient-surface: linear-gradient(180deg, hsl(220 20% 8%), hsl(220 20% 4%));
-    --gradient-glow: radial-gradient(ellipse at 50% 0%, hsl(270 100% 65% / 0.15), transparent 70%);
+    --gradient-primary: linear-gradient(135deg, hsl(14 100% 57%), hsl(0 80% 50%));
+    --gradient-accent: linear-gradient(135deg, hsl(14 100% 55% / 0.2), hsl(0 80% 50% / 0.1));
+    --gradient-surface: linear-gradient(180deg, hsl(0 0% 8%), hsl(0 0% 4%));
+    --gradient-glow: radial-gradient(ellipse at 50% 0%, hsl(14 100% 57% / 0.12), transparent 70%);
 
-    --sidebar-background: 220 20% 5%;
+    --sidebar-background: 0 0% 5%;
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 270 100% 65%;
+    --sidebar-primary: 14 100% 57%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 15% 10%;
+    --sidebar-accent: 0 0% 10%;
     --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 220 15% 10%;
-    --sidebar-ring: 270 100% 65%;
+    --sidebar-border: 0 0% 10%;
+    --sidebar-ring: 14 100% 57%;
   }
 }
 
@@ -76,7 +76,7 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background: linear-gradient(180deg, hsl(220 20% 6%) 0%, hsl(220 20% 3%) 100%);
+    background: linear-gradient(180deg, hsl(0 0% 6%) 0%, hsl(0 0% 3%) 100%);
     background-attachment: fixed;
   }
 

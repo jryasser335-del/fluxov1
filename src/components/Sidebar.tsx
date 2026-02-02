@@ -47,13 +47,13 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
   const { user, isAdmin } = useAuth();
 
   return (
-    <aside className="sticky top-0 h-screen flex flex-col items-center border-r border-white/5 bg-gradient-to-b from-[hsl(220_20%_6%)] to-[hsl(220_20%_4%)] backdrop-blur-2xl max-md:w-[78px] w-[86px]">
+    <aside className="sticky top-0 h-screen flex flex-col items-center border-r border-white/5 bg-[hsl(0_0%_5%)] max-md:w-[78px] w-[86px]">
       {/* Ambient glow */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-primary/20 blur-[60px] rounded-full pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-primary/15 blur-[60px] rounded-full pointer-events-none" />
       
       {/* Logo */}
       <div className="relative mt-5 mb-4">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-gradient-to-br from-[hsl(220_20%_12%)] to-[hsl(220_20%_8%)] border border-white/10 shadow-lg overflow-hidden p-2 group">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center bg-[hsl(0_0%_10%)] border border-white/10 shadow-lg overflow-hidden p-2 group">
           <img 
             src="https://images.seeklogo.com/logo-png/48/1/fluxo-logo-png_seeklogo-485780.png" 
             alt="Fluxo" 
