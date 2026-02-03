@@ -44,12 +44,20 @@ interface EventLink {
 const LEAGUES = [
   // US Sports
   { key: "nba", name: "NBA", sport: "Basketball" },
+  { key: "wnba", name: "WNBA", sport: "Basketball" },
   { key: "nfl", name: "NFL", sport: "Football" },
   { key: "mlb", name: "MLB", sport: "Baseball" },
-  { key: "nhl", name: "NHL", sport: "Hockey" },
   { key: "mls", name: "MLS", sport: "Soccer" },
+  { key: "ncaab", name: "NCAA Basketball", sport: "Basketball" },
+  { key: "ncaaf", name: "NCAA Football", sport: "Football" },
   
-  // European Soccer
+  // Hockey
+  { key: "nhl", name: "NHL", sport: "Hockey" },
+  { key: "khl", name: "KHL (Rusia)", sport: "Hockey" },
+  { key: "shl", name: "SHL (Suecia)", sport: "Hockey" },
+  { key: "ahl", name: "AHL", sport: "Hockey" },
+  
+  // Top European Leagues
   { key: "eng.1", name: "Premier League", sport: "Soccer" },
   { key: "esp.1", name: "LaLiga", sport: "Soccer" },
   { key: "ger.1", name: "Bundesliga", sport: "Soccer" },
@@ -57,22 +65,90 @@ const LEAGUES = [
   { key: "fra.1", name: "Ligue 1", sport: "Soccer" },
   { key: "ned.1", name: "Eredivisie", sport: "Soccer" },
   { key: "por.1", name: "Liga Portugal", sport: "Soccer" },
+  { key: "sco.1", name: "Scottish Premiership", sport: "Soccer" },
+  { key: "bel.1", name: "Pro League (Bélgica)", sport: "Soccer" },
+  { key: "tur.1", name: "Süper Lig (Turquía)", sport: "Soccer" },
   
   // UEFA Competitions
   { key: "uefa.champions", name: "Champions League", sport: "Soccer" },
   { key: "uefa.europa", name: "Europa League", sport: "Soccer" },
   { key: "uefa.conference", name: "Conference League", sport: "Soccer" },
+  { key: "uefa.nations", name: "UEFA Nations League", sport: "Soccer" },
+  
+  // English Cups
+  { key: "eng.fa", name: "FA Cup", sport: "Soccer" },
+  { key: "eng.league_cup", name: "Carabao Cup (EFL)", sport: "Soccer" },
+  { key: "eng.community_shield", name: "Community Shield", sport: "Soccer" },
+  
+  // Spanish Cups
+  { key: "esp.copa_del_rey", name: "Copa del Rey", sport: "Soccer" },
+  { key: "esp.super_cup", name: "Supercopa de España", sport: "Soccer" },
+  
+  // German Cups
+  { key: "ger.dfb_pokal", name: "DFB-Pokal", sport: "Soccer" },
+  { key: "ger.super_cup", name: "DFL-Supercup", sport: "Soccer" },
+  
+  // Italian Cups
+  { key: "ita.coppa_italia", name: "Coppa Italia", sport: "Soccer" },
+  { key: "ita.super_cup", name: "Supercoppa Italiana", sport: "Soccer" },
+  
+  // French Cups
+  { key: "fra.coupe_de_france", name: "Coupe de France", sport: "Soccer" },
+  { key: "fra.coupe_de_la_ligue", name: "Coupe de la Ligue", sport: "Soccer" },
   
   // Americas
   { key: "mex.1", name: "Liga MX", sport: "Soccer" },
+  { key: "mex.cup", name: "Copa MX", sport: "Soccer" },
   { key: "arg.1", name: "Liga Argentina", sport: "Soccer" },
+  { key: "arg.cup", name: "Copa Argentina", sport: "Soccer" },
   { key: "bra.1", name: "Brasileirão", sport: "Soccer" },
+  { key: "bra.cup", name: "Copa do Brasil", sport: "Soccer" },
   { key: "conmebol.libertadores", name: "Copa Libertadores", sport: "Soccer" },
   { key: "conmebol.sudamericana", name: "Copa Sudamericana", sport: "Soccer" },
+  { key: "concacaf.champions", name: "Concacaf Champions Cup", sport: "Soccer" },
   
-  // Other European
+  // International
+  { key: "fifa.world", name: "FIFA World Cup", sport: "Soccer" },
+  { key: "fifa.wwc", name: "FIFA Women's World Cup", sport: "Soccer" },
+  { key: "fifa.club_world_cup", name: "FIFA Club World Cup", sport: "Soccer" },
+  { key: "uefa.euro", name: "UEFA Euro", sport: "Soccer" },
+  { key: "conmebol.copa_america", name: "Copa América", sport: "Soccer" },
+  { key: "afc.asian_cup", name: "AFC Asian Cup", sport: "Soccer" },
+  { key: "caf.afcon", name: "Africa Cup of Nations", sport: "Soccer" },
+  
+  // Boxing & MMA
+  { key: "ufc", name: "UFC", sport: "MMA" },
+  { key: "boxing", name: "Boxing", sport: "Boxing" },
+  { key: "bellator", name: "Bellator MMA", sport: "MMA" },
+  { key: "pfl", name: "PFL", sport: "MMA" },
+  
+  // Tennis
+  { key: "atp", name: "ATP Tour", sport: "Tennis" },
+  { key: "wta", name: "WTA Tour", sport: "Tennis" },
+  
+  // Motorsports
+  { key: "f1", name: "Formula 1", sport: "Motorsports" },
+  { key: "motogp", name: "MotoGP", sport: "Motorsports" },
+  { key: "nascar", name: "NASCAR", sport: "Motorsports" },
+  { key: "indycar", name: "IndyCar", sport: "Motorsports" },
+  
+  // Golf
+  { key: "pga", name: "PGA Tour", sport: "Golf" },
+  { key: "lpga", name: "LPGA Tour", sport: "Golf" },
+  
+  // Other Soccer Leagues
   { key: "eng.2", name: "Championship", sport: "Soccer" },
+  { key: "eng.3", name: "League One", sport: "Soccer" },
   { key: "esp.2", name: "LaLiga 2", sport: "Soccer" },
+  { key: "ger.2", name: "2. Bundesliga", sport: "Soccer" },
+  { key: "ita.2", name: "Serie B", sport: "Soccer" },
+  { key: "fra.2", name: "Ligue 2", sport: "Soccer" },
+  
+  // Asian Leagues
+  { key: "jpn.1", name: "J1 League (Japón)", sport: "Soccer" },
+  { key: "kor.1", name: "K League 1 (Corea)", sport: "Soccer" },
+  { key: "chn.1", name: "Chinese Super League", sport: "Soccer" },
+  { key: "sau.1", name: "Saudi Pro League", sport: "Soccer" },
 ];
 
 export function AdminEvents() {
