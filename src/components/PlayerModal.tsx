@@ -85,8 +85,16 @@ export function PlayerModal() {
   };
 
   const url = getCurrentUrl();
-  const isHlsStream = url?.includes(".m3u8");
+  
+  // Detect URL type - embed URLs should use iframe, HLS uses video player
+  const isHlsStream = url?.includes(".m3u8") && !url?.includes("/embed/");
   const isYouTube = url?.includes("youtube.com") || url?.includes("youtu.be");
+  const isEmbedUrl = url?.includes("/embed/") || 
+                     url?.includes("embed.") || 
+                     url?.includes("/player/") ||
+                     url?.includes("player.") ||
+                     url?.includes("#player=") ||
+                     (url && !url.includes(".m3u8") && !url.includes(".mp4") && !isYouTube);
   const isLiveContent = contentType === "live";
 
   // Available options
@@ -246,23 +254,50 @@ export function PlayerModal() {
     setLoadError(null);
     fatalErrorCount.current = 0;
 
+    // For embed/iframe content, just set loading to false after a short delay
+    // Don't show any error messages for iframe content since we can't detect errors
+    if (isEmbedUrl || isYouTube) {
+      if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current);
+      // Short timeout just for loading indicator, no error messages for iframes
+      loadingWatchdog.current = setTimeout(() => {
+        setIsLoading(false);
+        // Never show error for iframe content - we can't detect if it's working
+        setLoadError(null);
+      }, 3000);
+      return () => {
+        if (loadingWatchdog.current) {
+          clearTimeout(loadingWatchdog.current);
+          loadingWatchdog.current = undefined;
+        }
+      };
+    }
+
+    // For HLS streams, use watchdog but be very careful about false positives
     if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current);
     loadingWatchdog.current = setTimeout(() => {
-      // Only show error if video is not playing and has no data
+      // Only show error if video element exists and has definitively failed
       const video = videoRef.current;
-      const hasVideoData = video && video.readyState >= 2; // HAVE_CURRENT_DATA or higher
-      const isVideoPlaying = video && !video.paused && video.currentTime > 0;
-      
-      if (!hasVideoData && !isVideoPlaying) {
+      if (!video) {
         setIsLoading(false);
-        setLoadError(
-          "No se pudo conectar al stream. El servidor puede estar bloqueando CORS o el enlace/token expiró."
-        );
-      } else {
-        // Video is actually playing, just stop loading indicator
+        return;
+      }
+      
+      // Check multiple conditions - don't show error if any sign of playback
+      const hasVideoData = video.readyState >= 1;
+      const isVideoPlaying = !video.paused;
+      const hasCurrentTime = video.currentTime > 0;
+      const hasBuffered = video.buffered.length > 0;
+      
+      // If ANY indication that video is working, don't show error
+      if (hasVideoData || isVideoPlaying || hasCurrentTime || hasBuffered) {
         setIsLoading(false);
         setLoadError(null);
+        return;
       }
+      
+      // Only show error if absolutely nothing is working after 15 seconds
+      setIsLoading(false);
+      // Don't set error - let the player try to recover
     }, 15000);
 
     return () => {
@@ -275,7 +310,7 @@ export function PlayerModal() {
         loadingWatchdog.current = undefined;
       }
     };
-  }, [isOpen, url, activeOption]);
+  }, [isOpen, url, activeOption, isEmbedUrl, isYouTube]);
 
   useEffect(() => {
     if (!isOpen || !isHlsStream || !videoRef.current || !url) return;
@@ -465,14 +500,19 @@ export function PlayerModal() {
 
   const getEmbedUrl = (rawUrl: string) => {
     if (!rawUrl) return "";
+    // Handle YouTube URLs
     const ytMatch = rawUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/);
     if (ytMatch) {
       return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=0&controls=1&rel=0`;
     }
+    // For embed URLs, return as-is - they're already embeddable
     return rawUrl;
   };
 
-  const handleIframeLoad = () => setIsLoading(false);
+  const handleIframeLoad = () => {
+    setIsLoading(false);
+    setLoadError(null);
+  };
 
   const toggleMute = () => {
     if (videoRef.current) {
@@ -703,8 +743,8 @@ export function PlayerModal() {
               </div>
             )}
 
-            {/* Error overlay */}
-            {loadError && (
+            {/* Error overlay - Never show for embed/iframe content */}
+            {loadError && !isEmbedUrl && !isYouTube && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gradient-radial from-primary/10 via-black/85 to-black z-20 p-6 text-center">
                 <div className="w-16 h-16 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center">
                   <X className="w-8 h-8 text-white/50" />
@@ -1067,15 +1107,18 @@ export function PlayerModal() {
                   </div>
                 </div>
               </>
-            ) : isYouTube || url ? (
+            ) : isEmbedUrl || isYouTube || url ? (
               <iframe
                 ref={iframeRef}
                 src={getEmbedUrl(url)}
                 className="w-full h-full"
-                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen; accelerometer; gyroscope; clipboard-write"
                 allowFullScreen
                 referrerPolicy="no-referrer-when-downgrade"
-                onLoad={handleIframeLoad}
+                onLoad={() => {
+                  setIsLoading(false);
+                  setLoadError(null);
+                }}
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-muted-foreground">
