@@ -136,9 +136,9 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
       {/* Divider */}
       <div className="w-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-3" />
 
-      {/* Install button */}
+      {/* Download App button */}
       <Link
-        to="/install"
+        to="/app"
         className="w-[62px] h-[50px] mb-2 rounded-2xl flex flex-col items-center justify-center gap-0.5 border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/30 transition-all duration-300 group"
       >
         <Download className="w-4 h-4 text-primary/70 group-hover:text-primary transition-colors" />
