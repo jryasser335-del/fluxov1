@@ -650,37 +650,65 @@ export function PlayerModal() {
     <div
       onClick={(e) => e.target === e.currentTarget && closePlayer()}
       className={cn(
-        "fixed inset-0 z-[9990] bg-black/95 backdrop-blur-md flex items-center justify-center animate-in fade-in duration-200",
-        isTheaterMode ? "p-0" : "p-4"
+        "fixed inset-0 z-[9990] flex items-center justify-center animate-in fade-in duration-300",
+        isTheaterMode ? "p-0" : "p-3 md:p-6"
       )}
     >
+      {/* Premium backdrop with blur and gradient */}
+      <div className="absolute inset-0 bg-black/98 backdrop-blur-2xl" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
+      
+      {/* Ambient glow effect */}
+      {ambientEnabled && ambientMode.colors && (
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div 
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] blur-[200px] opacity-30 transition-all duration-1000"
+            style={{ background: `radial-gradient(ellipse, ${ambientMode.colors.dominant}, transparent 70%)` }}
+          />
+        </div>
+      )}
+      
       <div 
         ref={containerRef}
         className={cn(
-          "rounded-3xl border border-white/[0.08] bg-gradient-to-b from-white/[0.06] to-white/[0.02] shadow-2xl overflow-hidden transition-all duration-500",
+          "relative rounded-3xl border shadow-2xl overflow-hidden transition-all duration-500",
           isTheaterMode 
-            ? "w-full h-full rounded-none" 
-            : "w-[min(1200px,96vw)]"
+            ? "w-full h-full rounded-none border-0" 
+            : "w-[min(1280px,96vw)] border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent"
         )}
       >
-        {/* Header */}
+        {/* Premium Header */}
         <div className={cn(
-          "flex items-center justify-between px-5 py-4 border-b border-white/[0.06] bg-black/40 backdrop-blur-xl transition-all",
-          isTheaterMode && "absolute top-0 left-0 right-0 z-50 opacity-0 hover:opacity-100"
+          "flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] backdrop-blur-xl transition-all",
+          isTheaterMode ? "absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/90 to-transparent border-0 opacity-0 hover:opacity-100" : "bg-black/50"
         )}>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             {isLiveContent && (
-              <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-destructive/20 border border-destructive/30">
-                <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-                <span className="text-xs font-bold text-destructive uppercase">LIVE</span>
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/20 border border-red-500/40 backdrop-blur-sm shrink-0">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/50" />
+                <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">LIVE</span>
               </div>
             )}
-            <h2 className="font-display text-lg tracking-wider text-white/90 truncate max-w-[300px] sm:max-w-none">
+            <h2 className="font-display text-lg tracking-wider text-white/90 truncate">
               {title || "Reproductor"}
             </h2>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Ambient mode toggle */}
+            <button
+              onClick={() => setAmbientEnabled(!ambientEnabled)}
+              className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-200",
+                ambientEnabled 
+                  ? "bg-accent/20 border-accent/40 text-accent" 
+                  : "bg-white/[0.05] border-white/10 hover:bg-white/10 text-white/60 hover:text-white"
+              )}
+              title="Modo Ambiente"
+            >
+              <Smartphone className="w-4 h-4" />
+            </button>
+            
             {/* Theater mode toggle */}
             <button
               onClick={() => setIsTheaterMode(!isTheaterMode)}
@@ -688,7 +716,7 @@ export function PlayerModal() {
                 "w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-200",
                 isTheaterMode 
                   ? "bg-primary/20 border-primary/40 text-primary" 
-                  : "bg-white/[0.05] border-white/10 hover:bg-white/10 text-white/70 hover:text-white"
+                  : "bg-white/[0.05] border-white/10 hover:bg-white/10 text-white/60 hover:text-white"
               )}
               title="Modo Teatro (T)"
             >
@@ -698,19 +726,19 @@ export function PlayerModal() {
             {/* Close button */}
             <button
               onClick={closePlayer}
-              className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/[0.05] hover:bg-white/10 hover:border-white/20 transition-all duration-200 group"
+              className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/[0.05] hover:bg-red-500/20 hover:border-red-500/40 hover:text-red-400 transition-all duration-200 text-white/60"
             >
-              <X className="w-4 h-4 text-white/70 group-hover:text-white transition-colors" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Player */}
-        <div className={cn("p-4", isTheaterMode && "p-0 h-full")}>
+        {/* Player Container */}
+        <div className={cn("p-3 md:p-4", isTheaterMode && "p-0 h-full")}>
           <div
             className={cn(
-              "relative rounded-2xl overflow-hidden border border-white/[0.06] bg-black aspect-video group",
-              isTheaterMode && "rounded-none border-0 h-full aspect-auto"
+              "relative overflow-hidden bg-black aspect-video group",
+              isTheaterMode ? "rounded-none h-full aspect-auto" : "rounded-2xl border border-white/[0.06]"
             )}
             onMouseMove={handleMouseMove}
             onMouseLeave={() => setShowControls(false)}
@@ -729,17 +757,46 @@ export function PlayerModal() {
               onClose={() => setShowKeyboardShortcuts(false)} 
             />
 
-            {/* Loading overlay */}
+            {/* Premium Loading Overlay */}
             {isLoading && !loadError && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gradient-radial from-primary/10 via-black/80 to-black z-20">
-                <div className="relative">
-                  <div className="w-16 h-16 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
-                  <Loader2 className="w-8 h-8 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-primary animate-pulse" />
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl">
+                {/* Animated background */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-primary/15 via-purple-600/10 to-accent/15 blur-[150px] animate-pulse" />
                 </div>
-                <span className="text-sm text-white/60 font-medium">Conectando al stream…</span>
-                <kbd className="px-2 py-1 rounded bg-white/10 text-xs text-white/40">
-                  Presiona ? para atajos
-                </kbd>
+
+                <div className="relative z-10 flex flex-col items-center gap-5">
+                  {/* Premium loader */}
+                  <div className="relative w-20 h-20">
+                    <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+                    <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
+                    <div className="absolute inset-3 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 text-primary animate-pulse" />
+                    </div>
+                    {/* Orbiting dot */}
+                    <div className="absolute inset-0 animate-[spin_3s_linear_infinite]">
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-primary shadow-lg shadow-primary/50" />
+                    </div>
+                  </div>
+
+                  <div className="text-center space-y-2">
+                    <h3 className="text-base font-display tracking-wider text-white/80 max-w-[260px] truncate">
+                      {title || "Cargando..."}
+                    </h3>
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="flex gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+                      </div>
+                      <span className="text-sm text-white/40">Conectando</span>
+                    </div>
+                  </div>
+
+                  <kbd className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white/30">
+                    Presiona <span className="font-mono text-white/50">?</span> para atajos
+                  </kbd>
+                </div>
               </div>
             )}
 
