@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_users: {
+        Row: {
+          created_at: string
+          days_remaining: number
+          display_name: string | null
+          expires_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          password_hash: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          days_remaining?: number
+          display_name?: string | null
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          password_hash: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          days_remaining?: number
+          display_name?: string | null
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          password_hash?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
       channels: {
         Row: {
           created_at: string
