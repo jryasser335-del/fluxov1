@@ -21,8 +21,17 @@ export const LEAGUE_OPTIONS = [
   { value: "mlb", label: "⚾ MLB" },
   { value: "nhl", label: "🏒 NHL" },
   { value: "mls", label: "⚽ MLS" },
+  { value: "wnba", label: "🏀 WNBA" },
+  { value: "ncaab", label: "🏀 NCAA Basketball" },
+  { value: "ncaaf", label: "🏈 NCAA Football" },
   
-  // European Soccer
+  // Hockey
+  { value: "nhl", label: "🏒 NHL" },
+  { value: "khl", label: "🏒 KHL (Rusia)" },
+  { value: "shl", label: "🏒 SHL (Suecia)" },
+  { value: "ahl", label: "🏒 AHL" },
+  
+  // European Soccer - Top Leagues
   { value: "eng.1", label: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League" },
   { value: "esp.1", label: "🇪🇸 LaLiga" },
   { value: "ger.1", label: "🇩🇪 Bundesliga" },
@@ -30,20 +39,89 @@ export const LEAGUE_OPTIONS = [
   { value: "fra.1", label: "🇫🇷 Ligue 1" },
   { value: "ned.1", label: "🇳🇱 Eredivisie" },
   { value: "por.1", label: "🇵🇹 Liga Portugal" },
+  { value: "sco.1", label: "🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scottish Premiership" },
+  { value: "bel.1", label: "🇧🇪 Pro League" },
+  { value: "tur.1", label: "🇹🇷 Süper Lig" },
   
   // UEFA Competitions
   { value: "uefa.champions", label: "🏆 Champions League" },
   { value: "uefa.europa", label: "🥈 Europa League" },
   { value: "uefa.conference", label: "🥉 Conference League" },
+  { value: "uefa.nations", label: "🇪🇺 UEFA Nations League" },
+  
+  // English Cups
+  { value: "eng.fa", label: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 FA Cup" },
+  { value: "eng.league_cup", label: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Carabao Cup (EFL)" },
+  { value: "eng.community_shield", label: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Community Shield" },
+  
+  // Spanish Cups
+  { value: "esp.copa_del_rey", label: "🇪🇸 Copa del Rey" },
+  { value: "esp.super_cup", label: "🇪🇸 Supercopa de España" },
+  
+  // German Cups
+  { value: "ger.dfb_pokal", label: "🇩🇪 DFB-Pokal" },
+  { value: "ger.super_cup", label: "🇩🇪 DFL-Supercup" },
+  
+  // Italian Cups
+  { value: "ita.coppa_italia", label: "🇮🇹 Coppa Italia" },
+  { value: "ita.super_cup", label: "🇮🇹 Supercoppa Italiana" },
+  
+  // French Cups
+  { value: "fra.coupe_de_france", label: "🇫🇷 Coupe de France" },
+  { value: "fra.coupe_de_la_ligue", label: "🇫🇷 Coupe de la Ligue" },
   
   // Americas
   { value: "mex.1", label: "🇲🇽 Liga MX" },
+  { value: "mex.cup", label: "🇲🇽 Copa MX" },
   { value: "arg.1", label: "🇦🇷 Liga Argentina" },
+  { value: "arg.cup", label: "🇦🇷 Copa Argentina" },
   { value: "bra.1", label: "🇧🇷 Brasileirão" },
+  { value: "bra.cup", label: "🇧🇷 Copa do Brasil" },
   { value: "conmebol.libertadores", label: "🏆 Copa Libertadores" },
   { value: "conmebol.sudamericana", label: "🏆 Copa Sudamericana" },
+  { value: "concacaf.champions", label: "🏆 Concacaf Champions Cup" },
   
-  // Other
+  // International
+  { value: "fifa.world", label: "🌍 FIFA World Cup" },
+  { value: "fifa.wwc", label: "🌍 FIFA Women's World Cup" },
+  { value: "fifa.club_world_cup", label: "🌍 FIFA Club World Cup" },
+  { value: "uefa.euro", label: "🇪🇺 UEFA Euro" },
+  { value: "conmebol.copa_america", label: "🌎 Copa América" },
+  { value: "afc.asian_cup", label: "🌏 AFC Asian Cup" },
+  { value: "caf.afcon", label: "🌍 Africa Cup of Nations" },
+  
+  // Boxing & MMA
+  { value: "ufc", label: "🥊 UFC" },
+  { value: "boxing", label: "🥊 Boxing" },
+  { value: "bellator", label: "🥊 Bellator MMA" },
+  { value: "pfl", label: "🥊 PFL" },
+  
+  // Tennis
+  { value: "atp", label: "🎾 ATP Tour" },
+  { value: "wta", label: "🎾 WTA Tour" },
+  { value: "tennis.grand_slam", label: "🎾 Grand Slam" },
+  
+  // Motorsports
+  { value: "f1", label: "🏎️ Formula 1" },
+  { value: "motogp", label: "🏍️ MotoGP" },
+  { value: "nascar", label: "🏁 NASCAR" },
+  { value: "indycar", label: "🏁 IndyCar" },
+  
+  // Golf
+  { value: "pga", label: "⛳ PGA Tour" },
+  { value: "lpga", label: "⛳ LPGA Tour" },
+  
+  // Other Soccer Leagues
   { value: "eng.2", label: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Championship" },
+  { value: "eng.3", label: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 League One" },
   { value: "esp.2", label: "🇪🇸 LaLiga 2" },
+  { value: "ger.2", label: "🇩🇪 2. Bundesliga" },
+  { value: "ita.2", label: "🇮🇹 Serie B" },
+  { value: "fra.2", label: "🇫🇷 Ligue 2" },
+  
+  // Asian Leagues
+  { value: "jpn.1", label: "🇯🇵 J1 League" },
+  { value: "kor.1", label: "🇰🇷 K League 1" },
+  { value: "chn.1", label: "🇨🇳 Chinese Super League" },
+  { value: "sau.1", label: "🇸🇦 Saudi Pro League" },
 ];
