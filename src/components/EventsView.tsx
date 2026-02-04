@@ -32,7 +32,6 @@ export function EventsView() {
   const [league, setLeague] = useState("nba");
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [autoRefresh, setAutoRefresh] = useState(false);
   const [events, setEvents] = useState<ESPNEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [leagueInfo, setLeagueInfo] = useState({ name: "", sub: "" });
@@ -107,14 +106,20 @@ export function EventsView() {
     loadEvents();
   }, [loadEvents]);
 
+  // Auto-refresh scores every 30 seconds for live matches
   useEffect(() => {
-    if (!autoRefresh) return;
+    const hasLiveMatches = events.some(e => e.competitions?.[0]?.status?.type?.state === "in");
+    
+    // Always refresh scores periodically (every 30s if live matches, every 60s otherwise)
+    const refreshInterval = hasLiveMatches ? 30000 : 60000;
+    
     const interval = setInterval(() => {
       loadEvents();
       fetchEventLinks();
-    }, 60000);
+    }, refreshInterval);
+    
     return () => clearInterval(interval);
-  }, [autoRefresh, loadEvents, fetchEventLinks]);
+  }, [events, loadEvents, fetchEventLinks]);
 
   const toggleFavorite = (eventId: string) => {
     setFavorites((prev) => {
@@ -271,8 +276,6 @@ export function EventsView() {
         filterOptions={filterOptionsWithCounts}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        autoRefresh={autoRefresh}
-        onAutoRefreshChange={setAutoRefresh}
         onRefresh={() => { loadEvents(); fetchEventLinks(); }}
         isLoading={loading}
       />

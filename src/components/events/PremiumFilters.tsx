@@ -23,8 +23,6 @@ interface PremiumFiltersProps {
   filterOptions: FilterOption[];
   searchQuery: string;
   onSearchChange: (value: string) => void;
-  autoRefresh: boolean;
-  onAutoRefreshChange: (value: boolean) => void;
   onRefresh: () => void;
   isLoading: boolean;
 }
@@ -38,8 +36,6 @@ export function PremiumFilters({
   filterOptions,
   searchQuery,
   onSearchChange,
-  autoRefresh,
-  onAutoRefreshChange,
   onRefresh,
   isLoading
 }: PremiumFiltersProps) {
@@ -82,32 +78,15 @@ export function PremiumFilters({
           <span className="hidden sm:inline">Actualizar</span>
         </button>
 
-        {/* Auto refresh toggle */}
-        <label className={cn(
-          "h-11 flex items-center gap-2 px-4 rounded-xl cursor-pointer transition-all duration-300",
-          "border",
-          autoRefresh 
-            ? "bg-primary/20 border-primary/40 text-primary" 
-            : "bg-white/5 border-white/10 text-white/60 hover:border-white/20"
-        )}>
-          <div className={cn(
-            "relative w-8 h-5 rounded-full transition-colors",
-            autoRefresh ? "bg-primary" : "bg-white/20"
-          )}>
-            <div className={cn(
-              "absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-lg transition-transform",
-              autoRefresh ? "left-3.5" : "left-0.5"
-            )} />
+        {/* Auto-refresh indicator (always active) */}
+        <div className="h-11 flex items-center gap-2 px-4 rounded-xl bg-primary/20 border border-primary/40 text-primary">
+          <div className="relative w-2 h-2">
+            <span className="absolute inset-0 rounded-full bg-primary animate-ping opacity-75" />
+            <span className="relative block w-2 h-2 rounded-full bg-primary" />
           </div>
-          <span className="text-sm font-medium">Auto</span>
-          {autoRefresh && <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />}
-          <input
-            type="checkbox"
-            checked={autoRefresh}
-            onChange={(e) => onAutoRefreshChange(e.target.checked)}
-            className="sr-only"
-          />
-        </label>
+          <span className="text-sm font-medium">En vivo</span>
+          <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" />
+        </div>
       </div>
 
       {/* Bottom row: Filters and search */}

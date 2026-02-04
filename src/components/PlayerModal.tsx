@@ -263,7 +263,12 @@ export function PlayerModal() {
         setIsLoading(false);
         // Never show error for iframe content - we can't detect if it's working
         setLoadError(null);
-      }, 3000);
+        
+        // Try to autoplay iframe content by focusing on it
+        if (iframeRef.current) {
+          iframeRef.current.focus();
+        }
+      }, 2000);
       return () => {
         if (loadingWatchdog.current) {
           clearTimeout(loadingWatchdog.current);
@@ -503,17 +508,23 @@ export function PlayerModal() {
     // Handle YouTube URLs
     const ytMatch = rawUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/);
     if (ytMatch) {
-      return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&showinfo=0`;
+      return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&showinfo=0&playsinline=1`;
     }
     // For other embed URLs, add autoplay parameter if not present
     try {
       const urlObj = new URL(rawUrl);
-      // Add autoplay parameters to help with automatic playback
+      // Add multiple autoplay parameters to maximize compatibility
       if (!urlObj.searchParams.has('autoplay')) {
         urlObj.searchParams.set('autoplay', '1');
       }
       if (!urlObj.searchParams.has('auto_play')) {
         urlObj.searchParams.set('auto_play', 'true');
+      }
+      if (!urlObj.searchParams.has('muted')) {
+        urlObj.searchParams.set('muted', '0');
+      }
+      if (!urlObj.searchParams.has('playsinline')) {
+        urlObj.searchParams.set('playsinline', '1');
       }
       // Disable ads where possible
       if (!urlObj.searchParams.has('ads')) {
@@ -521,8 +532,9 @@ export function PlayerModal() {
       }
       return urlObj.toString();
     } catch {
-      // If URL parsing fails, return as-is
-      return rawUrl;
+      // If URL parsing fails, add params manually
+      const separator = rawUrl.includes('?') ? '&' : '?';
+      return `${rawUrl}${separator}autoplay=1&auto_play=true&playsinline=1`;
     }
   };
 
