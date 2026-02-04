@@ -1,10 +1,10 @@
-import { Tv, Film, Clapperboard, Theater, Trophy, Settings, LogOut } from "lucide-react";
+import { Tv, Trophy, Settings, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppAuth } from "@/hooks/useAppAuth";
 
-export type ViewType = "canales" | "peliculas" | "series" | "doramas" | "eventos";
+export type ViewType = "canales" | "eventos";
 
 interface SidebarProps {
   activeView: ViewType;
@@ -17,24 +17,6 @@ const navItems: { view: ViewType; label: string; icon: React.ReactNode; color: s
     label: "LIVE", 
     icon: <Tv className="w-5 h-5 max-md:w-6 max-md:h-6" />,
     color: "from-blue-500 to-cyan-400"
-  },
-  { 
-    view: "peliculas", 
-    label: "CINE", 
-    icon: <Film className="w-5 h-5 max-md:w-6 max-md:h-6" />,
-    color: "from-purple-500 to-pink-400"
-  },
-  { 
-    view: "series", 
-    label: "SERIES", 
-    icon: <Clapperboard className="w-5 h-5 max-md:w-6 max-md:h-6" />,
-    color: "from-orange-500 to-amber-400"
-  },
-  { 
-    view: "doramas", 
-    label: "DRAMA", 
-    icon: <Theater className="w-5 h-5 max-md:w-6 max-md:h-6" />,
-    color: "from-rose-500 to-red-400"
   },
   { 
     view: "eventos", 
