@@ -3,9 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useAppAuth } from "@/hooks/useAppAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, User, Lock, ArrowLeft, Sparkles, Eye, EyeOff } from "lucide-react";
+import { Loader2, User, Lock, Eye, EyeOff, Zap } from "lucide-react";
 
 export default function AppLogin() {
   const [username, setUsername] = useState("");
@@ -40,106 +39,120 @@ export default function AppLogin() {
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Effects */}
-      <div className="absolute inset-0 bg-gradient-to-br from-purple-900/20 via-black to-emerald-900/20" />
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl" />
+      {/* Background Effects - Negro total */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black via-black to-zinc-950" />
       
-      <div className="w-full max-w-md relative z-10">
-        {/* Back button */}
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/")}
-          className="mb-6 text-white/60 hover:text-white hover:bg-white/10"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Volver
-        </Button>
+      {/* Glowing orbs */}
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px]" />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-accent/5 rounded-full blur-[100px]" />
+      <div className="absolute top-0 right-0 w-[300px] h-[300px] bg-primary/3 rounded-full blur-[80px]" />
+      
+      {/* Grid pattern overlay */}
+      <div 
+        className="absolute inset-0 opacity-[0.02]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), 
+                           linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)`,
+          backgroundSize: '50px 50px'
+        }}
+      />
+      
+      <div className="w-full max-w-sm relative z-10 px-4">
+        {/* Logo / Brand */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-primary via-accent to-primary mb-6 shadow-2xl shadow-primary/30 animate-float">
+            <Zap className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="font-display text-4xl tracking-wider text-white mb-2">
+            FLUXO
+          </h1>
+          <p className="text-white/40 text-sm tracking-wide">
+            STREAMING PREMIUM
+          </p>
+        </div>
 
-        {/* Card */}
-        <div className="relative overflow-hidden rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10 p-8">
-          {/* Glow Effect */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-gradient-to-r from-purple-500 to-emerald-500 rounded-full blur-3xl opacity-30" />
+        {/* Login Card */}
+        <div className="relative">
+          {/* Card glow effect */}
+          <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-primary/20 via-accent/10 to-primary/20 blur-xl opacity-50" />
           
-          {/* Header */}
-          <div className="text-center mb-8 relative">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-purple-500 to-emerald-500 flex items-center justify-center shadow-lg shadow-purple-500/25">
-              <Sparkles className="w-8 h-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-2">
-              Iniciar Sesión
-            </h1>
-            <p className="text-white/50 text-sm">
-              Ingresa tus credenciales para acceder
-            </p>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-white/80">Usuario</Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="Tu nombre de usuario"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-purple-500/50 focus:ring-purple-500/20"
-                  required
-                />
+          <div className="relative rounded-3xl bg-zinc-900/80 backdrop-blur-2xl border border-white/[0.08] p-8 shadow-2xl">
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-white/60 text-sm font-medium pl-1">Usuario</label>
+                <div className="relative group">
+                  <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-primary/30 to-accent/20 opacity-0 group-focus-within:opacity-100 blur transition-opacity duration-300" />
+                  <div className="relative flex items-center">
+                    <User className="absolute left-4 w-5 h-5 text-white/30 pointer-events-none" />
+                    <Input
+                      type="text"
+                      placeholder="Tu nombre de usuario"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      className="pl-12 h-14 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/25 focus:border-primary/50 focus:bg-white/[0.05] transition-all duration-300"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-white/80">Contraseña</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 bg-white/5 border-white/10 text-white placeholder:text-white/30 focus:border-purple-500/50 focus:ring-purple-500/20"
-                  required
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-white/10"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4 text-white/40" />
-                  ) : (
-                    <Eye className="w-4 h-4 text-white/40" />
-                  )}
-                </Button>
+              <div className="space-y-2">
+                <label className="text-white/60 text-sm font-medium pl-1">Contraseña</label>
+                <div className="relative group">
+                  <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-primary/30 to-accent/20 opacity-0 group-focus-within:opacity-100 blur transition-opacity duration-300" />
+                  <div className="relative flex items-center">
+                    <Lock className="absolute left-4 w-5 h-5 text-white/30 pointer-events-none" />
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="pl-12 pr-12 h-14 rounded-xl bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/25 focus:border-primary/50 focus:bg-white/[0.05] transition-all duration-300"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-4 p-1 hover:bg-white/10 rounded-lg transition-colors"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-5 h-5 text-white/40" />
+                      ) : (
+                        <Eye className="w-5 h-5 text-white/40" />
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
+
+              <Button
+                type="submit"
+                className="w-full h-14 rounded-xl bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-xl shadow-primary/25 text-white font-semibold text-base transition-all duration-300 mt-4"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  "Iniciar Sesión"
+                )}
+              </Button>
+            </form>
+
+            {/* Footer */}
+            <div className="mt-8 text-center">
+              <p className="text-white/25 text-xs">
+                ¿No tienes cuenta? Contacta al administrador
+              </p>
             </div>
-
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-purple-500 to-emerald-500 hover:opacity-90 shadow-lg shadow-purple-500/25 text-white font-semibold py-5"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                "Entrar"
-              )}
-            </Button>
-          </form>
-
-          {/* Footer */}
-          <div className="mt-6 text-center">
-            <p className="text-white/30 text-xs">
-              ¿No tienes cuenta? Contacta al administrador
-            </p>
           </div>
+        </div>
+
+        {/* Bottom branding */}
+        <div className="mt-10 text-center">
+          <p className="text-white/15 text-xs tracking-widest uppercase">
+            © 2024 Fluxo Entertainment
+          </p>
         </div>
       </div>
     </div>
