@@ -15,9 +15,6 @@ interface TopBarProps {
 
 const viewConfig: Record<ViewType, { title: string; subtitle: string; icon: string }> = {
   canales: { title: "Canales", subtitle: "EN VIVO", icon: "📺" },
-  peliculas: { title: "Películas", subtitle: "CATÁLOGO", icon: "🎬" },
-  series: { title: "Series", subtitle: "CATÁLOGO", icon: "📀" },
-  doramas: { title: "Doramas", subtitle: "ASIÁTICO", icon: "🎭" },
   eventos: { title: "Deportes", subtitle: "EVENTOS", icon: "⚽" },
 };
 
@@ -29,9 +26,6 @@ export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps)
 
   const getPlaceholder = () => {
     switch (activeView) {
-      case "peliculas": return "Buscar película…";
-      case "series": return "Buscar serie…";
-      case "doramas": return "Buscar dorama…";
       case "eventos": return "Buscar evento…";
       default: return "Buscar…";
     }

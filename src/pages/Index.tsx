@@ -6,9 +6,6 @@ import { Sidebar, ViewType } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { PlayerModal } from "@/components/PlayerModal";
 import { ChannelsView } from "@/components/ChannelsView";
-import { MoviesView } from "@/components/MoviesView";
-import { SeriesView } from "@/components/SeriesView";
-import { DoramasView } from "@/components/DoramasView";
 import { EventsView } from "@/components/EventsView";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { useAppAuth } from "@/hooks/useAppAuth";
@@ -62,9 +59,6 @@ const Index = () => {
           
           <div className="mt-2">
             {activeView === "canales" && <ChannelsView />}
-            {activeView === "peliculas" && <MoviesView searchQuery={searchQuery} />}
-            {activeView === "series" && <SeriesView searchQuery={searchQuery} />}
-            {activeView === "doramas" && <DoramasView searchQuery={searchQuery} />}
             {activeView === "eventos" && <EventsView />}
           </div>
         </main>

@@ -280,7 +280,17 @@ export function AdminEvents() {
 
   useEffect(() => {
     fetchEventLinks();
+    // Sync event status on load
+    syncEventStatus();
   }, []);
+
+  const syncEventStatus = async () => {
+    try {
+      await supabase.functions.invoke("sync-event-status");
+    } catch (error) {
+      console.error("Error syncing event status:", error);
+    }
+  };
 
   const fetchEventLinks = async () => {
     const { data, error } = await supabase
@@ -442,17 +452,18 @@ export function AdminEvents() {
     return { total, live, withLink, withoutLink };
   }, [eventLinks]);
 
-  // Filtered events
+  // Filtered events - improved search by team names
   const filteredEvents = useMemo(() => {
     return eventLinks.filter(event => {
-      // Search filter
+      // Search filter - improved to search by team names
       if (searchQuery) {
-        const query = searchQuery.toLowerCase();
+        const query = searchQuery.toLowerCase().trim();
         const matchesSearch = 
           event.name.toLowerCase().includes(query) ||
           event.league?.toLowerCase().includes(query) ||
           event.team_home?.toLowerCase().includes(query) ||
-          event.team_away?.toLowerCase().includes(query);
+          event.team_away?.toLowerCase().includes(query) ||
+          event.sport?.toLowerCase().includes(query);
         if (!matchesSearch) return false;
       }
       
@@ -567,7 +578,7 @@ export function AdminEvents() {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar eventos, equipos, ligas..."
+            placeholder="Buscar por equipo, liga o evento... (ej: Lakers, NBA)"
             className="pl-10 bg-card/50 border-border/50"
           />
         </div>
@@ -825,35 +836,37 @@ export function AdminEvents() {
         </DialogContent>
       </Dialog>
 
-      {/* Event Links List */}
-      <div className="space-y-3">
-        {filteredEvents.length === 0 ? (
-          <div className="text-center py-16 glass-panel rounded-2xl">
-            <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
-              <Calendar className="w-8 h-8 text-muted-foreground" />
+      {/* Event Links List - with scroll area */}
+      <ScrollArea className="h-[calc(100vh-400px)] min-h-[400px]">
+        <div className="space-y-3 pr-4">
+          {filteredEvents.length === 0 ? (
+            <div className="text-center py-16 glass-panel rounded-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <p className="text-muted-foreground mb-2">No hay eventos que mostrar</p>
+              <p className="text-xs text-muted-foreground/60">
+                {searchQuery || filterStatus !== "all" 
+                  ? "Intenta cambiar los filtros de búsqueda"
+                  : "Busca en ESPN y agrega un link de stream"}
+              </p>
             </div>
-            <p className="text-muted-foreground mb-2">No hay eventos que mostrar</p>
-            <p className="text-xs text-muted-foreground/60">
-              {searchQuery || filterStatus !== "all" 
-                ? "Intenta cambiar los filtros de búsqueda"
-                : "Busca en ESPN y agrega un link de stream"}
-            </p>
-          </div>
-        ) : (
-          filteredEvents.map((event, index) => (
-            <EventRow
-              key={event.id}
-              event={event}
-              saving={saving === event.id}
-              onUpdateStreams={(urls) => updateStreamUrls(event, urls)}
-              onToggleLive={(live) => toggleLive(event, live)}
-              onToggleActive={(active) => toggleActive(event, active)}
-              onDelete={() => deleteEventLink(event.id)}
-              index={index}
-            />
-          ))
-        )}
-      </div>
+          ) : (
+            filteredEvents.map((event, index) => (
+              <EventRow
+                key={event.id}
+                event={event}
+                saving={saving === event.id}
+                onUpdateStreams={(urls) => updateStreamUrls(event, urls)}
+                onToggleLive={(live) => toggleLive(event, live)}
+                onToggleActive={(active) => toggleActive(event, active)}
+                onDelete={() => deleteEventLink(event.id)}
+                index={index}
+              />
+            ))
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }
