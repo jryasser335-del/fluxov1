@@ -32,31 +32,34 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex sticky top-0 h-screen flex-col items-center border-r border-white/[0.04] bg-black w-[86px]">
+      {/* Desktop Sidebar - Ultra Premium Design */}
+      <aside className="hidden md:flex sticky top-0 h-screen flex-col items-center border-r border-white/[0.06] bg-gradient-to-b from-black via-black to-black/95 w-[86px]">
         {/* Top ambient glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-24 bg-primary/10 blur-[50px] rounded-full pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-primary/15 blur-[60px] rounded-full pointer-events-none" />
         
-        {/* Logo */}
-        <div className="relative mt-5 mb-3">
-          <div className="relative w-12 h-12 rounded-2xl flex items-center justify-center overflow-hidden group cursor-pointer">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/10 border border-primary/20" />
+        {/* Logo with premium styling */}
+        <div className="relative mt-6 mb-4">
+          <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center overflow-hidden group cursor-pointer transition-all duration-500 hover:scale-105">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/25 via-accent/15 to-transparent border border-primary/25 rounded-2xl" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent rounded-2xl" />
             <img 
               src="/pwa-192x192.png" 
               alt="FluxoTV" 
-              className="w-9 h-9 relative z-10 rounded-lg transition-transform group-hover:scale-105"
+              className="w-10 h-10 relative z-10 rounded-xl transition-transform group-hover:scale-105 drop-shadow-lg"
             />
+            {/* Corner accent */}
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-gradient-to-r from-primary to-accent opacity-80" />
           </div>
         </div>
 
-        {/* Brand */}
-        <span className="text-[9px] font-black text-primary/80 tracking-[0.3em] mb-4">FLUXO</span>
+        {/* Brand text */}
+        <span className="text-[9px] font-black text-primary/90 tracking-[0.35em] mb-5">FLUXO</span>
 
-        {/* Divider */}
-        <div className="w-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-4" />
+        {/* Premium divider */}
+        <div className="w-10 h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent mb-5" />
 
-        {/* Navigation */}
-        <nav className="flex flex-col gap-1.5 px-2.5">
+        {/* Navigation with enhanced styling */}
+        <nav className="flex flex-col gap-2 px-2.5">
           {navItems.map(({ view, label, icon, color }, index) => {
             const isActive = activeView === view;
             return (
@@ -65,39 +68,43 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
                 onClick={() => onViewChange(view)}
                 style={{ animationDelay: `${index * 0.05}s` }}
                 className={cn(
-                  "relative w-[62px] h-[56px] rounded-2xl flex flex-col items-center justify-center gap-0.5 transition-all duration-300 animate-fade-in group",
+                  "relative w-[64px] h-[60px] rounded-2xl flex flex-col items-center justify-center gap-1 transition-all duration-500 animate-fade-in group",
                   isActive
-                    ? "bg-white/[0.08] border border-white/[0.12] shadow-lg"
-                    : "border border-transparent hover:bg-white/[0.04] hover:border-white/[0.06]"
+                    ? "bg-gradient-to-br from-white/[0.1] to-white/[0.04] border border-white/[0.15] shadow-xl shadow-primary/10"
+                    : "border border-transparent hover:bg-white/[0.05] hover:border-white/[0.08]"
                 )}
               >
-                {/* Active indicator bar */}
+                {/* Active indicator bar - premium glow */}
                 {isActive && (
-                  <div className={cn(
-                    "absolute -left-2.5 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-gradient-to-b",
-                    color
-                  )} />
+                  <>
+                    <div className={cn(
+                      "absolute -left-2.5 top-1/2 -translate-y-1/2 w-1.5 h-8 rounded-r-full bg-gradient-to-b shadow-lg",
+                      color
+                    )} style={{ boxShadow: `0 0 15px hsl(var(--primary) / 0.5)` }} />
+                    {/* Inner glow */}
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
+                  </>
                 )}
                 
                 <div className={cn(
-                  "transition-all duration-300",
+                  "transition-all duration-500",
                   isActive 
-                    ? "text-white scale-110" 
-                    : "text-white/50 group-hover:text-white/80"
+                    ? "text-white scale-110 drop-shadow-lg" 
+                    : "text-white/50 group-hover:text-white/80 group-hover:scale-105"
                 )}>
                   {icon}
                 </div>
                 
                 <span className={cn(
-                  "text-[8px] font-bold tracking-[0.15em] transition-colors duration-300",
-                  isActive ? "text-white" : "text-white/40 group-hover:text-white/60"
+                  "text-[8px] font-black tracking-[0.2em] transition-colors duration-500",
+                  isActive ? "text-white" : "text-white/40 group-hover:text-white/70"
                 )}>
                   {label}
                 </span>
 
                 {isActive && (
                   <div className={cn(
-                    "absolute inset-0 rounded-2xl opacity-20 blur-xl bg-gradient-to-br pointer-events-none",
+                    "absolute inset-0 rounded-2xl opacity-30 blur-xl bg-gradient-to-br pointer-events-none",
                     color
                   )} />
                 )}
@@ -109,30 +116,30 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Divider */}
-        <div className="w-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-3" />
+        {/* Premium divider */}
+        <div className="w-10 h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent mb-4" />
 
-        {/* Logout Button */}
+        {/* Logout Button with enhanced styling */}
         {appUser && (
           <button
             onClick={logout}
-            className="w-[62px] h-[50px] mb-2 rounded-2xl flex flex-col items-center justify-center gap-0.5 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500/30 transition-all duration-300 group"
+            className="w-[64px] h-[54px] mb-2 rounded-2xl flex flex-col items-center justify-center gap-1 border border-red-500/25 bg-gradient-to-br from-red-500/10 to-red-600/5 hover:from-red-500/20 hover:to-red-600/10 hover:border-red-500/40 transition-all duration-500 group"
           >
-            <LogOut className="w-4 h-4 text-red-400/70 group-hover:text-red-400 transition-colors" />
-            <span className="text-[7px] font-bold tracking-wider text-red-400/60 group-hover:text-red-400/80 transition-colors">
+            <LogOut className="w-4.5 h-4.5 text-red-400/70 group-hover:text-red-400 transition-colors duration-300" />
+            <span className="text-[7px] font-bold tracking-wider text-red-400/60 group-hover:text-red-400/90 transition-colors duration-300">
               SALIR
             </span>
           </button>
         )}
 
-        {/* Admin Button */}
+        {/* Admin Button with enhanced styling */}
         {isAdmin && (
           <Link
             to="/admin"
-            className="w-[62px] h-[50px] mb-5 rounded-2xl flex flex-col items-center justify-center gap-0.5 border border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/[0.1] transition-all duration-300 group"
+            className="w-[64px] h-[54px] mb-6 rounded-2xl flex flex-col items-center justify-center gap-1 border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-transparent hover:from-white/[0.08] hover:border-primary/30 transition-all duration-500 group"
           >
-            <Settings className="w-4 h-4 text-white/40 group-hover:text-white/70 transition-all duration-300 group-hover:rotate-90" />
-            <span className="text-[7px] font-bold tracking-wider text-white/30 group-hover:text-white/60 transition-colors">
+            <Settings className="w-4.5 h-4.5 text-white/40 group-hover:text-primary transition-all duration-500 group-hover:rotate-90" />
+            <span className="text-[7px] font-bold tracking-wider text-white/30 group-hover:text-primary/80 transition-colors duration-300">
               ADMIN
             </span>
           </Link>
