@@ -271,6 +271,7 @@ export function AdminEvents() {
   const [newStreamUrl, setNewStreamUrl] = useState("");
   const [newStreamUrl2, setNewStreamUrl2] = useState("");
   const [newStreamUrl3, setNewStreamUrl3] = useState("");
+  const [espnSearchQuery, setEspnSearchQuery] = useState("");
   
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -387,6 +388,7 @@ export function AdminEvents() {
     setNewStreamUrl3("");
     setLeagueSearch("");
     setEspnEvents([]);
+    setEspnSearchQuery("");
     setIsDialogOpen(false);
   };
 
@@ -489,6 +491,22 @@ export function AdminEvents() {
     })).filter(cat => cat.leagues.length > 0);
   }, [leagueSearch]);
 
+  // Filter ESPN events by team name
+  const filteredEspnEvents = useMemo(() => {
+    if (!espnSearchQuery.trim()) return espnEvents;
+    const query = espnSearchQuery.toLowerCase().trim();
+    return espnEvents.filter(event => {
+      const comp = event.competitions[0];
+      const home = comp.competitors.find(c => c.homeAway === "home");
+      const away = comp.competitors.find(c => c.homeAway === "away");
+      return (
+        home?.team.displayName?.toLowerCase().includes(query) ||
+        home?.team.shortDisplayName?.toLowerCase().includes(query) ||
+        away?.team.displayName?.toLowerCase().includes(query) ||
+        away?.team.shortDisplayName?.toLowerCase().includes(query)
+      );
+    });
+  }, [espnEvents, espnSearchQuery]);
   const toggleCategory = (catName: string) => {
     setOpenCategories(prev => 
       prev.includes(catName) 
@@ -675,12 +693,25 @@ export function AdminEvents() {
 
                 {/* ESPN Results */}
                 {espnEvents.length > 0 ? (
-                  <ScrollArea className="flex-1 min-h-0 max-h-[400px] -mx-2 px-2">
-                    <div className="space-y-2 pb-4 pr-2">
-                      <p className="text-xs text-muted-foreground mb-2">
-                        {espnEvents.length} evento(s) encontrado(s)
-                      </p>
-                      {espnEvents.map((event) => {
+                  <div className="flex flex-col flex-1 min-h-0 space-y-3">
+                    {/* Search within results */}
+                    <div className="relative shrink-0">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        value={espnSearchQuery}
+                        onChange={(e) => setEspnSearchQuery(e.target.value)}
+                        placeholder="Buscar por equipo... (ej: Lakers, Bulls)"
+                        className="pl-10"
+                      />
+                    </div>
+                    
+                    <p className="text-xs text-muted-foreground shrink-0">
+                      {filteredEspnEvents.length} de {espnEvents.length} evento(s)
+                    </p>
+                    
+                    {/* Scrollable results */}
+                    <div className="flex-1 min-h-0 overflow-y-auto max-h-[350px] space-y-2 pr-2">
+                      {filteredEspnEvents.map((event) => {
                         const comp = event.competitions[0];
                         const home = comp.competitors.find(c => c.homeAway === "home");
                         const away = comp.competitors.find(c => c.homeAway === "away");
@@ -716,8 +747,14 @@ export function AdminEvents() {
                           </div>
                         );
                       })}
+                      
+                      {filteredEspnEvents.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No se encontraron partidos con "{espnSearchQuery}"</p>
+                        </div>
+                      )}
                     </div>
-                  </ScrollArea>
+                  </div>
                 ) : (
                   /* Categories List */
                   <ScrollArea className="flex-1 -mx-2 px-2">
