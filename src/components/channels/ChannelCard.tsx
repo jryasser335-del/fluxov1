@@ -29,86 +29,79 @@ export function ChannelCard({ channel, onClick }: ChannelCardProps) {
     <div
       onClick={onClick}
       className={cn(
-        "group relative rounded-3xl overflow-hidden transition-all duration-500 cursor-pointer",
-        "bg-gradient-to-br from-white/[0.06] to-white/[0.02]",
-        "border border-white/[0.08] hover:border-primary/40",
-        "hover:-translate-y-1.5 hover:shadow-[0_25px_50px_-12px_hsl(270_100%_50%/0.3)]"
+        "group relative rounded-2xl overflow-hidden transition-all duration-400 cursor-pointer",
+        "bg-gradient-to-br from-white/[0.05] to-white/[0.01]",
+        "border border-white/[0.06] hover:border-primary/30",
+        "hover:-translate-y-1 hover:shadow-[0_20px_40px_-15px_hsl(270_100%_50%/0.25)]"
       )}
     >
-      {/* Multi-layer background effects */}
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-700 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/15 via-transparent to-accent/10" />
-        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
+      {/* Background glow on hover */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-500 pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/5" />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
       </div>
 
-      {/* Animated corner glow */}
-      <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-all duration-700" />
-
-      <div className="relative p-4 flex items-center gap-4">
-        {/* Logo container with premium styling */}
-        <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-white/[0.1] to-white/[0.03] border border-white/[0.1] flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:border-primary/30 transition-all duration-500">
-          {/* Inner glow */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-          
+      <div className="relative p-3.5 flex items-center gap-3.5">
+        {/* Logo container */}
+        <div className="relative w-14 h-14 rounded-xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:border-white/[0.12] transition-colors">
           {channel.logo ? (
             <img
               src={getProxiedLogoUrl(channel.logo) || ""}
               alt={channel.name}
-              className="w-full h-full object-contain p-2.5 transition-transform duration-500 group-hover:scale-110"
+              className="w-full h-full object-contain p-2 transition-transform group-hover:scale-105"
               loading="lazy"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.style.display = "none";
-                target.parentElement!.innerHTML = '<span class="text-2xl">📺</span>';
+                target.parentElement!.innerHTML = '<span class="text-xl">📺</span>';
               }}
             />
           ) : (
-            <span className="text-2xl">📺</span>
+            <span className="text-xl">📺</span>
           )}
           
-          {/* Live indicator with premium animation */}
+          {/* Live indicator */}
           {hasStream && (
-            <div className="absolute -top-1.5 -right-1.5">
-              <div className="relative w-5 h-5 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 border-2 border-black flex items-center justify-center shadow-lg shadow-green-500/50">
-                <div className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-75" />
-                <Wifi className="w-2.5 h-2.5 text-white relative z-10" />
+            <div className="absolute -top-1 -right-1">
+              <div className="relative w-4 h-4 rounded-full bg-green-500 border-2 border-[hsl(240_20%_6%)] flex items-center justify-center">
+                <div className="absolute inset-0 rounded-full bg-green-500 animate-ping opacity-75" />
+                <Wifi className="w-2 h-2 text-white relative z-10" />
               </div>
             </div>
           )}
         </div>
 
-        {/* Info section */}
+        {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-sm text-white/90 truncate group-hover:text-white transition-colors duration-300">
+          <div className="font-semibold text-sm text-white/90 truncate group-hover:text-white transition-colors">
             {channel.name}
           </div>
-          <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex items-center gap-1.5 mt-1">
             {hasStream ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-green-500/20 to-emerald-500/15 border border-green-500/30 text-[10px] font-bold text-green-400 uppercase tracking-wider shadow-sm shadow-green-500/10">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-green-500/15 border border-green-500/20 text-[10px] font-bold text-green-400 uppercase tracking-wider">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                En vivo
+                Live
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/[0.1] text-[10px] font-medium text-white/40 uppercase tracking-wider">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[10px] font-medium text-white/40 uppercase tracking-wider">
                 Offline
               </span>
             )}
           </div>
         </div>
 
-        {/* Play button with premium styling */}
+        {/* Play button */}
         <div
           className={cn(
-            "w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500",
+            "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300",
             "border backdrop-blur-sm",
             hasStream
-              ? "bg-gradient-to-br from-primary/30 to-accent/20 border-primary/40 text-primary group-hover:from-primary/40 group-hover:to-accent/30 group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-primary/30"
-              : "bg-white/[0.05] border-white/[0.1] text-white/30"
+              ? "bg-gradient-to-br from-primary/20 to-primary/10 border-primary/30 text-primary group-hover:from-primary/30 group-hover:to-primary/20 group-hover:scale-105"
+              : "bg-white/[0.04] border-white/[0.08] text-white/30"
           )}
         >
           {hasStream ? (
-            <Play className="w-5 h-5 fill-current ml-0.5" />
+            <Play className="w-4 h-4 fill-current ml-0.5" />
           ) : (
             <Link2Off className="w-4 h-4" />
           )}

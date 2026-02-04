@@ -8,7 +8,6 @@ import { PlayerModal } from "@/components/PlayerModal";
 import { ChannelsView } from "@/components/ChannelsView";
 import { EventsView } from "@/components/EventsView";
 import { NotificationCenter } from "@/components/NotificationCenter";
-import { AdBlockBanner } from "@/components/AdBlockBanner";
 import { useAppAuth } from "@/hooks/useAppAuth";
 
 const Index = () => {
@@ -40,25 +39,10 @@ const Index = () => {
       {showIntro && <IntroScreen onComplete={() => setShowIntro(false)} />}
       
       <div className="grid grid-cols-[86px_1fr] max-md:grid-cols-1 min-h-screen relative bg-black">
-        {/* Ultra-premium ambient background */}
+        {/* Ambient background effects */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          {/* Primary glow orb */}
-          <div className="absolute top-0 left-1/4 w-[800px] h-[600px] bg-primary/8 blur-[200px] rounded-full animate-pulse [animation-duration:8s]" />
-          {/* Accent glow orb */}
-          <div className="absolute bottom-1/3 right-1/4 w-[600px] h-[600px] bg-accent/5 blur-[180px] rounded-full animate-pulse [animation-duration:10s] [animation-delay:2s]" />
-          {/* Subtle secondary orb */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[500px] bg-primary/3 blur-[250px] rounded-full" />
-          {/* Premium grid overlay */}
-          <div 
-            className="absolute inset-0 opacity-[0.02]"
-            style={{
-              backgroundImage: `
-                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)
-              `,
-              backgroundSize: '60px 60px'
-            }}
-          />
+          <div className="absolute top-0 left-1/3 w-[600px] h-[400px] bg-primary/5 blur-[150px] rounded-full" />
+          <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-accent/3 blur-[120px] rounded-full" />
         </div>
 
         {/* Sidebar - hidden on mobile, shown at bottom */}
@@ -66,17 +50,12 @@ const Index = () => {
           <Sidebar activeView={activeView} onViewChange={handleViewChange} />
         </div>
         
-        <main className="relative p-4 md:p-6 pb-24 md:pb-8 overflow-x-hidden">
+        <main className="relative p-4 md:p-5 pb-24 md:pb-8 overflow-x-hidden">
           <TopBar
             activeView={activeView}
             searchValue={searchQuery}
             onSearchChange={setSearchQuery}
           />
-          
-          {/* AdBlock Banner */}
-          <div className="mt-4">
-            <AdBlockBanner />
-          </div>
           
           <div className="mt-2">
             {activeView === "canales" && <ChannelsView />}
