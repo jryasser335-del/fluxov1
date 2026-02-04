@@ -1219,17 +1219,20 @@ export function PlayerModal() {
         {/* Floating Bottom Bar - Stream options - ALWAYS VISIBLE when multiple options - CENTERED */}
         {hasMultipleOptions && (
           <div 
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3"
+            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 pointer-events-auto"
           >
             {availableOptions.map((opt) => (
               <button
                 key={opt.num}
-                onClick={() => setActiveOption(opt.num)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveOption(opt.num);
+                }}
                 className={cn(
-                  "h-12 px-6 rounded-full text-sm font-bold transition-all duration-200 backdrop-blur-xl shadow-2xl border-2",
+                  "h-14 px-8 rounded-full text-base font-bold transition-all duration-200 backdrop-blur-xl shadow-2xl border-2 pointer-events-auto",
                   activeOption === opt.num
-                    ? "bg-white text-black border-white scale-105"
-                    : "bg-black/80 text-white hover:bg-black/90 hover:scale-105 border-white/30"
+                    ? "bg-white text-black border-white scale-110"
+                    : "bg-black/90 text-white hover:bg-white hover:text-black hover:scale-105 border-white/50"
                 )}
               >
                 Opción {opt.num}
