@@ -123,13 +123,19 @@ export function ChannelsView() {
 
   return (
     <Section title="Canales" emoji="📺" badge={`${channels.length} canales`}>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {channels.map((channel) => (
-          <ChannelCard
+      {/* Premium grid with staggered animations */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {channels.map((channel, index) => (
+          <div 
             key={channel.id}
-            channel={channel}
-            onClick={() => handleChannelClick(channel)}
-          />
+            className="animate-card-entrance"
+            style={{ animationDelay: `${index * 40}ms` }}
+          >
+            <ChannelCard
+              channel={channel}
+              onClick={() => handleChannelClick(channel)}
+            />
+          </div>
         ))}
       </div>
     </Section>

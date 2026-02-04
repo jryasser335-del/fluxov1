@@ -3,7 +3,7 @@ import {
   X, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Play, Pause, 
   Rewind, FastForward, Subtitles, Settings, Share2, PictureInPicture2,
   MonitorPlay, Keyboard, BarChart3, Moon, Cast, Music, Smartphone, Signal,
-  Sparkles, Zap
+  Sparkles, Zap, Shield
 } from "lucide-react";
 import Hls from "hls.js";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
@@ -11,6 +11,7 @@ import { useRealtimeSubtitles } from "@/hooks/useRealtimeSubtitles";
 import { useWatchHistory } from "@/hooks/useWatchHistory";
 import { useSleepTimer } from "@/hooks/useSleepTimer";
 import { useAmbientMode } from "@/hooks/useAmbientMode";
+import { useAdBlocker } from "@/hooks/useAdBlocker";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { KeyboardShortcuts } from "./player/KeyboardShortcuts";
@@ -70,6 +71,7 @@ export function PlayerModal() {
   // Premium hooks
   const sleepTimer = useSleepTimer();
   const ambientMode = useAmbientMode(videoRef);
+  const adBlocker = useAdBlocker({ enabled: true, aggressiveMode: true });
 
   const {
     isEnabled: subtitlesEnabled,
@@ -504,6 +506,7 @@ export function PlayerModal() {
     }
     try {
       const urlObj = new URL(rawUrl);
+      // Autoplay params
       if (!urlObj.searchParams.has('autoplay')) {
         urlObj.searchParams.set('autoplay', '1');
       }
@@ -516,13 +519,24 @@ export function PlayerModal() {
       if (!urlObj.searchParams.has('playsinline')) {
         urlObj.searchParams.set('playsinline', '1');
       }
-      if (!urlObj.searchParams.has('ads')) {
-        urlObj.searchParams.set('ads', '0');
-      }
-      return urlObj.toString();
+      // Anti-ad params
+      urlObj.searchParams.set('ads', '0');
+      urlObj.searchParams.set('ad', '0');
+      urlObj.searchParams.set('noads', '1');
+      urlObj.searchParams.set('disable_ads', '1');
+      urlObj.searchParams.set('gdpr', '1');
+      urlObj.searchParams.set('gdpr_consent', '0');
+      urlObj.searchParams.set('npa', '1');
+      urlObj.searchParams.set('tfcd', '1');
+      urlObj.searchParams.set('showads', '0');
+      urlObj.searchParams.set('preroll', '0');
+      urlObj.searchParams.set('midroll', '0');
+      urlObj.searchParams.set('postroll', '0');
+      
+      return adBlocker.cleanAdParams(urlObj.toString());
     } catch {
       const separator = rawUrl.includes('?') ? '&' : '?';
-      return `${rawUrl}${separator}autoplay=1&auto_play=true&playsinline=1`;
+      return `${rawUrl}${separator}autoplay=1&auto_play=true&playsinline=1&ads=0&noads=1&disable_ads=1`;
     }
   };
 
