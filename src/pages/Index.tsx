@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { IntroScreen } from "@/components/IntroScreen";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { Sidebar, ViewType } from "@/components/Sidebar";
@@ -10,16 +11,31 @@ import { SeriesView } from "@/components/SeriesView";
 import { DoramasView } from "@/components/DoramasView";
 import { EventsView } from "@/components/EventsView";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { useAppAuth } from "@/hooks/useAppAuth";
 
 const Index = () => {
   const [showIntro, setShowIntro] = useState(true);
   const [activeView, setActiveView] = useState<ViewType>("canales");
   const [searchQuery, setSearchQuery] = useState("");
+  const { appUser, checkAccess } = useAppAuth();
+  const navigate = useNavigate();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!appUser || !checkAccess()) {
+      navigate("/login");
+    }
+  }, [appUser, checkAccess, navigate]);
 
   const handleViewChange = (view: ViewType) => {
     setActiveView(view);
     setSearchQuery("");
   };
+
+  // Don't render content if not authenticated
+  if (!appUser || !checkAccess()) {
+    return null;
+  }
 
   return (
     <>

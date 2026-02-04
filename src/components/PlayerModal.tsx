@@ -503,10 +503,27 @@ export function PlayerModal() {
     // Handle YouTube URLs
     const ytMatch = rawUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/);
     if (ytMatch) {
-      return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=0&controls=1&rel=0`;
+      return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&showinfo=0`;
     }
-    // For embed URLs, return as-is - they're already embeddable
-    return rawUrl;
+    // For other embed URLs, add autoplay parameter if not present
+    try {
+      const urlObj = new URL(rawUrl);
+      // Add autoplay parameters to help with automatic playback
+      if (!urlObj.searchParams.has('autoplay')) {
+        urlObj.searchParams.set('autoplay', '1');
+      }
+      if (!urlObj.searchParams.has('auto_play')) {
+        urlObj.searchParams.set('auto_play', 'true');
+      }
+      // Disable ads where possible
+      if (!urlObj.searchParams.has('ads')) {
+        urlObj.searchParams.set('ads', '0');
+      }
+      return urlObj.toString();
+    } catch {
+      // If URL parsing fails, return as-is
+      return rawUrl;
+    }
   };
 
   const handleIframeLoad = () => {
