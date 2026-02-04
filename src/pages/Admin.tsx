@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, Loader2, Tv, Trophy, Users } from "lucide-react";
+import { LogOut, Loader2, Tv, Trophy, Users, ArrowLeft } from "lucide-react";
 import { AdminChannels } from "@/components/admin/AdminChannels";
 import { AdminEvents } from "@/components/admin/AdminEvents";
 import { AdminUsers } from "@/components/admin/AdminUsers";
@@ -49,14 +49,24 @@ export default function Admin() {
             <p className="text-sm text-white/40">Gestiona tu plataforma de streaming</p>
           </div>
 
-          <Button 
-            variant="outline" 
-            onClick={handleSignOut}
-            className="border-white/20 text-white hover:bg-white/10"
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Salir
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/")}
+              className="border-white/20 text-white hover:bg-white/10"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Volver
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSignOut}
+              className="border-white/20 text-white hover:bg-white/10"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Salir
+            </Button>
+          </div>
         </div>
 
         {/* Tabs */}
