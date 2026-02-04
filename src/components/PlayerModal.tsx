@@ -1216,20 +1216,20 @@ export function PlayerModal() {
           </div>
         </div>
 
-        {/* Floating Bottom Bar - Stream options - ALWAYS VISIBLE when multiple options */}
+        {/* Floating Bottom Bar - Stream options - ALWAYS VISIBLE when multiple options - CENTERED */}
         {hasMultipleOptions && (
           <div 
-            className="absolute bottom-4 left-4 z-50 flex items-center gap-2"
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[70] flex items-center gap-3"
           >
             {availableOptions.map((opt) => (
               <button
                 key={opt.num}
                 onClick={() => setActiveOption(opt.num)}
                 className={cn(
-                  "h-10 px-5 rounded-full text-sm font-semibold transition-all duration-200 backdrop-blur-md shadow-lg border",
+                  "h-12 px-6 rounded-full text-sm font-bold transition-all duration-200 backdrop-blur-xl shadow-2xl border-2",
                   activeOption === opt.num
-                    ? "bg-white text-black border-white/50"
-                    : "bg-black/70 text-white/90 hover:bg-black/90 hover:text-white border-white/20"
+                    ? "bg-white text-black border-white scale-105"
+                    : "bg-black/80 text-white hover:bg-black/90 hover:scale-105 border-white/30"
                 )}
               >
                 Opción {opt.num}
