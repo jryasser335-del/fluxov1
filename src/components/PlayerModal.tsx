@@ -1216,7 +1216,29 @@ export function PlayerModal() {
           </div>
         </div>
 
-        {/* Floating Bottom Bar - Stream options */}
+        {/* Floating Bottom Bar - Stream options - ALWAYS VISIBLE when multiple options */}
+        {hasMultipleOptions && (
+          <div 
+            className="absolute bottom-4 left-4 z-50 flex items-center gap-2"
+          >
+            {availableOptions.map((opt) => (
+              <button
+                key={opt.num}
+                onClick={() => setActiveOption(opt.num)}
+                className={cn(
+                  "h-10 px-5 rounded-full text-sm font-semibold transition-all duration-200 backdrop-blur-md shadow-lg border",
+                  activeOption === opt.num
+                    ? "bg-white text-black border-white/50"
+                    : "bg-black/70 text-white/90 hover:bg-black/90 hover:text-white border-white/20"
+                )}
+              >
+                Opción {opt.num}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Status and controls bar */}
         <div 
           className={cn(
             "absolute bottom-0 left-0 right-0 z-40 px-4 md:px-6 py-3 transition-all duration-300",
@@ -1228,25 +1250,6 @@ export function PlayerModal() {
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              {hasMultipleOptions && (
-                <div className="flex items-center gap-1.5">
-                  {availableOptions.map((opt) => (
-                    <button
-                      key={opt.num}
-                      onClick={() => setActiveOption(opt.num)}
-                      className={cn(
-                        "h-9 px-4 rounded-full text-xs font-semibold transition-all duration-200",
-                        activeOption === opt.num
-                          ? "bg-white text-black"
-                          : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
-                      )}
-                    >
-                      Opción {opt.num}
-                    </button>
-                  ))}
-                </div>
-              )}
-
               {/* Status indicator */}
               <div className="flex items-center gap-2 text-xs text-white/50">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
