@@ -693,70 +693,70 @@ export function PlayerModal() {
         </div>
       )}
       
-      <div 
-        ref={containerRef}
-        className="relative w-full h-full overflow-hidden"
-      >
-        {/* Floating Header - Overlays video */}
-        <div 
-          className={cn(
-            "absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-6 py-3 md:py-4 transition-all duration-300",
-            showControls 
-              ? "opacity-100 translate-y-0" 
-              : "opacity-0 -translate-y-2 pointer-events-none"
-          )}
-          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
+        {/* Always visible close button - top right corner */}
+        <button
+          onClick={closePlayer}
+          className="absolute top-4 right-4 md:top-6 md:right-6 z-[60] w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-md bg-black/60 hover:bg-red-500/80 border border-white/20 hover:border-red-500/50 transition-all duration-200 text-white/90 hover:text-white shadow-lg"
         >
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            {isLiveContent && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/30 backdrop-blur-sm shrink-0">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/50" />
-                <span className="text-[10px] font-black text-white uppercase tracking-widest">EN VIVO</span>
-              </div>
+          <X className="w-5 h-5" />
+        </button>
+
+        <div 
+          ref={containerRef}
+          className="relative w-full h-full overflow-hidden"
+        >
+          {/* Floating Header - Overlays video */}
+          <div 
+            className={cn(
+              "absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-6 py-3 md:py-4 pr-20 md:pr-24 transition-all duration-300",
+              showControls 
+                ? "opacity-100 translate-y-0" 
+                : "opacity-0 -translate-y-2 pointer-events-none"
             )}
-            <h2 className="font-display text-base md:text-xl tracking-wide text-white truncate drop-shadow-lg">
-              {title || "Reproductor"}
-            </h2>
-          </div>
-          
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Ambient mode toggle */}
-            <button
-              onClick={() => setAmbientEnabled(!ambientEnabled)}
-              className={cn(
-                "hidden sm:flex w-10 h-10 rounded-full items-center justify-center backdrop-blur-md transition-all duration-200",
-                ambientEnabled 
-                  ? "bg-accent/30 text-accent" 
-                  : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
+          >
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              {isLiveContent && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/30 backdrop-blur-sm shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/50" />
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">EN VIVO</span>
+                </div>
               )}
-              title="Modo Ambiente"
-            >
-              <Smartphone className="w-4 h-4" />
-            </button>
+              <h2 className="font-display text-base md:text-xl tracking-wide text-white truncate drop-shadow-lg">
+                {title || "Reproductor"}
+              </h2>
+            </div>
             
-            {/* Theater mode toggle */}
-            <button
-              onClick={() => setIsTheaterMode(!isTheaterMode)}
-              className={cn(
-                "hidden sm:flex w-10 h-10 rounded-full items-center justify-center backdrop-blur-md transition-all duration-200",
-                isTheaterMode 
-                  ? "bg-primary/30 text-primary" 
-                  : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
-              )}
-              title="Modo Teatro (T)"
-            >
-              <MonitorPlay className="w-4 h-4" />
-            </button>
-            
-            {/* Close button */}
-            <button
-              onClick={closePlayer}
-              className="w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md bg-white/10 hover:bg-red-500/40 hover:text-white transition-all duration-200 text-white/70"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Ambient mode toggle */}
+              <button
+                onClick={() => setAmbientEnabled(!ambientEnabled)}
+                className={cn(
+                  "hidden sm:flex w-10 h-10 rounded-full items-center justify-center backdrop-blur-md transition-all duration-200",
+                  ambientEnabled 
+                    ? "bg-accent/30 text-accent" 
+                    : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
+                )}
+                title="Modo Ambiente"
+              >
+                <Smartphone className="w-4 h-4" />
+              </button>
+              
+              {/* Theater mode toggle */}
+              <button
+                onClick={() => setIsTheaterMode(!isTheaterMode)}
+                className={cn(
+                  "hidden sm:flex w-10 h-10 rounded-full items-center justify-center backdrop-blur-md transition-all duration-200",
+                  isTheaterMode 
+                    ? "bg-primary/30 text-primary" 
+                    : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
+                )}
+                title="Modo Teatro (T)"
+              >
+                <MonitorPlay className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
 
         {/* Player Container - Full screen, no padding, no borders */}
         <div className="w-full h-full">
