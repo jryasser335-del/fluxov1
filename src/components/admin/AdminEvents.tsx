@@ -616,7 +616,7 @@ export function AdminEvents() {
         if (!open) resetDialog();
         setIsDialogOpen(open);
       }}>
-        <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent className="bg-card border-border max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
@@ -626,7 +626,7 @@ export function AdminEvents() {
             </DialogTitle>
           </DialogHeader>
           
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden">
             {!selectedEvent ? (
               <div className="space-y-4 h-full flex flex-col">
                 {/* League Search */}
@@ -675,8 +675,8 @@ export function AdminEvents() {
 
                 {/* ESPN Results */}
                 {espnEvents.length > 0 ? (
-                  <ScrollArea className="flex-1 -mx-2 px-2">
-                    <div className="space-y-2 pb-4">
+                  <ScrollArea className="flex-1 min-h-0 max-h-[400px] -mx-2 px-2">
+                    <div className="space-y-2 pb-4 pr-2">
                       <p className="text-xs text-muted-foreground mb-2">
                         {espnEvents.length} evento(s) encontrado(s)
                       </p>

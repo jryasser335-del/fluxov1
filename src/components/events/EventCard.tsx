@@ -201,109 +201,87 @@ export function EventCard({
         </div>
 
         {/* Main matchup - Ultra premium NBA style */}
-        <div className="flex items-center justify-between gap-2 sm:gap-6 mb-5">
+        <div className="flex items-center justify-between gap-2 sm:gap-4 mb-4">
           {/* Away team */}
           <div className="flex-1 flex flex-col items-center text-center min-w-0">
             <div className="relative group/team">
               {/* Glow effect behind logo */}
               <div 
-                className="absolute inset-0 blur-2xl opacity-50 transition-opacity group-hover/team:opacity-80"
+                className="absolute inset-0 blur-xl opacity-40 transition-opacity group-hover/team:opacity-60"
                 style={{ background: awayColor }}
               />
               <div 
-                className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-3xl flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-[-3deg]"
+                className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:scale-105"
                 style={{
-                  background: `linear-gradient(145deg, ${awayColor}50, ${awayColor}20)`,
-                  border: `2px solid ${awayColor}60`,
-                  boxShadow: `
-                    0 20px 40px -10px ${awayColor}40,
-                    inset 0 2px 0 rgba(255,255,255,0.2),
-                    inset 0 -2px 0 rgba(0,0,0,0.2)
-                  `
+                  background: `linear-gradient(145deg, ${awayColor}40, ${awayColor}15)`,
+                  border: `2px solid ${awayColor}50`,
+                  boxShadow: `0 10px 25px -8px ${awayColor}35`
                 }}
               >
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/40 via-transparent to-white/10" />
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/30 to-transparent" />
                 {away?.team?.logo ? (
                   <img
                     src={away.team.logo}
                     alt={away.team.displayName}
-                    className="relative w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-[0_5px_15px_rgba(0,0,0,0.5)]"
+                    className="relative w-10 h-10 sm:w-14 sm:h-14 object-contain drop-shadow-lg"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = "none";
                     }}
                   />
                 ) : (
-                  <span className="relative text-4xl sm:text-5xl">🏀</span>
+                  <span className="relative text-2xl sm:text-3xl">🏀</span>
                 )}
               </div>
             </div>
-            <div className="mt-3 font-display text-lg sm:text-xl font-bold text-white tracking-wide">
+            <div className="mt-2 font-display text-base sm:text-lg font-bold text-white tracking-wide">
               {away?.team?.abbreviation || "TBD"}
             </div>
-            <div className="text-[10px] sm:text-xs text-white/50 truncate max-w-full">
+            <div className="text-[9px] sm:text-[10px] text-white/50 truncate max-w-full">
               {away?.team?.shortDisplayName || "Team"}
             </div>
             {awayRecord && (
-              <div className="mt-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[9px] sm:text-[10px] text-white/40 font-medium">
+              <div className="mt-0.5 text-[8px] sm:text-[9px] text-white/30 font-medium">
                 {awayRecord}
               </div>
             )}
           </div>
 
-          {/* Score center - Premium design */}
-          <div className="flex flex-col items-center px-2 sm:px-6 flex-shrink-0">
-            <div className="relative">
-              {/* Animated glow behind score */}
-              {isLive && (
-                <div className="absolute inset-0 blur-3xl bg-gradient-to-r from-primary/40 via-transparent to-accent/40 animate-pulse" />
-              )}
+          {/* Score center */}
+          <div className="flex flex-col items-center px-1 sm:px-4 flex-shrink-0">
+            <div className="relative flex items-center gap-2 sm:gap-3">
+              <span className={cn(
+                "font-display text-3xl sm:text-5xl font-bold tabular-nums transition-all",
+                isLive ? "text-white" : "text-white/40"
+              )}>
+                {away?.score ?? "-"}
+              </span>
               
-              <div className="relative flex items-center gap-3 sm:gap-5">
-                <span className={cn(
-                  "font-display text-5xl sm:text-7xl font-bold tabular-nums transition-all duration-500",
-                  isLive 
-                    ? "text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]" 
-                    : "text-white/40"
-                )}>
-                  {away?.score ?? "-"}
-                </span>
-                
-                <div className="flex flex-col items-center gap-1">
-                  <div className={cn(
-                    "w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center",
-                    isLive 
-                      ? "bg-gradient-to-r from-primary to-accent shadow-lg shadow-primary/30" 
-                      : "bg-white/10"
-                  )}>
-                    <Zap className={cn(
-                      "w-3 h-3 sm:w-4 sm:h-4",
-                      isLive ? "text-white" : "text-white/30"
-                    )} />
-                  </div>
-                  <span className="text-[10px] sm:text-xs text-white/20 font-bold">VS</span>
-                </div>
-                
-                <span className={cn(
-                  "font-display text-5xl sm:text-7xl font-bold tabular-nums transition-all duration-500",
-                  isLive 
-                    ? "text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.4)]" 
-                    : "text-white/40"
-                )}>
-                  {home?.score ?? "-"}
-                </span>
+              <div className="flex flex-col items-center">
+                <Zap className={cn(
+                  "w-3 h-3 sm:w-4 sm:h-4",
+                  isLive ? "text-primary" : "text-white/20"
+                )} />
+                <span className="text-[9px] sm:text-[10px] text-white/20 font-medium">VS</span>
               </div>
+              
+              <span className={cn(
+                "font-display text-3xl sm:text-5xl font-bold tabular-nums transition-all",
+                isLive ? "text-white" : "text-white/40"
+              )}>
+                {home?.score ?? "-"}
+              </span>
             </div>
             
             {/* Clock or countdown */}
-            <div className="mt-3">
+            <div className="mt-2">
               {isPre ? (
-                <EventCountdown targetDate={comp?.date || event.date} />
+                <EventCountdown targetDate={comp?.date || event.date} compact />
               ) : (
                 <div className={cn(
-                  "px-4 py-1.5 rounded-full text-xs font-semibold backdrop-blur-sm border",
-                  isLive && "bg-red-500/20 text-red-200 border-red-500/30 shadow-lg shadow-red-500/10",
-                  isFinal && "bg-white/5 text-white/40 border-white/10",
-                  isPre && "bg-primary/20 text-primary border-primary/30"
+                  "px-2.5 py-1 rounded-full text-[10px] sm:text-xs font-semibold",
+                  isLive && "bg-red-500/20 text-red-200 border border-red-500/30",
+                  isFinal && "bg-white/5 text-white/40",
+                  isPre && "bg-primary/20 text-primary"
                 )}>
                   {clockTxt}
                 </div>
@@ -315,75 +293,68 @@ export function EventCard({
           <div className="flex-1 flex flex-col items-center text-center min-w-0">
             <div className="relative group/team">
               <div 
-                className="absolute inset-0 blur-2xl opacity-50 transition-opacity group-hover/team:opacity-80"
+                className="absolute inset-0 blur-xl opacity-40 transition-opacity group-hover/team:opacity-60"
                 style={{ background: homeColor }}
               />
               <div 
-                className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-3xl flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-[3deg]"
+                className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:scale-105"
                 style={{
-                  background: `linear-gradient(145deg, ${homeColor}50, ${homeColor}20)`,
-                  border: `2px solid ${homeColor}60`,
-                  boxShadow: `
-                    0 20px 40px -10px ${homeColor}40,
-                    inset 0 2px 0 rgba(255,255,255,0.2),
-                    inset 0 -2px 0 rgba(0,0,0,0.2)
-                  `
+                  background: `linear-gradient(145deg, ${homeColor}40, ${homeColor}15)`,
+                  border: `2px solid ${homeColor}50`,
+                  boxShadow: `0 10px 25px -8px ${homeColor}35`
                 }}
               >
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-t from-black/40 via-transparent to-white/10" />
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/30 to-transparent" />
                 {home?.team?.logo ? (
                   <img
                     src={home.team.logo}
                     alt={home.team.displayName}
-                    className="relative w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-[0_5px_15px_rgba(0,0,0,0.5)]"
+                    className="relative w-10 h-10 sm:w-14 sm:h-14 object-contain drop-shadow-lg"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = "none";
                     }}
                   />
                 ) : (
-                  <span className="relative text-4xl sm:text-5xl">🏀</span>
+                  <span className="relative text-2xl sm:text-3xl">🏀</span>
                 )}
               </div>
             </div>
-            <div className="mt-3 font-display text-lg sm:text-xl font-bold text-white tracking-wide">
+            <div className="mt-2 font-display text-base sm:text-lg font-bold text-white tracking-wide">
               {home?.team?.abbreviation || "TBD"}
             </div>
-            <div className="text-[10px] sm:text-xs text-white/50 truncate max-w-full">
+            <div className="text-[9px] sm:text-[10px] text-white/50 truncate max-w-full">
               {home?.team?.shortDisplayName || "Team"}
             </div>
             {homeRecord && (
-              <div className="mt-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[9px] sm:text-[10px] text-white/40 font-medium">
+              <div className="mt-0.5 text-[8px] sm:text-[9px] text-white/30 font-medium">
                 {homeRecord}
               </div>
             )}
           </div>
         </div>
 
-        {/* Footer - Premium action bar */}
-        <div className="flex items-center justify-between gap-3 pt-4 border-t border-white/[0.08]">
+        {/* Footer - Compact action bar */}
+        <div className="flex items-center justify-between gap-2 pt-3 border-t border-white/[0.08]">
           {/* Broadcast status */}
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
             <div className={cn(
-              "flex items-center gap-2 px-3 py-1.5 rounded-xl backdrop-blur-sm border",
+              "flex items-center gap-1.5 px-2 py-1 rounded-lg border",
               hasLink 
                 ? "bg-emerald-500/10 border-emerald-500/30" 
                 : "bg-white/5 border-white/10"
             )}>
               {hasLink ? (
                 <>
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                  </span>
-                  <Tv className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-[10px] sm:text-xs font-semibold text-emerald-400">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <Tv className="w-3 h-3 text-emerald-400" />
+                  <span className="text-[9px] sm:text-[10px] font-semibold text-emerald-400 hidden sm:inline">
                     Disponible
                   </span>
                 </>
               ) : (
                 <>
-                  <Tv className="w-3.5 h-3.5 text-white/30" />
-                  <span className="text-[10px] sm:text-xs font-medium text-white/30">
+                  <Tv className="w-3 h-3 text-white/30" />
+                  <span className="text-[9px] sm:text-[10px] font-medium text-white/30 hidden sm:inline">
                     Sin señal
                   </span>
                 </>
@@ -392,7 +363,7 @@ export function EventCard({
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-2 flex-shrink-0">
+          <div className="flex gap-1.5 flex-shrink-0">
             <EventShareButton 
               eventId={event.id} 
               title={`${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`}
@@ -405,42 +376,41 @@ export function EventCard({
                 onToggleFavorite();
               }}
               className={cn(
-                "h-10 w-10 rounded-xl flex items-center justify-center transition-all duration-300",
-                "border backdrop-blur-sm",
+                "h-8 w-8 sm:h-9 sm:w-9 rounded-lg flex items-center justify-center transition-all",
+                "border",
                 isFavorite
-                  ? "bg-gradient-to-br from-red-500/30 to-pink-500/30 border-red-500/50 text-red-400 shadow-lg shadow-red-500/20"
-                  : "bg-white/5 border-white/10 text-white/40 hover:text-white hover:border-white/30 hover:bg-white/10"
+                  ? "bg-red-500/20 border-red-500/40 text-red-400"
+                  : "bg-white/5 border-white/10 text-white/40 hover:text-white hover:border-white/20"
               )}
             >
               <Heart className={cn(
-                "w-4 h-4 transition-all",
-                isFavorite && "fill-current scale-110"
+                "w-3.5 h-3.5",
+                isFavorite && "fill-current"
               )} />
             </button>
 
-            {/* Premium CTA button */}
+            {/* CTA button */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 if (hasLink) onClick();
               }}
               className={cn(
-                "h-10 px-5 rounded-xl flex items-center gap-2 text-sm font-bold transition-all duration-300",
-                "border shadow-lg",
+                "h-8 sm:h-9 px-3 sm:px-4 rounded-lg flex items-center gap-1.5 text-xs font-bold transition-all",
+                "border",
                 hasLink
-                  ? "bg-gradient-to-r from-primary via-purple-500 to-accent text-white border-primary/50 hover:shadow-xl hover:shadow-primary/40 hover:scale-105 active:scale-95"
+                  ? "bg-gradient-to-r from-primary to-accent text-white border-primary/50 hover:scale-105 active:scale-95"
                   : "bg-white/5 border-white/10 text-white/30 cursor-not-allowed"
               )}
             >
               {hasLink ? (
                 <>
-                  <Play className="w-4 h-4 fill-current" />
+                  <Play className="w-3 h-3 fill-current" />
                   <span>VER</span>
-                  <Sparkles className="w-3 h-3 opacity-70" />
                 </>
               ) : (
                 <>
-                  <Link2Off className="w-4 h-4" />
+                  <Link2Off className="w-3 h-3" />
                   <span>N/A</span>
                 </>
               )}
