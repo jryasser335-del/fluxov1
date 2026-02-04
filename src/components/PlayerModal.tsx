@@ -678,74 +678,70 @@ export function PlayerModal() {
   return (
     <div
       onClick={(e) => e.target === e.currentTarget && closePlayer()}
-      className={cn(
-        "fixed inset-0 z-[9990] flex items-center justify-center animate-in fade-in duration-300",
-        isTheaterMode ? "p-0" : "p-2 md:p-6"
-      )}
+      className="fixed inset-0 z-[9990] flex items-center justify-center animate-in fade-in duration-200"
     >
-      {/* Premium backdrop */}
-      <div className="absolute inset-0 bg-black/98 backdrop-blur-2xl" />
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-accent/3 pointer-events-none" />
+      {/* Ultra-premium seamless backdrop */}
+      <div className="absolute inset-0 bg-black" />
       
-      {/* Ambient glow effect */}
+      {/* Subtle ambient glow effect */}
       {ambientEnabled && ambientMode.colors && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div 
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] blur-[200px] opacity-25 transition-all duration-1000"
-            style={{ background: `radial-gradient(ellipse, ${ambientMode.colors.dominant}, transparent 70%)` }}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] blur-[250px] opacity-30 transition-all duration-1000"
+            style={{ background: `radial-gradient(ellipse, ${ambientMode.colors.dominant}, transparent 60%)` }}
           />
         </div>
       )}
       
       <div 
         ref={containerRef}
-        className={cn(
-          "relative overflow-hidden transition-all duration-500",
-          isTheaterMode 
-            ? "w-full h-full rounded-none border-0" 
-            : "w-[min(1280px,98vw)] rounded-2xl md:rounded-3xl border border-white/[0.08] bg-gradient-to-b from-white/[0.03] to-transparent shadow-2xl"
-        )}
+        className="relative w-full h-full overflow-hidden"
       >
-        {/* Premium Header */}
-        <div className={cn(
-          "flex items-center justify-between px-3 md:px-5 py-2.5 md:py-3 border-b border-white/[0.06] backdrop-blur-xl transition-all",
-          isTheaterMode ? "absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/90 to-transparent border-0 opacity-0 hover:opacity-100" : "bg-black/60"
-        )}>
-          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+        {/* Floating Header - Overlays video */}
+        <div 
+          className={cn(
+            "absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-6 py-3 md:py-4 transition-all duration-300",
+            showControls 
+              ? "opacity-100 translate-y-0" 
+              : "opacity-0 -translate-y-2 pointer-events-none"
+          )}
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
+        >
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             {isLiveContent && (
-              <div className="flex items-center gap-1.5 px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-red-500/20 border border-red-500/40 backdrop-blur-sm shrink-0">
-                <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/50" />
-                <span className="text-[9px] md:text-[10px] font-black text-red-400 uppercase tracking-widest">LIVE</span>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/30 backdrop-blur-sm shrink-0">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/50" />
+                <span className="text-[10px] font-black text-white uppercase tracking-widest">EN VIVO</span>
               </div>
             )}
-            <h2 className="font-display text-sm md:text-lg tracking-wider text-white/90 truncate">
+            <h2 className="font-display text-base md:text-xl tracking-wide text-white truncate drop-shadow-lg">
               {title || "Reproductor"}
             </h2>
           </div>
           
-          <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-            {/* Ambient mode toggle - hidden on mobile */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Ambient mode toggle */}
             <button
               onClick={() => setAmbientEnabled(!ambientEnabled)}
               className={cn(
-                "hidden sm:flex w-9 h-9 md:w-10 md:h-10 rounded-xl items-center justify-center border transition-all duration-200",
+                "hidden sm:flex w-10 h-10 rounded-full items-center justify-center backdrop-blur-md transition-all duration-200",
                 ambientEnabled 
-                  ? "bg-accent/20 border-accent/40 text-accent" 
-                  : "bg-white/[0.05] border-white/10 hover:bg-white/10 text-white/60 hover:text-white"
+                  ? "bg-accent/30 text-accent" 
+                  : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
               )}
               title="Modo Ambiente"
             >
               <Smartphone className="w-4 h-4" />
             </button>
             
-            {/* Theater mode toggle - hidden on mobile */}
+            {/* Theater mode toggle */}
             <button
               onClick={() => setIsTheaterMode(!isTheaterMode)}
               className={cn(
-                "hidden sm:flex w-9 h-9 md:w-10 md:h-10 rounded-xl items-center justify-center border transition-all duration-200",
+                "hidden sm:flex w-10 h-10 rounded-full items-center justify-center backdrop-blur-md transition-all duration-200",
                 isTheaterMode 
-                  ? "bg-primary/20 border-primary/40 text-primary" 
-                  : "bg-white/[0.05] border-white/10 hover:bg-white/10 text-white/60 hover:text-white"
+                  ? "bg-primary/30 text-primary" 
+                  : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
               )}
               title="Modo Teatro (T)"
             >
@@ -755,20 +751,17 @@ export function PlayerModal() {
             {/* Close button */}
             <button
               onClick={closePlayer}
-              className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/[0.05] hover:bg-red-500/20 hover:border-red-500/40 hover:text-red-400 transition-all duration-200 text-white/60"
+              className="w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md bg-white/10 hover:bg-red-500/40 hover:text-white transition-all duration-200 text-white/70"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Player Container */}
-        <div className={cn("p-2 md:p-4", isTheaterMode && "p-0 h-full")}>
+        {/* Player Container - Full screen, no padding, no borders */}
+        <div className="w-full h-full">
           <div
-            className={cn(
-              "relative overflow-hidden bg-black aspect-video group",
-              isTheaterMode ? "rounded-none h-full aspect-auto" : "rounded-xl md:rounded-2xl border border-white/[0.06]"
-            )}
+            className="relative w-full h-full overflow-hidden bg-black group"
             onMouseMove={handleMouseMove}
             onMouseLeave={() => setShowControls(false)}
             onTouchStart={() => setShowControls(true)}
@@ -905,18 +898,19 @@ export function PlayerModal() {
                   </div>
                 )}
 
-                {/* Custom controls */}
+                {/* Custom controls - Premium borderless design */}
                 <div
                   className={cn(
-                    "absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black via-black/80 to-transparent transition-opacity duration-300",
+                    "absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-16 pt-20 transition-all duration-300",
                     showControls ? "opacity-100" : "opacity-0 pointer-events-none"
                   )}
+                  style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 40%, transparent 100%)' }}
                 >
                   {/* Progress bar for movies/series */}
                   {!isLiveContent && duration > 0 && (
-                    <div className="mb-3 flex items-center gap-3">
-                      <span className="text-xs text-white/60 w-14 tabular-nums">{formatTime(currentTime)}</span>
-                      <div className="flex-1 relative h-1 group/progress">
+                    <div className="mb-4 flex items-center gap-3">
+                      <span className="text-xs text-white/70 w-12 tabular-nums font-mono">{formatTime(currentTime)}</span>
+                      <div className="flex-1 relative h-1.5 group/progress cursor-pointer">
                         <input
                           type="range"
                           min={0}
@@ -925,18 +919,18 @@ export function PlayerModal() {
                           onChange={handleSeekBar}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         />
-                        <div className="h-1 bg-white/20 rounded-full overflow-hidden">
+                        <div className="h-1 group-hover/progress:h-1.5 bg-white/20 rounded-full overflow-hidden transition-all">
                           <div 
-                            className="h-full bg-gradient-to-r from-primary to-purple-500 rounded-full transition-all"
+                            className="h-full bg-white rounded-full transition-all"
                             style={{ width: `${(currentTime / duration) * 100}%` }}
                           />
                         </div>
                         <div 
-                          className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg opacity-0 group-hover/progress:opacity-100 transition-opacity"
+                          className="absolute top-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover/progress:opacity-100 transition-all scale-0 group-hover/progress:scale-100"
                           style={{ left: `${(currentTime / duration) * 100}%`, transform: 'translate(-50%, -50%)' }}
                         />
                       </div>
-                      <span className="text-xs text-white/60 w-14 text-right tabular-nums">{formatTime(duration)}</span>
+                      <span className="text-xs text-white/70 w-12 text-right tabular-nums font-mono">{formatTime(duration)}</span>
                     </div>
                   )}
 
@@ -946,40 +940,40 @@ export function PlayerModal() {
                       {!isLiveContent && (
                         <button
                           onClick={() => seek(-10)}
-                          className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                          className="w-11 h-11 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                         >
-                          <Rewind className="w-4 h-4 text-white" />
+                          <Rewind className="w-5 h-5 text-white" />
                         </button>
                       )}
                       <button
                         onClick={togglePlay}
-                        className="w-12 h-12 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                        className="w-14 h-14 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 backdrop-blur-md transition-all"
                       >
                         {isPlaying ? (
-                          <Pause className="w-5 h-5 text-white" />
+                          <Pause className="w-6 h-6 text-white" />
                         ) : (
-                          <Play className="w-5 h-5 text-white ml-0.5" />
+                          <Play className="w-6 h-6 text-white ml-0.5" />
                         )}
                       </button>
                       {!isLiveContent && (
                         <button
                           onClick={() => seek(10)}
-                          className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                          className="w-11 h-11 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                         >
-                          <FastForward className="w-4 h-4 text-white" />
+                          <FastForward className="w-5 h-5 text-white" />
                         </button>
                       )}
                       
                       {/* Volume control */}
-                      <div className="flex items-center gap-2 group/volume">
+                      <div className="flex items-center gap-2 group/volume ml-2">
                         <button
                           onClick={toggleMute}
-                          className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                         >
                           {isMuted || volume === 0 ? (
-                            <VolumeX className="w-4 h-4 text-white" />
+                            <VolumeX className="w-5 h-5 text-white" />
                           ) : (
-                            <Volume2 className="w-4 h-4 text-white" />
+                            <Volume2 className="w-5 h-5 text-white" />
                           )}
                         </button>
                         <input
@@ -989,7 +983,7 @@ export function PlayerModal() {
                           step={0.1}
                           value={isMuted ? 0 : volume}
                           onChange={handleVolumeChange}
-                          className="w-0 group-hover/volume:w-20 h-1 bg-white/20 rounded-full appearance-none cursor-pointer transition-all duration-200 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
+                          className="w-0 group-hover/volume:w-24 h-1 bg-white/30 rounded-full appearance-none cursor-pointer transition-all duration-200 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
                         />
                       </div>
                       
@@ -997,47 +991,50 @@ export function PlayerModal() {
                       <button
                         onClick={toggleSubtitles}
                         className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center border transition-all",
+                          "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                           subtitlesEnabled
-                            ? "bg-primary/30 border-primary/50 hover:bg-primary/40"
-                            : "bg-white/10 border-white/10 hover:bg-white/20"
+                            ? "bg-white/30 text-white"
+                            : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
                         )}
                         title="Subtítulos IA"
                       >
-                        <Subtitles className={cn("w-4 h-4", subtitlesEnabled ? "text-primary" : "text-white")} />
+                        <Subtitles className="w-5 h-5" />
                       </button>
                     </div>
 
-                    {/* Right controls */}
-                    <div className="flex items-center gap-1.5">
+                    {/* Center badges */}
+                    <div className="flex items-center gap-2">
                       {/* Live badge */}
                       {isLiveContent && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-destructive/20 border border-destructive/30 mr-2">
-                          <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-                          <span className="text-xs font-bold text-destructive uppercase tracking-wider">En vivo</span>
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/30 backdrop-blur-md">
+                          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                          <span className="text-xs font-bold text-white uppercase tracking-wider">En vivo</span>
                         </div>
                       )}
 
                       {/* Speed indicator */}
                       {playbackSpeed !== 1 && (
-                        <div className="px-2 py-1 rounded-lg bg-primary/20 border border-primary/30 text-xs font-bold text-primary">
+                        <div className="px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold text-white">
                           {playbackSpeed}x
                         </div>
                       )}
 
                       {/* Sleep timer indicator */}
                       {sleepTimer.isActive && sleepTimer.remainingTime && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-purple-500/20 border border-purple-500/30">
-                          <Moon className="w-3 h-3 text-purple-400" />
-                          <span className="text-xs font-mono text-purple-400">{sleepTimer.formatTime(sleepTimer.remainingTime)}</span>
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/30 backdrop-blur-md">
+                          <Moon className="w-3.5 h-3.5 text-white" />
+                          <span className="text-xs font-mono text-white">{sleepTimer.formatTime(sleepTimer.remainingTime)}</span>
                         </div>
                       )}
+                    </div>
 
+                    {/* Right controls */}
+                    <div className="flex items-center gap-1.5">
                       {/* Quality selector */}
                       <div className="relative hidden sm:block">
                         <button
                           onClick={() => setShowQualitySelector(!showQualitySelector)}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                           title="Calidad"
                         >
                           <Signal className="w-4 h-4 text-white" />
@@ -1058,7 +1055,7 @@ export function PlayerModal() {
                       <div className="relative hidden sm:block">
                         <button
                           onClick={() => setShowAudioMixer(!showAudioMixer)}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                           title="Audio"
                         >
                           <Music className="w-4 h-4 text-white" />
@@ -1071,14 +1068,14 @@ export function PlayerModal() {
                         <button
                           onClick={() => setShowSleepTimer(!showSleepTimer)}
                           className={cn(
-                            "w-9 h-9 rounded-xl flex items-center justify-center border transition-all",
+                            "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                             sleepTimer.isActive
-                              ? "bg-purple-500/30 border-purple-500/50"
-                              : "bg-white/10 border-white/10 hover:bg-white/20"
+                              ? "bg-purple-500/40 text-white"
+                              : "bg-white/10 hover:bg-white/20 text-white"
                           )}
                           title="Temporizador de sueño"
                         >
-                          <Moon className={cn("w-4 h-4", sleepTimer.isActive ? "text-purple-400" : "text-white")} />
+                          <Moon className="w-4 h-4" />
                         </button>
                         <SleepTimerMenu
                           isOpen={showSleepTimer}
@@ -1095,7 +1092,7 @@ export function PlayerModal() {
                       <div className="relative hidden sm:block">
                         <button
                           onClick={() => setShowCastMenu(!showCastMenu)}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                           title="Transmitir"
                         >
                           <Cast className="w-4 h-4 text-white" />
@@ -1107,7 +1104,7 @@ export function PlayerModal() {
                       <div className="relative">
                         <button
                           onClick={() => setShowShareMenu(!showShareMenu)}
-                          className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                         >
                           <Share2 className="w-4 h-4 text-white" />
                         </button>
@@ -1122,27 +1119,27 @@ export function PlayerModal() {
                       <button
                         onClick={() => setShowStats(!showStats)}
                         className={cn(
-                          "w-9 h-9 rounded-xl flex items-center justify-center border transition-all",
+                          "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                           showStats
-                            ? "bg-primary/30 border-primary/50"
-                            : "bg-white/10 border-white/10 hover:bg-white/20"
+                            ? "bg-white/30"
+                            : "bg-white/10 hover:bg-white/20"
                         )}
                       >
-                        <BarChart3 className={cn("w-4 h-4", showStats ? "text-primary" : "text-white")} />
+                        <BarChart3 className="w-4 h-4 text-white" />
                       </button>
 
                       {/* PiP */}
                       <button
                         onClick={togglePiP}
                         className={cn(
-                          "w-9 h-9 rounded-xl flex items-center justify-center border transition-all",
+                          "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                           isPiP
-                            ? "bg-primary/30 border-primary/50"
-                            : "bg-white/10 border-white/10 hover:bg-white/20"
+                            ? "bg-white/30"
+                            : "bg-white/10 hover:bg-white/20"
                         )}
                         title="Picture-in-Picture (P)"
                       >
-                        <PictureInPicture2 className={cn("w-4 h-4", isPiP ? "text-primary" : "text-white")} />
+                        <PictureInPicture2 className="w-4 h-4 text-white" />
                       </button>
 
                       {/* Settings */}
@@ -1150,10 +1147,10 @@ export function PlayerModal() {
                         <button
                           onClick={() => setShowQuickSettings(!showQuickSettings)}
                           className={cn(
-                            "w-9 h-9 rounded-xl flex items-center justify-center border transition-all",
+                            "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                             showQuickSettings
-                              ? "bg-white/20 border-white/20"
-                              : "bg-white/10 border-white/10 hover:bg-white/20"
+                              ? "bg-white/30"
+                              : "bg-white/10 hover:bg-white/20"
                           )}
                         >
                           <Settings className={cn("w-4 h-4 text-white transition-transform", showQuickSettings && "rotate-90")} />
@@ -1181,13 +1178,13 @@ export function PlayerModal() {
                       {/* Fullscreen */}
                       <button
                         onClick={toggleFullscreen}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all"
+                        className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                         title="Pantalla completa (F)"
                       >
                         {isFullscreen ? (
-                          <Minimize2 className="w-4 h-4 text-white" />
+                          <Minimize2 className="w-5 h-5 text-white" />
                         ) : (
-                          <Maximize2 className="w-4 h-4 text-white" />
+                          <Maximize2 className="w-5 h-5 text-white" />
                         )}
                       </button>
                     </div>
@@ -1198,76 +1195,84 @@ export function PlayerModal() {
               <iframe
                 ref={iframeRef}
                 src={getEmbedUrl(url)}
-                className="w-full h-full"
+                className="w-full h-full border-0"
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen; accelerometer; gyroscope; clipboard-write"
                 allowFullScreen
                 referrerPolicy="no-referrer-when-downgrade"
+                style={{ border: 'none' }}
                 onLoad={() => {
                   setIsLoading(false);
                   setLoadError(null);
                 }}
               />
             ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-muted-foreground">
-                <div className="w-16 h-16 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center">
-                  <Play className="w-8 h-8 text-white/30" />
+              <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-muted-foreground">
+                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
+                  <Play className="w-10 h-10 text-white/20" />
                 </div>
-                <span className="text-sm">Sin enlace disponible</span>
+                <span className="text-sm text-white/40">Sin enlace disponible</span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Footer with stream options */}
-        {!isTheaterMode && (
-          <div className="px-3 md:px-5 py-2.5 md:py-3 border-t border-white/[0.06] bg-black/50 backdrop-blur-xl flex flex-wrap items-center justify-between gap-2 md:gap-3">
-            <div className="flex items-center gap-2 md:gap-3">
-              {hasMultipleOptions ? (
-                <div className="flex items-center gap-1">
+        {/* Floating Bottom Bar - Stream options */}
+        <div 
+          className={cn(
+            "absolute bottom-0 left-0 right-0 z-40 px-4 md:px-6 py-3 transition-all duration-300",
+            showControls 
+              ? "opacity-100 translate-y-0" 
+              : "opacity-0 translate-y-2 pointer-events-none"
+          )}
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 60%, transparent 100%)' }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {hasMultipleOptions && (
+                <div className="flex items-center gap-1.5">
                   {availableOptions.map((opt) => (
                     <button
                       key={opt.num}
                       onClick={() => setActiveOption(opt.num)}
                       className={cn(
-                        "h-8 md:h-9 px-3 md:px-4 rounded-lg md:rounded-xl text-[10px] md:text-xs font-medium transition-all duration-200",
+                        "h-9 px-4 rounded-full text-xs font-semibold transition-all duration-200",
                         activeOption === opt.num
-                          ? "bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/25"
-                          : "bg-white/[0.06] text-white/60 hover:bg-white/10 hover:text-white/80 border border-white/10"
+                          ? "bg-white text-black"
+                          : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
                       )}
                     >
                       Opción {opt.num}
                     </button>
                   ))}
                 </div>
-              ) : (
-                <span className="text-[10px] md:text-xs text-white/40">
-                  {isLiveContent ? "En tiempo real" : "Reproduciendo"}
-                </span>
               )}
 
-              {/* Keyboard shortcut hint - hidden on mobile */}
-              <button
-                onClick={() => setShowKeyboardShortcuts(true)}
-                className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
-              >
-                <Keyboard className="w-3.5 h-3.5 text-white/40" />
-                <span className="text-xs text-white/40">?</span>
-              </button>
+              {/* Status indicator */}
+              <div className="flex items-center gap-2 text-xs text-white/50">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="hidden sm:inline">{isLiveContent ? "En tiempo real" : "Conectado"}</span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 md:gap-3 text-[10px] md:text-xs text-white/40">
+            <div className="flex items-center gap-3">
+              {/* Quality badge */}
               {streamStats.quality !== "Auto" && (
-                <span className="px-1.5 md:px-2 py-0.5 md:py-1 rounded bg-white/10 font-medium text-white/60 text-[9px] md:text-xs">
+                <span className="px-2.5 py-1 rounded-full bg-white/10 text-xs font-medium text-white/70">
                   {streamStats.quality}
                 </span>
               )}
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="hidden sm:inline">Conectado</span>
-              </div>
+              
+              {/* Keyboard shortcut hint */}
+              <button
+                onClick={() => setShowKeyboardShortcuts(true)}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              >
+                <Keyboard className="w-3.5 h-3.5 text-white/50" />
+                <span className="text-xs text-white/50">Atajos</span>
+              </button>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
