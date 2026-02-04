@@ -8,6 +8,7 @@ interface AppUser {
   display_name: string | null;
   expires_at: string;
   is_active: boolean;
+  isAdmin?: boolean; // Para admins de Supabase
 }
 
 interface AppAuthState {
@@ -37,9 +38,41 @@ export const useAppAuth = create<AppAuthState>()(
         set({ isLoading: true });
         
         try {
+          // First, try Supabase Auth login (for admins)
+          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+            email: username.includes('@') ? username : `${username}@admin.fluxo`,
+            password: password,
+          });
+
+          if (!authError && authData.user) {
+            // Check if user is admin
+            const { data: roleData } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', authData.user.id)
+              .eq('role', 'admin')
+              .maybeSingle();
+
+            if (roleData) {
+              // Admin login success
+              set({
+                appUser: {
+                  id: authData.user.id,
+                  username: authData.user.email || 'admin',
+                  display_name: 'Administrador',
+                  expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
+                  is_active: true,
+                  isAdmin: true,
+                },
+                isLoading: false,
+              });
+              return { error: null };
+            }
+          }
+
+          // If not admin, try app_users login
           const passwordHash = await simpleHash(password);
           
-          // Fetch user by username - using public select policy
           const { data, error } = await supabase
             .from('app_users')
             .select('id, username, display_name, expires_at, is_active, password_hash')
@@ -65,7 +98,7 @@ export const useAppAuth = create<AppAuthState>()(
           // Check if active
           if (!data.is_active) {
             set({ isLoading: false });
-            return { error: 'Tu cuenta está desactivada. Contacta al administrador.' };
+            return { error: 'Tu cuenta está desactivada' };
           }
 
           // Check expiration
@@ -73,7 +106,7 @@ export const useAppAuth = create<AppAuthState>()(
           const expires = new Date(data.expires_at);
           if (expires <= now) {
             set({ isLoading: false });
-            return { error: 'Tu suscripción ha expirado. Contacta al administrador.' };
+            return { error: 'Tu suscripción ha expirado' };
           }
 
           // Success!
@@ -96,12 +129,16 @@ export const useAppAuth = create<AppAuthState>()(
       },
 
       logout: () => {
+        supabase.auth.signOut();
         set({ appUser: null });
       },
 
       checkAccess: () => {
         const { appUser } = get();
         if (!appUser) return false;
+        
+        // Admins always have access
+        if (appUser.isAdmin) return true;
         
         // Check if still active and not expired
         if (!appUser.is_active) return false;
