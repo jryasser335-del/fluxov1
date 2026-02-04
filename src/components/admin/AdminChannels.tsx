@@ -134,82 +134,90 @@ export function AdminChannels() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold">Gestionar Canales</h2>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-xl font-display font-bold text-white flex items-center gap-2">
+            <Tv className="w-5 h-5 text-primary" />
+            Gestionar Canales
+          </h2>
+          <p className="text-sm text-white/50 mt-1">{channels.length} canales configurados</p>
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="bg-gradient-to-r from-primary to-purple-500 hover:from-primary/90 hover:to-purple-500/90 shadow-lg shadow-primary/25">
               <Plus className="w-4 h-4 mr-2" />
               Agregar Canal
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-card border-border">
+          <DialogContent className="bg-black/95 border-white/10 backdrop-blur-xl">
             <DialogHeader>
-              <DialogTitle>Nuevo Canal</DialogTitle>
+              <DialogTitle className="text-white font-display">Nuevo Canal</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
-              <div className="space-y-2">
-                <Label>Key (único)</Label>
-                <Input
-                  placeholder="espn"
-                  value={newChannel.key}
-                  onChange={(e) =>
-                    setNewChannel({ ...newChannel, key: e.target.value })
-                  }
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-white/70">Key (único)</Label>
+                  <Input
+                    placeholder="espn"
+                    value={newChannel.key}
+                    onChange={(e) => setNewChannel({ ...newChannel, key: e.target.value })}
+                    className="bg-white/5 border-white/10 focus:border-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-white/70">Nombre</Label>
+                  <Input
+                    placeholder="ESPN"
+                    value={newChannel.name}
+                    onChange={(e) => setNewChannel({ ...newChannel, name: e.target.value })}
+                    className="bg-white/5 border-white/10 focus:border-primary"
+                  />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label>Nombre</Label>
-                <Input
-                  placeholder="ESPN"
-                  value={newChannel.name}
-                  onChange={(e) =>
-                    setNewChannel({ ...newChannel, name: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Logo URL</Label>
+                <Label className="text-white/70">Logo URL</Label>
                 <Input
                   placeholder="https://..."
                   value={newChannel.logo}
-                  onChange={(e) =>
-                    setNewChannel({ ...newChannel, logo: e.target.value })
-                  }
+                  onChange={(e) => setNewChannel({ ...newChannel, logo: e.target.value })}
+                  className="bg-white/5 border-white/10 focus:border-primary"
                 />
               </div>
               <div className="space-y-2">
-                <Label>Stream URL (Opción 1)</Label>
+                <Label className="text-white/70 flex items-center gap-2">
+                  <LinkIcon className="w-3 h-3" />
+                  Stream URL (Opción 1)
+                </Label>
                 <Input
                   placeholder="https://...m3u8"
                   value={newChannel.stream}
-                  onChange={(e) =>
-                    setNewChannel({ ...newChannel, stream: e.target.value })
-                  }
+                  onChange={(e) => setNewChannel({ ...newChannel, stream: e.target.value })}
+                  className="bg-white/5 border-white/10 focus:border-primary"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Stream URL 2 (Opción 2)</Label>
-                <Input
-                  placeholder="https://...m3u8 (alternativo)"
-                  value={newChannel.stream_url_2}
-                  onChange={(e) =>
-                    setNewChannel({ ...newChannel, stream_url_2: e.target.value })
-                  }
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-white/70">Opción 2</Label>
+                  <Input
+                    placeholder="URL alternativa..."
+                    value={newChannel.stream_url_2}
+                    onChange={(e) => setNewChannel({ ...newChannel, stream_url_2: e.target.value })}
+                    className="bg-white/5 border-white/10 focus:border-primary"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-white/70">Opción 3</Label>
+                  <Input
+                    placeholder="URL alternativa..."
+                    value={newChannel.stream_url_3}
+                    onChange={(e) => setNewChannel({ ...newChannel, stream_url_3: e.target.value })}
+                    className="bg-white/5 border-white/10 focus:border-primary"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Stream URL 3 (Opción 3)</Label>
-                <Input
-                  placeholder="https://...m3u8 (alternativo)"
-                  value={newChannel.stream_url_3}
-                  onChange={(e) =>
-                    setNewChannel({ ...newChannel, stream_url_3: e.target.value })
-                  }
-                />
-              </div>
-              <Button onClick={addChannel} className="w-full">
+              <Button onClick={addChannel} className="w-full bg-gradient-to-r from-primary to-purple-500">
                 Crear Canal
               </Button>
             </div>
@@ -217,169 +225,142 @@ export function AdminChannels() {
         </Dialog>
       </div>
 
-      <div className="space-y-4">
+      {/* Channels grid */}
+      <div className="grid gap-4 md:grid-cols-2">
         {channels.map((channel) => (
           <div
             key={channel.id}
-            className="glass-panel rounded-xl p-4 space-y-4"
+            className="relative group overflow-hidden rounded-2xl bg-gradient-to-br from-white/5 to-white/[0.02] border border-white/10 hover:border-primary/30 transition-all duration-300"
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-black/30 border border-white/10 flex items-center justify-center overflow-hidden">
-                  {channel.logo ? (
-                    <img
-                      src={channel.logo}
-                      alt={channel.name}
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                  ) : (
-                    <Tv className="w-5 h-5 text-muted-foreground" />
-                  )}
+            {/* Active indicator */}
+            {channel.is_active && (
+              <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary via-purple-500 to-pink-500" />
+            )}
+            
+            <div className="p-5 space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-black/50 border border-white/10 flex items-center justify-center overflow-hidden">
+                    {channel.logo ? (
+                      <img
+                        src={channel.logo}
+                        alt={channel.name}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <Tv className="w-6 h-6 text-white/40" />
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-white">{channel.name}</span>
+                    <p className="text-xs text-white/40">{channel.key}</p>
+                  </div>
                 </div>
-                <div>
-                  <span className="font-semibold">{channel.name}</span>
-                  <span className="text-muted-foreground text-xs ml-2">
-                    ({channel.key})
-                  </span>
-                </div>
-              </div>
 
-              <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
                   <Switch
                     checked={channel.is_active}
                     onCheckedChange={(checked) => {
                       const updated = { ...channel, is_active: checked };
-                      setChannels(
-                        channels.map((c) =>
-                          c.id === channel.id ? updated : c
-                        )
-                      );
+                      setChannels(channels.map((c) => c.id === channel.id ? updated : c));
                       updateChannel(updated);
                     }}
+                    className="data-[state=checked]:bg-primary"
                   />
-                  <span className="text-xs text-muted-foreground">
-                    {channel.is_active ? "Activo" : "Inactivo"}
-                  </span>
                 </div>
               </div>
-            </div>
 
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">
-                  Logo URL
-                </Label>
-                <Input
-                  value={channel.logo || ""}
-                  onChange={(e) =>
-                    setChannels(
-                      channels.map((c) =>
-                        c.id === channel.id
-                          ? { ...c, logo: e.target.value }
-                          : c
-                      )
-                    )
-                  }
-                  placeholder="https://..."
-                  className="text-sm"
-                />
+              {/* Inputs */}
+              <div className="grid gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-white/50">Logo URL</Label>
+                  <Input
+                    value={channel.logo || ""}
+                    onChange={(e) => setChannels(channels.map((c) => c.id === channel.id ? { ...c, logo: e.target.value } : c))}
+                    placeholder="https://..."
+                    className="text-sm bg-black/30 border-white/10"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-white/50 flex items-center gap-1">
+                    <LinkIcon className="w-3 h-3" />
+                    Stream Principal
+                  </Label>
+                  <Input
+                    value={channel.stream || ""}
+                    onChange={(e) => setChannels(channels.map((c) => c.id === channel.id ? { ...c, stream: e.target.value } : c))}
+                    placeholder="https://...m3u8"
+                    className="text-sm bg-black/30 border-white/10"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-white/40">Opción 2</Label>
+                    <Input
+                      value={channel.stream_url_2 || ""}
+                      onChange={(e) => setChannels(channels.map((c) => c.id === channel.id ? { ...c, stream_url_2: e.target.value } : c))}
+                      placeholder="Alternativa..."
+                      className="text-xs bg-black/30 border-white/10"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-white/40">Opción 3</Label>
+                    <Input
+                      value={channel.stream_url_3 || ""}
+                      onChange={(e) => setChannels(channels.map((c) => c.id === channel.id ? { ...c, stream_url_3: e.target.value } : c))}
+                      placeholder="Alternativa..."
+                      className="text-xs bg-black/30 border-white/10"
+                    />
+                  </div>
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground flex items-center gap-1">
-                  <LinkIcon className="w-3 h-3" />
-                  Stream URL (Opción 1)
-                </Label>
-                <Input
-                  value={channel.stream || ""}
-                  onChange={(e) =>
-                    setChannels(
-                      channels.map((c) =>
-                        c.id === channel.id
-                          ? { ...c, stream: e.target.value }
-                          : c
-                      )
-                    )
-                  }
-                  placeholder="https://...m3u8"
-                  className="text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">
-                  Opción 2
-                </Label>
-                <Input
-                  value={channel.stream_url_2 || ""}
-                  onChange={(e) =>
-                    setChannels(
-                      channels.map((c) =>
-                        c.id === channel.id
-                          ? { ...c, stream_url_2: e.target.value }
-                          : c
-                      )
-                    )
-                  }
-                  placeholder="URL alternativa..."
-                  className="text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">
-                  Opción 3
-                </Label>
-                <Input
-                  value={channel.stream_url_3 || ""}
-                  onChange={(e) =>
-                    setChannels(
-                      channels.map((c) =>
-                        c.id === channel.id
-                          ? { ...c, stream_url_3: e.target.value }
-                          : c
-                      )
-                    )
-                  }
-                  placeholder="URL alternativa..."
-                  className="text-sm"
-                />
-              </div>
-            </div>
 
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => deleteChannel(channel.id)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => updateChannel(channel)}
-                disabled={saving === channel.id}
-              >
-                {saving === channel.id ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-1" />
-                    Guardar
-                  </>
-                )}
-              </Button>
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-2 border-t border-white/5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => deleteChannel(channel.id)}
+                  className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => updateChannel(channel)}
+                  disabled={saving === channel.id}
+                  className="bg-white/10 hover:bg-white/20"
+                >
+                  {saving === channel.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 mr-1" />
+                      Guardar
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         ))}
-
-        {channels.length === 0 && (
-          <div className="text-center py-12 text-muted-foreground">
-            No hay canales. Agrega el primero.
-          </div>
-        )}
       </div>
+
+      {channels.length === 0 && (
+        <div className="relative flex flex-col items-center justify-center py-16 gap-4 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center">
+            <Tv className="w-8 h-8 text-white/30" />
+          </div>
+          <div>
+            <p className="text-lg font-semibold text-white">No hay canales</p>
+            <p className="text-sm text-white/50">Agrega el primero para comenzar</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
