@@ -2,8 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { 
   X, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Play, Pause, 
   Rewind, FastForward, Subtitles, Settings, Share2, PictureInPicture2,
-  MonitorPlay, Keyboard, BarChart3, Moon, Cast, Music, Smartphone, Signal,
-  Sparkles, Zap
+  MonitorPlay, Keyboard, BarChart3, Moon, Cast, Music, Smartphone, Signal
 } from "lucide-react";
 import Hls from "hls.js";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
@@ -53,7 +52,7 @@ export function PlayerModal() {
   const [showAudioMixer, setShowAudioMixer] = useState(false);
   const [showQualitySelector, setShowQualitySelector] = useState(false);
   const [showGestureGuide, setShowGestureGuide] = useState(false);
-  const [ambientEnabled, setAmbientEnabled] = useState(true);
+  const [ambientEnabled, setAmbientEnabled] = useState(false);
   const [streamStats, setStreamStats] = useState({ quality: "Auto", bitrate: 0, buffered: 0 });
   const [availableQualities, setAvailableQualities] = useState<string[]>(["Auto", "1080p", "720p", "480p", "360p"]);
   const [currentQuality, setCurrentQuality] = useState("Auto");
@@ -106,13 +105,6 @@ export function PlayerModal() {
   ].filter(opt => opt.url);
 
   const hasMultipleOptions = availableOptions.length > 1;
-
-  // FIXED: Handle close with stopPropagation
-  const handleClose = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    closePlayer();
-  }, [closePlayer]);
 
   // Add to watch history when opening
   useEffect(() => {
@@ -262,11 +254,17 @@ export function PlayerModal() {
     setLoadError(null);
     fatalErrorCount.current = 0;
 
+    // For embed/iframe content, just set loading to false after a short delay
+    // Don't show any error messages for iframe content since we can't detect errors
     if (isEmbedUrl || isYouTube) {
       if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current);
+      // Short timeout just for loading indicator, no error messages for iframes
       loadingWatchdog.current = setTimeout(() => {
         setIsLoading(false);
+        // Never show error for iframe content - we can't detect if it's working
         setLoadError(null);
+        
+        // Try to autoplay iframe content by focusing on it
         if (iframeRef.current) {
           iframeRef.current.focus();
         }
@@ -279,26 +277,32 @@ export function PlayerModal() {
       };
     }
 
+    // For HLS streams, use watchdog but be very careful about false positives
     if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current);
     loadingWatchdog.current = setTimeout(() => {
+      // Only show error if video element exists and has definitively failed
       const video = videoRef.current;
       if (!video) {
         setIsLoading(false);
         return;
       }
       
+      // Check multiple conditions - don't show error if any sign of playback
       const hasVideoData = video.readyState >= 1;
       const isVideoPlaying = !video.paused;
       const hasCurrentTime = video.currentTime > 0;
       const hasBuffered = video.buffered.length > 0;
       
+      // If ANY indication that video is working, don't show error
       if (hasVideoData || isVideoPlaying || hasCurrentTime || hasBuffered) {
         setIsLoading(false);
         setLoadError(null);
         return;
       }
       
+      // Only show error if absolutely nothing is working after 15 seconds
       setIsLoading(false);
+      // Don't set error - let the player try to recover
     }, 15000);
 
     return () => {
@@ -390,6 +394,7 @@ export function PlayerModal() {
           stopLoading();
           video.play().catch(() => {});
           
+          // Update quality info
           if (data.levels && data.levels.length > 0) {
             const level = data.levels[hls.currentLevel] || data.levels[0];
             setStreamStats(prev => ({
@@ -405,6 +410,7 @@ export function PlayerModal() {
           stopLoading();
         });
         
+        // Also clear error when video starts playing
         video.addEventListener('playing', () => {
           setLoadError(null);
           stopLoading();
@@ -415,6 +421,7 @@ export function PlayerModal() {
           stopLoading();
         });
 
+        // Track buffer and bitrate
         hls.on(Hls.Events.FRAG_BUFFERED, () => {
           if (video.buffered.length > 0) {
             const buffered = video.buffered.end(video.buffered.length - 1) - video.currentTime;
@@ -498,12 +505,15 @@ export function PlayerModal() {
 
   const getEmbedUrl = (rawUrl: string) => {
     if (!rawUrl) return "";
+    // Handle YouTube URLs
     const ytMatch = rawUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/);
     if (ytMatch) {
       return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&showinfo=0&playsinline=1`;
     }
+    // For other embed URLs, add autoplay parameter if not present
     try {
       const urlObj = new URL(rawUrl);
+      // Add multiple autoplay parameters to maximize compatibility
       if (!urlObj.searchParams.has('autoplay')) {
         urlObj.searchParams.set('autoplay', '1');
       }
@@ -516,11 +526,13 @@ export function PlayerModal() {
       if (!urlObj.searchParams.has('playsinline')) {
         urlObj.searchParams.set('playsinline', '1');
       }
+      // Disable ads where possible
       if (!urlObj.searchParams.has('ads')) {
         urlObj.searchParams.set('ads', '0');
       }
       return urlObj.toString();
     } catch {
+      // If URL parsing fails, add params manually
       const separator = rawUrl.includes('?') ? '&' : '?';
       return `${rawUrl}${separator}autoplay=1&auto_play=true&playsinline=1`;
     }
@@ -610,6 +622,7 @@ export function PlayerModal() {
       return;
     }
 
+    // iOS Safari
     if ((video as any)?.webkitEnterFullscreen) {
       try {
         (video as any).webkitEnterFullscreen();
@@ -617,6 +630,7 @@ export function PlayerModal() {
       } catch {}
     }
 
+    // Standard
     if (container?.requestFullscreen) {
       container.requestFullscreen();
     } else if ((container as any)?.webkitRequestFullscreen) {
@@ -662,274 +676,241 @@ export function PlayerModal() {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] animate-in fade-in duration-300">
-      {/* Ultra-black cinematic backdrop */}
+    <div
+      onClick={(e) => e.target === e.currentTarget && closePlayer()}
+      className="fixed inset-0 z-[9990] flex items-center justify-center animate-in fade-in duration-200"
+    >
+      {/* Ultra-premium seamless backdrop */}
       <div className="absolute inset-0 bg-black" />
       
-      {/* Premium ambient glow effect */}
+      {/* Subtle ambient glow effect */}
       {ambientEnabled && ambientMode.colors && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div 
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[250%] h-[250%] blur-[300px] opacity-20 transition-all duration-[2000ms]"
-            style={{ background: `radial-gradient(ellipse, ${ambientMode.colors.dominant}, transparent 50%)` }}
-          />
-          <div 
-            className="absolute bottom-0 left-1/4 w-[60%] h-[60%] blur-[200px] opacity-15 transition-all duration-[2000ms]"
-            style={{ background: `radial-gradient(circle, ${ambientMode.colors.secondary || ambientMode.colors.dominant}, transparent 60%)` }}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] blur-[250px] opacity-30 transition-all duration-1000"
+            style={{ background: `radial-gradient(ellipse, ${ambientMode.colors.dominant}, transparent 60%)` }}
           />
         </div>
       )}
       
       <div 
         ref={containerRef}
-        className="relative w-full h-full"
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => setShowControls(false)}
-        onTouchStart={() => setShowControls(true)}
+        className="relative w-full h-full overflow-hidden"
       >
-        {/* Floating Premium Header */}
+        {/* Floating Header - Overlays video */}
         <div 
           className={cn(
-            "absolute top-0 left-0 right-0 z-[60] transition-all duration-500 ease-out",
+            "absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-6 py-3 md:py-4 transition-all duration-300",
             showControls 
               ? "opacity-100 translate-y-0" 
-              : "opacity-0 -translate-y-4 pointer-events-none"
+              : "opacity-0 -translate-y-2 pointer-events-none"
           )}
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
         >
-          {/* Gradient overlay for header */}
-          <div 
-            className="absolute inset-0"
-            style={{ 
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 50%, transparent 100%)',
-              height: '150px'
-            }}
-          />
-          
-          <div className="relative flex items-center justify-between px-4 md:px-8 py-4 md:py-6">
-            {/* Left: Title section */}
-            <div className="flex items-center gap-4 min-w-0 flex-1">
-              {isLiveContent && (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-red-600/40 to-red-500/30 backdrop-blur-xl border border-red-500/30 shrink-0">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
-                  </span>
-                  <span className="text-[11px] font-black text-white uppercase tracking-[0.2em]">EN VIVO</span>
-                </div>
-              )}
-              <div className="min-w-0">
-                <h2 className="font-display text-lg md:text-2xl tracking-wide text-white truncate">
-                  {title || "Reproductor"}
-                </h2>
-                <p className="text-xs text-white/40 mt-0.5 hidden md:block">Streaming Premium</p>
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            {isLiveContent && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/30 backdrop-blur-sm shrink-0">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/50" />
+                <span className="text-[10px] font-black text-white uppercase tracking-widest">EN VIVO</span>
               </div>
-            </div>
+            )}
+            <h2 className="font-display text-base md:text-xl tracking-wide text-white truncate drop-shadow-lg">
+              {title || "Reproductor"}
+            </h2>
+          </div>
+          
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Ambient mode toggle */}
+            <button
+              onClick={() => setAmbientEnabled(!ambientEnabled)}
+              className={cn(
+                "hidden sm:flex w-10 h-10 rounded-full items-center justify-center backdrop-blur-md transition-all duration-200",
+                ambientEnabled 
+                  ? "bg-accent/30 text-accent" 
+                  : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
+              )}
+              title="Modo Ambiente"
+            >
+              <Smartphone className="w-4 h-4" />
+            </button>
             
-            {/* Right: Action buttons */}
-            <div className="flex items-center gap-2 shrink-0">
-              {/* Ambient mode toggle */}
-              <button
-                onClick={(e) => { e.stopPropagation(); setAmbientEnabled(!ambientEnabled); }}
-                className={cn(
-                  "hidden sm:flex w-11 h-11 rounded-2xl items-center justify-center backdrop-blur-xl transition-all duration-300",
-                  ambientEnabled 
-                    ? "bg-gradient-to-br from-primary/30 to-accent/20 text-primary border border-primary/30 shadow-lg shadow-primary/20" 
-                    : "bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border border-white/10"
-                )}
-                title="Modo Ambiente"
-              >
-                <Sparkles className="w-4 h-4" />
-              </button>
-              
-              {/* Theater mode toggle */}
-              <button
-                onClick={(e) => { e.stopPropagation(); setIsTheaterMode(!isTheaterMode); }}
-                className={cn(
-                  "hidden sm:flex w-11 h-11 rounded-2xl items-center justify-center backdrop-blur-xl transition-all duration-300",
-                  isTheaterMode 
-                    ? "bg-gradient-to-br from-primary/30 to-accent/20 text-primary border border-primary/30 shadow-lg shadow-primary/20" 
-                    : "bg-white/5 hover:bg-white/10 text-white/50 hover:text-white border border-white/10"
-                )}
-                title="Modo Teatro (T)"
-              >
-                <MonitorPlay className="w-4 h-4" />
-              </button>
-              
-              {/* FIXED: Close button with proper event handling */}
-              <button
-                onClick={handleClose}
-                className="w-11 h-11 rounded-2xl flex items-center justify-center backdrop-blur-xl bg-white/5 hover:bg-red-500/30 border border-white/10 hover:border-red-500/50 transition-all duration-300 text-white/60 hover:text-white group"
-                title="Cerrar (ESC)"
-              >
-                <X className="w-5 h-5 transition-transform group-hover:scale-110" />
-              </button>
-            </div>
+            {/* Theater mode toggle */}
+            <button
+              onClick={() => setIsTheaterMode(!isTheaterMode)}
+              className={cn(
+                "hidden sm:flex w-10 h-10 rounded-full items-center justify-center backdrop-blur-md transition-all duration-200",
+                isTheaterMode 
+                  ? "bg-primary/30 text-primary" 
+                  : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
+              )}
+              title="Modo Teatro (T)"
+            >
+              <MonitorPlay className="w-4 h-4" />
+            </button>
+            
+            {/* Close button */}
+            <button
+              onClick={closePlayer}
+              className="w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md bg-white/10 hover:bg-red-500/40 hover:text-white transition-all duration-200 text-white/70"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
-        {/* Main Player Area */}
+        {/* Player Container - Full screen, no padding, no borders */}
         <div className="w-full h-full">
-          {/* Stream stats overlay */}
-          <StreamStats 
-            isVisible={showStats}
-            quality={streamStats.quality}
-            bitrate={streamStats.bitrate}
-            buffered={streamStats.buffered}
-          />
+          <div
+            className="relative w-full h-full overflow-hidden bg-black group"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={() => setShowControls(false)}
+            onTouchStart={() => setShowControls(true)}
+          >
+            {/* Stream stats overlay */}
+            <StreamStats 
+              isVisible={showStats}
+              quality={streamStats.quality}
+              bitrate={streamStats.bitrate}
+              buffered={streamStats.buffered}
+            />
 
-          {/* Keyboard shortcuts modal */}
-          <KeyboardShortcuts 
-            isOpen={showKeyboardShortcuts} 
-            onClose={() => setShowKeyboardShortcuts(false)} 
-          />
+            {/* Keyboard shortcuts modal */}
+            <KeyboardShortcuts 
+              isOpen={showKeyboardShortcuts} 
+              onClose={() => setShowKeyboardShortcuts(false)} 
+            />
 
-          {/* Ultra Premium Loading Overlay */}
-          {isLoading && !loadError && (
-            <div className="absolute inset-0 z-[70] flex flex-col items-center justify-center bg-black">
-              {/* Animated background orbs */}
-              <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-gradient-to-br from-primary/10 via-accent/5 to-transparent blur-[200px] animate-pulse" />
-                <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-accent/10 to-transparent blur-[150px] animate-pulse [animation-delay:500ms]" />
-                <div className="absolute bottom-1/4 left-1/3 w-[300px] h-[300px] rounded-full bg-gradient-to-br from-primary/8 to-transparent blur-[100px] animate-pulse [animation-delay:1000ms]" />
-              </div>
-
-              <div className="relative z-10 flex flex-col items-center gap-8">
-                {/* Premium animated loader */}
-                <div className="relative w-28 h-28">
-                  {/* Outer ring */}
-                  <div className="absolute inset-0 rounded-full border-2 border-white/5" />
-                  {/* Spinning gradient ring */}
-                  <div className="absolute inset-0 rounded-full border-[3px] border-transparent animate-spin [animation-duration:3s]" style={{ borderTopColor: 'hsl(var(--primary))', borderRightColor: 'hsl(var(--accent))' }} />
-                  {/* Inner glow circle */}
-                  <div className="absolute inset-3 rounded-full bg-gradient-to-br from-primary/20 via-accent/10 to-transparent backdrop-blur-sm" />
-                  {/* Center icon */}
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Zap className="w-8 h-8 text-primary animate-pulse" />
-                  </div>
-                  {/* Orbiting particles */}
-                  <div className="absolute inset-0 animate-[spin_4s_linear_infinite]">
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-2 h-2 rounded-full bg-primary shadow-lg shadow-primary/50" />
-                  </div>
-                  <div className="absolute inset-0 animate-[spin_6s_linear_infinite_reverse]">
-                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 w-1.5 h-1.5 rounded-full bg-accent shadow-lg shadow-accent/50" />
-                  </div>
+            {/* Premium Loading Overlay */}
+            {isLoading && !loadError && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl">
+                {/* Animated background */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-primary/15 via-purple-600/10 to-accent/15 blur-[150px] animate-pulse" />
                 </div>
 
-                <div className="text-center space-y-3">
-                  <h3 className="font-display text-xl tracking-wider text-white/90 max-w-[300px] truncate">
-                    {title || "Conectando..."}
-                  </h3>
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="flex gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
-                      <span className="w-2 h-2 rounded-full bg-primary/70 animate-bounce [animation-delay:150ms]" />
-                      <span className="w-2 h-2 rounded-full bg-primary/40 animate-bounce [animation-delay:300ms]" />
+                <div className="relative z-10 flex flex-col items-center gap-5">
+                  {/* Premium loader */}
+                  <div className="relative w-20 h-20">
+                    <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+                    <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
+                    <div className="absolute inset-3 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 text-primary animate-pulse" />
                     </div>
-                    <span className="text-sm text-white/30 font-medium">Estableciendo conexión</span>
+                    {/* Orbiting dot */}
+                    <div className="absolute inset-0 animate-[spin_3s_linear_infinite]">
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-primary shadow-lg shadow-primary/50" />
+                    </div>
                   </div>
-                </div>
 
-                <div className="px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-sm">
-                  <kbd className="text-xs text-white/25">
-                    Presiona <span className="text-white/40 font-mono bg-white/5 px-1.5 py-0.5 rounded mx-1">?</span> para atajos de teclado
+                  <div className="text-center space-y-2">
+                    <h3 className="text-base font-display tracking-wider text-white/80 max-w-[260px] truncate">
+                      {title || "Cargando..."}
+                    </h3>
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="flex gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+                      </div>
+                      <span className="text-sm text-white/40">Conectando</span>
+                    </div>
+                  </div>
+
+                  <kbd className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white/30">
+                    Presiona <span className="font-mono text-white/50">?</span> para atajos
                   </kbd>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Error overlay */}
-          {loadError && !isEmbedUrl && !isYouTube && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-black z-[70] p-6 text-center">
-              <div className="relative">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-red-500/20 to-transparent blur-xl" />
-                <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 flex items-center justify-center">
-                  <X className="w-10 h-10 text-white/30" />
+            {/* Error overlay - Never show for embed/iframe content */}
+            {loadError && !isEmbedUrl && !isYouTube && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gradient-radial from-primary/10 via-black/85 to-black z-20 p-6 text-center">
+                <div className="w-16 h-16 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center">
+                  <X className="w-8 h-8 text-white/50" />
                 </div>
-              </div>
-              <div className="max-w-[560px]">
-                <p className="text-white/80 font-medium text-lg">No se pudo cargar el stream</p>
-                <p className="text-sm text-white/40 mt-2">{loadError}</p>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <button
-                  onClick={retryLoad}
-                  className="h-12 px-6 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 transition-all duration-300 text-sm font-medium text-white"
-                >
-                  Reintentar
-                </button>
-                {hasMultipleOptions && activeOption < 3 && (
+                <div className="max-w-[560px]">
+                  <p className="text-white/80 font-medium">No se pudo cargar el stream</p>
+                  <p className="text-sm text-white/60 mt-2">{loadError}</p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3">
                   <button
-                    onClick={() => setActiveOption((activeOption + 1) as 1 | 2 | 3)}
-                    className="h-12 px-6 rounded-2xl bg-gradient-to-r from-primary/20 to-accent/20 hover:from-primary/30 hover:to-accent/30 border border-primary/30 transition-all duration-300 text-sm font-medium text-white"
+                    onClick={retryLoad}
+                    className="h-11 px-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-200 text-sm text-white"
                   >
-                    Probar Opción {activeOption + 1}
+                    Reintentar
                   </button>
-                )}
+                  {hasMultipleOptions && activeOption < 3 && (
+                    <button
+                      onClick={() => setActiveOption((activeOption + 1) as 1 | 2 | 3)}
+                      className="h-11 px-4 rounded-xl bg-primary/20 hover:bg-primary/30 border border-primary/30 transition-all duration-200 text-sm text-primary"
+                    >
+                      Probar Opción {activeOption + 1}
+                    </button>
+                  )}
+                  {url && (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-11 px-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-200 text-sm text-white inline-flex items-center"
+                    >
+                      Abrir enlace
+                    </a>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {isHlsStream ? (
-            <>
-              <video
-                ref={videoRef}
-                className="w-full h-full object-contain bg-black"
-                playsInline
-                autoPlay
-                muted={isMuted}
-                crossOrigin="anonymous"
-                onTimeUpdate={handleTimeUpdate}
-                onLoadedMetadata={handleTimeUpdate}
-                webkit-playsinline="true"
-                x-webkit-airplay="allow"
-              />
-
-              {/* AI Subtitles Overlay */}
-              {subtitlesEnabled && currentSubtitle && (
-                <div className="absolute bottom-32 left-0 right-0 flex justify-center pointer-events-none z-30">
-                  <div className="bg-black/90 backdrop-blur-md px-8 py-4 rounded-2xl max-w-[80%] border border-white/10 shadow-2xl">
-                    <p className="text-white text-lg md:text-xl font-medium text-center leading-relaxed">
-                      {currentSubtitle}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Subtitle processing indicator */}
-              {subtitlesEnabled && subtitlesProcessing && !currentSubtitle && (
-                <div className="absolute bottom-32 left-0 right-0 flex justify-center pointer-events-none z-30">
-                  <div className="bg-black/60 backdrop-blur-md px-5 py-2.5 rounded-xl flex items-center gap-2 border border-white/5">
-                    <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                    <span className="text-white/50 text-sm">Procesando audio...</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Premium Control Bar */}
-              <div
-                className={cn(
-                  "absolute bottom-0 left-0 right-0 z-[60] transition-all duration-500 ease-out",
-                  showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
-                )}
-              >
-                {/* Gradient background */}
-                <div 
-                  className="absolute inset-0"
-                  style={{ 
-                    background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 50%, transparent 100%)',
-                    height: '200px',
-                    bottom: 0,
-                    top: 'auto'
-                  }}
+            {isHlsStream ? (
+              <>
+                <video
+                  ref={videoRef}
+                  className="w-full h-full object-contain bg-black"
+                  playsInline
+                  autoPlay
+                  muted={isMuted}
+                  crossOrigin="anonymous"
+                  onTimeUpdate={handleTimeUpdate}
+                  onLoadedMetadata={handleTimeUpdate}
+                  webkit-playsinline="true"
+                  x-webkit-airplay="allow"
                 />
-                
-                <div className="relative px-4 md:px-8 pb-6 pt-12">
+
+                {/* AI Subtitles Overlay */}
+                {subtitlesEnabled && currentSubtitle && (
+                  <div className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none z-30">
+                    <div className="bg-black/80 backdrop-blur-sm px-6 py-3 rounded-lg max-w-[80%] border border-white/10">
+                      <p className="text-white text-lg md:text-xl font-medium text-center leading-relaxed">
+                        {currentSubtitle}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Subtitle processing indicator */}
+                {subtitlesEnabled && subtitlesProcessing && !currentSubtitle && (
+                  <div className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none z-30">
+                    <div className="bg-black/60 px-4 py-2 rounded-lg flex items-center gap-2">
+                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                      <span className="text-white/60 text-sm">Procesando audio...</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom controls - Premium borderless design */}
+                <div
+                  className={cn(
+                    "absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-16 pt-20 transition-all duration-300",
+                    showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+                  )}
+                  style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 40%, transparent 100%)' }}
+                >
                   {/* Progress bar for movies/series */}
                   {!isLiveContent && duration > 0 && (
-                    <div className="mb-5 flex items-center gap-4">
-                      <span className="text-xs text-white/50 w-14 tabular-nums font-mono">{formatTime(currentTime)}</span>
-                      <div className="flex-1 relative h-1 group/progress cursor-pointer">
+                    <div className="mb-4 flex items-center gap-3">
+                      <span className="text-xs text-white/70 w-12 tabular-nums font-mono">{formatTime(currentTime)}</span>
+                      <div className="flex-1 relative h-1.5 group/progress cursor-pointer">
                         <input
                           type="range"
                           min={0}
@@ -938,110 +919,110 @@ export function PlayerModal() {
                           onChange={handleSeekBar}
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         />
-                        <div className="h-1 group-hover/progress:h-1.5 bg-white/10 rounded-full overflow-hidden transition-all duration-200">
+                        <div className="h-1 group-hover/progress:h-1.5 bg-white/20 rounded-full overflow-hidden transition-all">
                           <div 
-                            className="h-full bg-gradient-to-r from-primary to-accent rounded-full transition-all duration-100 relative"
+                            className="h-full bg-white rounded-full transition-all"
                             style={{ width: `${(currentTime / duration) * 100}%` }}
-                          >
-                            <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-lg opacity-0 group-hover/progress:opacity-100 transition-opacity" />
-                          </div>
+                          />
                         </div>
+                        <div 
+                          className="absolute top-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover/progress:opacity-100 transition-all scale-0 group-hover/progress:scale-100"
+                          style={{ left: `${(currentTime / duration) * 100}%`, transform: 'translate(-50%, -50%)' }}
+                        />
                       </div>
-                      <span className="text-xs text-white/50 w-14 tabular-nums font-mono text-right">{formatTime(duration)}</span>
+                      <span className="text-xs text-white/70 w-12 text-right tabular-nums font-mono">{formatTime(duration)}</span>
                     </div>
                   )}
 
                   <div className="flex items-center justify-between gap-4">
                     {/* Left controls */}
                     <div className="flex items-center gap-2">
+                      {!isLiveContent && (
+                        <button
+                          onClick={() => seek(-10)}
+                          className="w-11 h-11 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
+                        >
+                          <Rewind className="w-5 h-5 text-white" />
+                        </button>
+                      )}
                       <button
-                        onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-                        className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-xl transition-all duration-200 border border-white/10"
+                        onClick={togglePlay}
+                        className="w-14 h-14 rounded-full flex items-center justify-center bg-white/20 hover:bg-white/30 backdrop-blur-md transition-all"
                       >
                         {isPlaying ? (
-                          <Pause className="w-5 h-5 text-white" />
+                          <Pause className="w-6 h-6 text-white" />
                         ) : (
-                          <Play className="w-5 h-5 text-white ml-0.5" />
+                          <Play className="w-6 h-6 text-white ml-0.5" />
                         )}
                       </button>
-
                       {!isLiveContent && (
-                        <>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); seek(-10); }}
-                            className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all duration-200"
-                          >
-                            <Rewind className="w-4 h-4 text-white/70" />
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); seek(10); }}
-                            className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all duration-200"
-                          >
-                            <FastForward className="w-4 h-4 text-white/70" />
-                          </button>
-                        </>
-                      )}
-
-                      {/* Volume */}
-                      <div className="hidden sm:flex items-center gap-2 ml-2">
                         <button
-                          onClick={(e) => { e.stopPropagation(); toggleMute(); }}
-                          className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all duration-200"
+                          onClick={() => seek(10)}
+                          className="w-11 h-11 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                         >
-                          {isMuted ? (
-                            <VolumeX className="w-4 h-4 text-white/70" />
+                          <FastForward className="w-5 h-5 text-white" />
+                        </button>
+                      )}
+                      
+                      {/* Volume control */}
+                      <div className="flex items-center gap-2 group/volume ml-2">
+                        <button
+                          onClick={toggleMute}
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
+                        >
+                          {isMuted || volume === 0 ? (
+                            <VolumeX className="w-5 h-5 text-white" />
                           ) : (
-                            <Volume2 className="w-4 h-4 text-white/70" />
+                            <Volume2 className="w-5 h-5 text-white" />
                           )}
                         </button>
-                        <div className="w-20 relative group/vol">
-                          <input
-                            type="range"
-                            min={0}
-                            max={1}
-                            step={0.01}
-                            value={isMuted ? 0 : volume}
-                            onChange={handleVolumeChange}
-                            className="w-full h-1 appearance-none bg-white/10 rounded-full cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-lg"
-                          />
-                        </div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.1}
+                          value={isMuted ? 0 : volume}
+                          onChange={handleVolumeChange}
+                          className="w-0 group-hover/volume:w-24 h-1 bg-white/30 rounded-full appearance-none cursor-pointer transition-all duration-200 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
+                        />
                       </div>
-
-                      {/* AI Subtitles */}
+                      
+                      {/* Subtitles */}
                       <button
-                        onClick={(e) => { e.stopPropagation(); toggleSubtitles(); }}
+                        onClick={toggleSubtitles}
                         className={cn(
-                          "hidden sm:flex w-10 h-10 rounded-xl items-center justify-center transition-all duration-200",
+                          "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                           subtitlesEnabled
-                            ? "bg-primary/30 text-primary border border-primary/30"
-                            : "bg-white/5 hover:bg-white/10 text-white/50"
+                            ? "bg-white/30 text-white"
+                            : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
                         )}
+                        title="Subtítulos IA"
                       >
-                        <Subtitles className="w-4 h-4" />
+                        <Subtitles className="w-5 h-5" />
                       </button>
                     </div>
 
                     {/* Center badges */}
                     <div className="flex items-center gap-2">
+                      {/* Live badge */}
                       {isLiveContent && (
-                        <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-gradient-to-r from-red-600/30 to-red-500/20 backdrop-blur-xl border border-red-500/20">
-                          <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                          </span>
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/30 backdrop-blur-md">
+                          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
                           <span className="text-xs font-bold text-white uppercase tracking-wider">En vivo</span>
                         </div>
                       )}
 
+                      {/* Speed indicator */}
                       {playbackSpeed !== 1 && (
-                        <div className="px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-xl text-xs font-bold text-white border border-white/10">
+                        <div className="px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold text-white">
                           {playbackSpeed}x
                         </div>
                       )}
 
+                      {/* Sleep timer indicator */}
                       {sleepTimer.isActive && sleepTimer.remainingTime && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-500/20 backdrop-blur-xl border border-purple-500/20">
-                          <Moon className="w-3.5 h-3.5 text-purple-400" />
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/30 backdrop-blur-md">
+                          <Moon className="w-3.5 h-3.5 text-white" />
                           <span className="text-xs font-mono text-white">{sleepTimer.formatTime(sleepTimer.remainingTime)}</span>
                         </div>
                       )}
@@ -1052,11 +1033,11 @@ export function PlayerModal() {
                       {/* Quality selector */}
                       <div className="relative hidden sm:block">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setShowQualitySelector(!showQualitySelector); }}
-                          className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all duration-200"
+                          onClick={() => setShowQualitySelector(!showQualitySelector)}
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                           title="Calidad"
                         >
-                          <Signal className="w-4 h-4 text-white/70" />
+                          <Signal className="w-4 h-4 text-white" />
                         </button>
                         <QualitySelector
                           isOpen={showQualitySelector}
@@ -1073,11 +1054,11 @@ export function PlayerModal() {
                       {/* Audio mixer */}
                       <div className="relative hidden sm:block">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setShowAudioMixer(!showAudioMixer); }}
-                          className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all duration-200"
+                          onClick={() => setShowAudioMixer(!showAudioMixer)}
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                           title="Audio"
                         >
-                          <Music className="w-4 h-4 text-white/70" />
+                          <Music className="w-4 h-4 text-white" />
                         </button>
                         <AudioMixer isOpen={showAudioMixer} onClose={() => setShowAudioMixer(false)} />
                       </div>
@@ -1085,14 +1066,14 @@ export function PlayerModal() {
                       {/* Sleep timer */}
                       <div className="relative hidden sm:block">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setShowSleepTimer(!showSleepTimer); }}
+                          onClick={() => setShowSleepTimer(!showSleepTimer)}
                           className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200",
+                            "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                             sleepTimer.isActive
-                              ? "bg-purple-500/30 text-purple-400 border border-purple-500/30"
-                              : "bg-white/5 hover:bg-white/10 text-white/70"
+                              ? "bg-purple-500/40 text-white"
+                              : "bg-white/10 hover:bg-white/20 text-white"
                           )}
-                          title="Temporizador"
+                          title="Temporizador de sueño"
                         >
                           <Moon className="w-4 h-4" />
                         </button>
@@ -1110,11 +1091,11 @@ export function PlayerModal() {
                       {/* Cast */}
                       <div className="relative hidden sm:block">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setShowCastMenu(!showCastMenu); }}
-                          className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all duration-200"
+                          onClick={() => setShowCastMenu(!showCastMenu)}
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                           title="Transmitir"
                         >
-                          <Cast className="w-4 h-4 text-white/70" />
+                          <Cast className="w-4 h-4 text-white" />
                         </button>
                         <CastMenu isOpen={showCastMenu} onClose={() => setShowCastMenu(false)} />
                       </div>
@@ -1122,10 +1103,10 @@ export function PlayerModal() {
                       {/* Share button */}
                       <div className="relative">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setShowShareMenu(!showShareMenu); }}
-                          className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all duration-200"
+                          onClick={() => setShowShareMenu(!showShareMenu)}
+                          className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                         >
-                          <Share2 className="w-4 h-4 text-white/70" />
+                          <Share2 className="w-4 h-4 text-white" />
                         </button>
                         <ShareMenu 
                           title={title || ""} 
@@ -1136,43 +1117,43 @@ export function PlayerModal() {
 
                       {/* Stats toggle */}
                       <button
-                        onClick={(e) => { e.stopPropagation(); setShowStats(!showStats); }}
+                        onClick={() => setShowStats(!showStats)}
                         className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200",
+                          "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                           showStats
-                            ? "bg-white/20 text-white"
-                            : "bg-white/5 hover:bg-white/10 text-white/70"
+                            ? "bg-white/30"
+                            : "bg-white/10 hover:bg-white/20"
                         )}
                       >
-                        <BarChart3 className="w-4 h-4" />
+                        <BarChart3 className="w-4 h-4 text-white" />
                       </button>
 
                       {/* PiP */}
                       <button
-                        onClick={(e) => { e.stopPropagation(); togglePiP(); }}
+                        onClick={togglePiP}
                         className={cn(
-                          "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200",
+                          "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                           isPiP
-                            ? "bg-white/20 text-white"
-                            : "bg-white/5 hover:bg-white/10 text-white/70"
+                            ? "bg-white/30"
+                            : "bg-white/10 hover:bg-white/20"
                         )}
                         title="Picture-in-Picture (P)"
                       >
-                        <PictureInPicture2 className="w-4 h-4" />
+                        <PictureInPicture2 className="w-4 h-4 text-white" />
                       </button>
 
                       {/* Settings */}
                       <div className="relative">
                         <button
-                          onClick={(e) => { e.stopPropagation(); setShowQuickSettings(!showQuickSettings); }}
+                          onClick={() => setShowQuickSettings(!showQuickSettings)}
                           className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200",
+                            "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                             showQuickSettings
-                              ? "bg-white/20 text-white"
-                              : "bg-white/5 hover:bg-white/10 text-white/70"
+                              ? "bg-white/30"
+                              : "bg-white/10 hover:bg-white/20"
                           )}
                         >
-                          <Settings className={cn("w-4 h-4 transition-transform duration-300", showQuickSettings && "rotate-90")} />
+                          <Settings className={cn("w-4 h-4 text-white transition-transform", showQuickSettings && "rotate-90")} />
                         </button>
                         <QuickSettings
                           isOpen={showQuickSettings}
@@ -1196,8 +1177,8 @@ export function PlayerModal() {
 
                       {/* Fullscreen */}
                       <button
-                        onClick={(e) => { e.stopPropagation(); toggleFullscreen(); }}
-                        className="w-12 h-12 rounded-2xl flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-xl transition-all duration-200 border border-white/10"
+                        onClick={toggleFullscreen}
+                        className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
                         title="Pantalla completa (F)"
                       >
                         {isFullscreen ? (
@@ -1209,94 +1190,88 @@ export function PlayerModal() {
                     </div>
                   </div>
                 </div>
-              </div>
-            </>
-          ) : isEmbedUrl || isYouTube || url ? (
-            <iframe
-              ref={iframeRef}
-              src={getEmbedUrl(url)}
-              className="w-full h-full"
-              allow="autoplay; encrypted-media; picture-in-picture; fullscreen; accelerometer; gyroscope; clipboard-write"
-              allowFullScreen
-              referrerPolicy="no-referrer-when-downgrade"
-              style={{ border: 'none', background: '#000' }}
-              onLoad={() => {
-                setIsLoading(false);
-                setLoadError(null);
-              }}
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-6 text-muted-foreground bg-black">
-              <div className="relative">
-                <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/20 to-transparent blur-xl" />
-                <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/10 flex items-center justify-center">
-                  <Play className="w-12 h-12 text-white/20" />
+              </>
+            ) : isEmbedUrl || isYouTube || url ? (
+              <iframe
+                ref={iframeRef}
+                src={getEmbedUrl(url)}
+                className="w-full h-full border-0"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen; accelerometer; gyroscope; clipboard-write"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                style={{ border: 'none' }}
+                onLoad={() => {
+                  setIsLoading(false);
+                  setLoadError(null);
+                }}
+              />
+            ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-muted-foreground">
+                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
+                  <Play className="w-10 h-10 text-white/20" />
                 </div>
+                <span className="text-sm text-white/40">Sin enlace disponible</span>
               </div>
-              <span className="text-sm text-white/30 font-medium">Sin enlace disponible</span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Floating Bottom Bar - Stream options */}
-        {hasMultipleOptions && (
-          <div 
-            className={cn(
-              "absolute bottom-24 left-1/2 -translate-x-1/2 z-[55] transition-all duration-500 ease-out",
-              showControls 
-                ? "opacity-100 translate-y-0" 
-                : "opacity-0 translate-y-4 pointer-events-none"
-            )}
-          >
-            <div className="flex items-center gap-2 px-2 py-2 rounded-2xl bg-black/60 backdrop-blur-2xl border border-white/10">
-              {availableOptions.map((opt) => (
-                <button
-                  key={opt.num}
-                  onClick={(e) => { e.stopPropagation(); setActiveOption(opt.num); }}
-                  className={cn(
-                    "h-9 px-5 rounded-xl text-xs font-semibold transition-all duration-300",
-                    activeOption === opt.num
-                      ? "bg-white text-black shadow-lg"
-                      : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
-                  )}
-                >
-                  Opción {opt.num}
-                </button>
-              ))}
+        <div 
+          className={cn(
+            "absolute bottom-0 left-0 right-0 z-40 px-4 md:px-6 py-3 transition-all duration-300",
+            showControls 
+              ? "opacity-100 translate-y-0" 
+              : "opacity-0 translate-y-2 pointer-events-none"
+          )}
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 60%, transparent 100%)' }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              {hasMultipleOptions && (
+                <div className="flex items-center gap-1.5">
+                  {availableOptions.map((opt) => (
+                    <button
+                      key={opt.num}
+                      onClick={() => setActiveOption(opt.num)}
+                      className={cn(
+                        "h-9 px-4 rounded-full text-xs font-semibold transition-all duration-200",
+                        activeOption === opt.num
+                          ? "bg-white text-black"
+                          : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+                      )}
+                    >
+                      Opción {opt.num}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Status indicator */}
+              <div className="flex items-center gap-2 text-xs text-white/50">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="hidden sm:inline">{isLiveContent ? "En tiempo real" : "Conectado"}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Quality badge */}
+              {streamStats.quality !== "Auto" && (
+                <span className="px-2.5 py-1 rounded-full bg-white/10 text-xs font-medium text-white/70">
+                  {streamStats.quality}
+                </span>
+              )}
+              
+              {/* Keyboard shortcut hint */}
+              <button
+                onClick={() => setShowKeyboardShortcuts(true)}
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              >
+                <Keyboard className="w-3.5 h-3.5 text-white/50" />
+                <span className="text-xs text-white/50">Atajos</span>
+              </button>
             </div>
           </div>
-        )}
-
-        {/* Connection status indicator */}
-        <div 
-          className={cn(
-            "absolute bottom-6 left-6 z-[55] flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/40 backdrop-blur-xl border border-white/5 transition-all duration-500",
-            showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}
-        >
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-          </span>
-          <span className="text-[10px] text-white/40 uppercase tracking-wider font-medium">
-            {isLiveContent ? "En tiempo real" : "Conectado"}
-          </span>
-        </div>
-
-        {/* Keyboard shortcut hint */}
-        <div 
-          className={cn(
-            "absolute bottom-6 right-6 z-[55] transition-all duration-500",
-            showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-          )}
-        >
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowKeyboardShortcuts(true); }}
-            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-black/40 hover:bg-black/60 backdrop-blur-xl border border-white/5 hover:border-white/10 transition-all duration-300"
-          >
-            <Keyboard className="w-3.5 h-3.5 text-white/30" />
-            <span className="text-[10px] text-white/30 uppercase tracking-wider font-medium">Atajos</span>
-          </button>
         </div>
       </div>
     </div>
