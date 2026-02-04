@@ -668,18 +668,18 @@ export function PlayerModal() {
       onClick={(e) => e.target === e.currentTarget && closePlayer()}
       className={cn(
         "fixed inset-0 z-[9990] flex items-center justify-center animate-in fade-in duration-300",
-        isTheaterMode ? "p-0" : "p-3 md:p-6"
+        isTheaterMode ? "p-0" : "p-2 md:p-6"
       )}
     >
-      {/* Premium backdrop with blur and gradient */}
+      {/* Premium backdrop */}
       <div className="absolute inset-0 bg-black/98 backdrop-blur-2xl" />
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-accent/3 pointer-events-none" />
       
       {/* Ambient glow effect */}
       {ambientEnabled && ambientMode.colors && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div 
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] blur-[200px] opacity-30 transition-all duration-1000"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] blur-[200px] opacity-25 transition-all duration-1000"
             style={{ background: `radial-gradient(ellipse, ${ambientMode.colors.dominant}, transparent 70%)` }}
           />
         </div>
@@ -688,35 +688,35 @@ export function PlayerModal() {
       <div 
         ref={containerRef}
         className={cn(
-          "relative rounded-3xl border shadow-2xl overflow-hidden transition-all duration-500",
+          "relative overflow-hidden transition-all duration-500",
           isTheaterMode 
             ? "w-full h-full rounded-none border-0" 
-            : "w-[min(1280px,96vw)] border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent"
+            : "w-[min(1280px,98vw)] rounded-2xl md:rounded-3xl border border-white/[0.08] bg-gradient-to-b from-white/[0.03] to-transparent shadow-2xl"
         )}
       >
         {/* Premium Header */}
         <div className={cn(
-          "flex items-center justify-between px-5 py-3.5 border-b border-white/[0.06] backdrop-blur-xl transition-all",
-          isTheaterMode ? "absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/90 to-transparent border-0 opacity-0 hover:opacity-100" : "bg-black/50"
+          "flex items-center justify-between px-3 md:px-5 py-2.5 md:py-3 border-b border-white/[0.06] backdrop-blur-xl transition-all",
+          isTheaterMode ? "absolute top-0 left-0 right-0 z-50 bg-gradient-to-b from-black/90 to-transparent border-0 opacity-0 hover:opacity-100" : "bg-black/60"
         )}>
-          <div className="flex items-center gap-3 min-w-0">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
             {isLiveContent && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/20 border border-red-500/40 backdrop-blur-sm shrink-0">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/50" />
-                <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">LIVE</span>
+              <div className="flex items-center gap-1.5 px-2 md:px-3 py-1 md:py-1.5 rounded-full bg-red-500/20 border border-red-500/40 backdrop-blur-sm shrink-0">
+                <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/50" />
+                <span className="text-[9px] md:text-[10px] font-black text-red-400 uppercase tracking-widest">LIVE</span>
               </div>
             )}
-            <h2 className="font-display text-lg tracking-wider text-white/90 truncate">
+            <h2 className="font-display text-sm md:text-lg tracking-wider text-white/90 truncate">
               {title || "Reproductor"}
             </h2>
           </div>
           
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Ambient mode toggle */}
+          <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+            {/* Ambient mode toggle - hidden on mobile */}
             <button
               onClick={() => setAmbientEnabled(!ambientEnabled)}
               className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-200",
+                "hidden sm:flex w-9 h-9 md:w-10 md:h-10 rounded-xl items-center justify-center border transition-all duration-200",
                 ambientEnabled 
                   ? "bg-accent/20 border-accent/40 text-accent" 
                   : "bg-white/[0.05] border-white/10 hover:bg-white/10 text-white/60 hover:text-white"
@@ -726,11 +726,11 @@ export function PlayerModal() {
               <Smartphone className="w-4 h-4" />
             </button>
             
-            {/* Theater mode toggle */}
+            {/* Theater mode toggle - hidden on mobile */}
             <button
               onClick={() => setIsTheaterMode(!isTheaterMode)}
               className={cn(
-                "w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-200",
+                "hidden sm:flex w-9 h-9 md:w-10 md:h-10 rounded-xl items-center justify-center border transition-all duration-200",
                 isTheaterMode 
                   ? "bg-primary/20 border-primary/40 text-primary" 
                   : "bg-white/[0.05] border-white/10 hover:bg-white/10 text-white/60 hover:text-white"
@@ -743,7 +743,7 @@ export function PlayerModal() {
             {/* Close button */}
             <button
               onClick={closePlayer}
-              className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/[0.05] hover:bg-red-500/20 hover:border-red-500/40 hover:text-red-400 transition-all duration-200 text-white/60"
+              className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/[0.05] hover:bg-red-500/20 hover:border-red-500/40 hover:text-red-400 transition-all duration-200 text-white/60"
             >
               <X className="w-4 h-4" />
             </button>
@@ -751,14 +751,15 @@ export function PlayerModal() {
         </div>
 
         {/* Player Container */}
-        <div className={cn("p-3 md:p-4", isTheaterMode && "p-0 h-full")}>
+        <div className={cn("p-2 md:p-4", isTheaterMode && "p-0 h-full")}>
           <div
             className={cn(
               "relative overflow-hidden bg-black aspect-video group",
-              isTheaterMode ? "rounded-none h-full aspect-auto" : "rounded-2xl border border-white/[0.06]"
+              isTheaterMode ? "rounded-none h-full aspect-auto" : "rounded-xl md:rounded-2xl border border-white/[0.06]"
             )}
             onMouseMove={handleMouseMove}
             onMouseLeave={() => setShowControls(false)}
+            onTouchStart={() => setShowControls(true)}
           >
             {/* Stream stats overlay */}
             <StreamStats 
@@ -1207,18 +1208,18 @@ export function PlayerModal() {
 
         {/* Footer with stream options */}
         {!isTheaterMode && (
-          <div className="px-5 py-3 border-t border-white/[0.06] bg-black/40 backdrop-blur-xl flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+          <div className="px-3 md:px-5 py-2.5 md:py-3 border-t border-white/[0.06] bg-black/50 backdrop-blur-xl flex flex-wrap items-center justify-between gap-2 md:gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
               {hasMultipleOptions ? (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   {availableOptions.map((opt) => (
                     <button
                       key={opt.num}
                       onClick={() => setActiveOption(opt.num)}
                       className={cn(
-                        "h-9 px-4 rounded-xl text-xs font-medium transition-all duration-200",
+                        "h-8 md:h-9 px-3 md:px-4 rounded-lg md:rounded-xl text-[10px] md:text-xs font-medium transition-all duration-200",
                         activeOption === opt.num
-                          ? "bg-gradient-to-r from-primary to-purple-500 text-white shadow-lg shadow-primary/25"
+                          ? "bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/25"
                           : "bg-white/[0.06] text-white/60 hover:bg-white/10 hover:text-white/80 border border-white/10"
                       )}
                     >
@@ -1227,30 +1228,30 @@ export function PlayerModal() {
                   ))}
                 </div>
               ) : (
-                <span className="text-xs text-white/40">
-                  {isLiveContent ? "Stream en tiempo real" : "Reproduciendo"}
+                <span className="text-[10px] md:text-xs text-white/40">
+                  {isLiveContent ? "En tiempo real" : "Reproduciendo"}
                 </span>
               )}
 
-              {/* Keyboard shortcut hint */}
+              {/* Keyboard shortcut hint - hidden on mobile */}
               <button
                 onClick={() => setShowKeyboardShortcuts(true)}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
               >
                 <Keyboard className="w-3.5 h-3.5 text-white/40" />
                 <span className="text-xs text-white/40">?</span>
               </button>
             </div>
 
-            <div className="flex items-center gap-3 text-xs text-white/40">
+            <div className="flex items-center gap-2 md:gap-3 text-[10px] md:text-xs text-white/40">
               {streamStats.quality !== "Auto" && (
-                <span className="px-2 py-1 rounded bg-white/10 font-medium text-white/60">
+                <span className="px-1.5 md:px-2 py-0.5 md:py-1 rounded bg-white/10 font-medium text-white/60 text-[9px] md:text-xs">
                   {streamStats.quality}
                 </span>
               )}
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                Conectado
+              <div className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="hidden sm:inline">Conectado</span>
               </div>
             </div>
           </div>

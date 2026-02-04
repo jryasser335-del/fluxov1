@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import { cn } from "@/lib/utils";
 
 interface EventCountdownProps {
   targetDate: string;
+  compact?: boolean;
 }
 
-export function EventCountdown({ targetDate }: EventCountdownProps) {
+export function EventCountdown({ targetDate, compact = false }: EventCountdownProps) {
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
@@ -30,6 +32,19 @@ export function EventCountdown({ targetDate }: EventCountdownProps) {
 
   if (timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0) {
     return null;
+  }
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-0.5 font-mono text-[9px]">
+        <span className="bg-primary/20 px-1 py-0.5 rounded text-primary font-bold">
+          {formatNumber(timeLeft.hours)}h
+        </span>
+        <span className="bg-primary/20 px-1 py-0.5 rounded text-primary font-bold">
+          {formatNumber(timeLeft.minutes)}m
+        </span>
+      </div>
+    );
   }
 
   return (
