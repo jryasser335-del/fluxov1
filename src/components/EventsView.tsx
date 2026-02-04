@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Section } from "./Section";
 import { EventCard } from "./events/EventCard";
 import { EventInfoBanner } from "./events/EventInfoBanner";
-import { AdBlockerBanner } from "./events/AdBlockerBanner";
 import { EventsStats } from "./events/EventsStats";
 import { PremiumFilters } from "./events/PremiumFilters";
 import { FeaturedMatch } from "./events/FeaturedMatch";
@@ -254,9 +253,6 @@ export function EventsView() {
         upcomingEvents={stats.upcomingEvents}
         withLinks={stats.withLinks}
       />
-
-      {/* AdBlocker recommendation */}
-      <AdBlockerBanner />
 
       {/* Info banner */}
       <EventInfoBanner />
