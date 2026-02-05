@@ -7,6 +7,7 @@ import { TopBar } from "@/components/TopBar";
 import { PlayerModal } from "@/components/PlayerModal";
 import { ChannelsView } from "@/components/ChannelsView";
 import { EventsView } from "@/components/EventsView";
+import { MultiStreamView } from "@/components/MultiStreamView";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { useAppAuth } from "@/hooks/useAppAuth";
 
@@ -60,6 +61,7 @@ const Index = () => {
           <div className="mt-2">
             {activeView === "canales" && <ChannelsView />}
             {activeView === "eventos" && <EventsView />}
+            {activeView === "multistream" && <MultiStreamView />}
           </div>
         </main>
       </div>
