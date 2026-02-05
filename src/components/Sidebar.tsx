@@ -1,17 +1,17 @@
-import { Tv, Trophy, Settings, LogOut } from "lucide-react";
+import { Tv, Trophy, Settings, LogOut, LayoutGrid } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppAuth } from "@/hooks/useAppAuth";
 
-export type ViewType = "canales" | "eventos";
+export type ViewType = "canales" | "eventos" | "multistream";
 
 interface SidebarProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
 }
 
-const navItems: { view: ViewType; label: string; icon: React.ReactNode; color: string }[] = [
+const navItems: { view: ViewType; label: string; icon: React.ReactNode; color: string; badge?: string }[] = [
   { 
     view: "canales", 
     label: "LIVE", 
@@ -23,6 +23,13 @@ const navItems: { view: ViewType; label: string; icon: React.ReactNode; color: s
     label: "SPORT", 
     icon: <Trophy className="w-5 h-5 max-md:w-6 max-md:h-6" />,
     color: "from-emerald-500 to-green-400"
+  },
+  { 
+    view: "multistream", 
+    label: "MULTI", 
+    icon: <LayoutGrid className="w-5 h-5 max-md:w-6 max-md:h-6" />,
+    color: "from-red-500 to-orange-400",
+    badge: "NEW"
   },
 ];
 
@@ -57,7 +64,7 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
 
         {/* Navigation */}
         <nav className="flex flex-col gap-1.5 px-2.5">
-          {navItems.map(({ view, label, icon, color }, index) => {
+          {navItems.map(({ view, label, icon, color, badge }, index) => {
             const isActive = activeView === view;
             return (
               <button
@@ -77,6 +84,13 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
                     "absolute -left-2.5 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-gradient-to-b",
                     color
                   )} />
+                )}
+
+                {/* NEW badge */}
+                {badge && (
+                  <div className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-md bg-gradient-to-r from-red-500 to-orange-500 text-[6px] font-black text-white tracking-wider shadow-lg">
+                    {badge}
+                  </div>
                 )}
                 
                 <div className={cn(
@@ -142,7 +156,7 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-t border-white/[0.06] px-2 py-2 safe-area-pb">
         <div className="flex items-center justify-around">
-          {navItems.map(({ view, label, icon, color }) => {
+          {navItems.map(({ view, label, icon, color, badge }) => {
             const isActive = activeView === view;
             return (
               <button
@@ -159,6 +173,13 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
                     "absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-gradient-to-r",
                     color
                   )} />
+                )}
+
+                {/* NEW badge */}
+                {badge && (
+                  <div className="absolute -top-0.5 right-0 px-1 py-0.5 rounded-md bg-gradient-to-r from-red-500 to-orange-500 text-[5px] font-black text-white tracking-wider">
+                    {badge}
+                  </div>
                 )}
                 
                 <div className={cn(

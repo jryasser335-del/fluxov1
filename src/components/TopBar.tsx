@@ -16,6 +16,7 @@ interface TopBarProps {
 const viewConfig: Record<ViewType, { title: string; subtitle: string; icon: string }> = {
   canales: { title: "Canales", subtitle: "EN VIVO", icon: "📺" },
   eventos: { title: "Deportes", subtitle: "EVENTOS", icon: "⚽" },
+  multistream: { title: "Multi Stream", subtitle: "MÚLTIPLE", icon: "🖥️" },
 };
 
 export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps) {
