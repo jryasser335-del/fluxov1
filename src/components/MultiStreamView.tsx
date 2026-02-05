@@ -1,64 +1,126 @@
-import { useState } from "react";
-import { Plus, X, Maximize2, Minimize2, Grid2X2, LayoutGrid, Tv } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, X, Maximize2, Minimize2, Grid2X2, LayoutGrid, Tv, Search, Trophy, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { usePlayerModal, StreamUrls } from "@/hooks/usePlayerModal";
+import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
 
 interface StreamSlot {
   id: number;
+  eventId: string | null;
   title: string;
   url: string;
   isActive: boolean;
+  teamHome?: string;
+  teamAway?: string;
+  league?: string;
+  isLive?: boolean;
+}
+
+interface AvailableEvent {
+  id: string;
+  name: string;
+  stream_url: string;
+  stream_url_2: string | null;
+  stream_url_3: string | null;
+  team_home: string | null;
+  team_away: string | null;
+  league: string | null;
+  is_live: boolean;
+  event_date: string;
 }
 
 export function MultiStreamView() {
   const [layout, setLayout] = useState<2 | 4>(4);
   const [slots, setSlots] = useState<StreamSlot[]>([
-    { id: 1, title: "", url: "", isActive: false },
-    { id: 2, title: "", url: "", isActive: false },
-    { id: 3, title: "", url: "", isActive: false },
-    { id: 4, title: "", url: "", isActive: false },
+    { id: 1, eventId: null, title: "", url: "", isActive: false },
+    { id: 2, eventId: null, title: "", url: "", isActive: false },
+    { id: 3, eventId: null, title: "", url: "", isActive: false },
+    { id: 4, eventId: null, title: "", url: "", isActive: false },
   ]);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showUrlInput, setShowUrlInput] = useState<number | null>(null);
-  const [inputUrl, setInputUrl] = useState("");
-  const [inputTitle, setInputTitle] = useState("");
+  const [showEventPicker, setShowEventPicker] = useState<number | null>(null);
+  const [availableEvents, setAvailableEvents] = useState<AvailableEvent[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  // Fetch events with stream URLs
+  useEffect(() => {
+    const fetchEvents = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("events")
+        .select("*")
+        .eq("is_active", true)
+        .not("stream_url", "is", null)
+        .neq("stream_url", "")
+        .order("event_date", { ascending: true });
+
+      if (!error && data) {
+        setAvailableEvents(data as AvailableEvent[]);
+      }
+      setLoading(false);
+    };
+
+    fetchEvents();
+
+    // Subscribe to realtime updates
+    const channel = supabase
+      .channel("events-multistream")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => fetchEvents()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const activeSlots = slots.filter(s => s.isActive);
   const displaySlots = layout === 2 ? slots.slice(0, 2) : slots;
 
-  const handleAddStream = (slotId: number) => {
-    if (!inputUrl.trim()) return;
+  // Filter events based on search and exclude already selected
+  const selectedEventIds = slots.filter(s => s.eventId).map(s => s.eventId);
+  const filteredEvents = availableEvents.filter(event => {
+    const matchesSearch = searchQuery === "" || 
+      event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      event.team_home?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      event.team_away?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      event.league?.toLowerCase().includes(searchQuery.toLowerCase());
     
+    const notSelected = !selectedEventIds.includes(event.id);
+    
+    return matchesSearch && notSelected;
+  });
+
+  const handleSelectEvent = (slotId: number, event: AvailableEvent) => {
     setSlots(prev => prev.map(slot => 
       slot.id === slotId 
-        ? { ...slot, url: inputUrl.trim(), title: inputTitle.trim() || `Stream ${slotId}`, isActive: true }
+        ? { 
+            ...slot, 
+            eventId: event.id,
+            url: event.stream_url, 
+            title: event.name,
+            teamHome: event.team_home || undefined,
+            teamAway: event.team_away || undefined,
+            league: event.league || undefined,
+            isLive: event.is_live,
+            isActive: true 
+          }
         : slot
     ));
-    setShowUrlInput(null);
-    setInputUrl("");
-    setInputTitle("");
+    setShowEventPicker(null);
+    setSearchQuery("");
   };
 
   const handleRemoveStream = (slotId: number) => {
     setSlots(prev => prev.map(slot => 
       slot.id === slotId 
-        ? { ...slot, url: "", title: "", isActive: false }
+        ? { ...slot, eventId: null, url: "", title: "", isActive: false, teamHome: undefined, teamAway: undefined, league: undefined, isLive: undefined }
         : slot
     ));
-  };
-
-  const isEmbedUrl = (url: string) => {
-    const embedPatterns = [
-      /\/embed\//i,
-      /\/player\//i,
-      /\/e\//i,
-      /#player=/i,
-      /youtube\.com\/embed/i,
-      /player\.twitch\.tv/i,
-      /facebook\.com\/.*\/videos/i,
-      /dailymotion\.com\/embed/i,
-    ];
-    return embedPatterns.some(pattern => pattern.test(url));
   };
 
   const formatStreamUrl = (url: string) => {
@@ -89,7 +151,7 @@ export function MultiStreamView() {
           </div>
           <div>
             <h1 className="text-xl font-display font-bold text-white">Multi Stream</h1>
-            <p className="text-xs text-white/50">Ve múltiples eventos a la vez</p>
+            <p className="text-xs text-white/50">Ve múltiples partidos a la vez</p>
           </div>
         </div>
 
@@ -138,7 +200,7 @@ export function MultiStreamView() {
         layout === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2",
         isFullscreen && "h-[calc(100vh-100px)]"
       )}>
-        {displaySlots.map((slot, index) => (
+        {displaySlots.map((slot) => (
           <div
             key={slot.id}
             className={cn(
@@ -162,13 +224,21 @@ export function MultiStreamView() {
 
                 {/* Stream title overlay */}
                 <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                      <span className="text-xs font-bold text-white truncate max-w-[200px]">
-                        {slot.title}
+                  <div className="flex items-center gap-2">
+                    {slot.isLive && (
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/80">
+                        <Radio className="w-2.5 h-2.5 text-white" />
+                        <span className="text-[9px] font-bold text-white uppercase">En Vivo</span>
+                      </div>
+                    )}
+                    <span className="text-xs font-bold text-white truncate">
+                      {slot.title}
+                    </span>
+                    {slot.league && (
+                      <span className="text-[10px] text-white/50 truncate hidden sm:block">
+                        • {slot.league}
                       </span>
-                    </div>
+                    )}
                   </div>
                 </div>
 
@@ -182,61 +252,97 @@ export function MultiStreamView() {
               </>
             ) : (
               <>
-                {showUrlInput === slot.id ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center p-6 gap-4">
-                    <input
-                      type="text"
-                      value={inputTitle}
-                      onChange={(e) => setInputTitle(e.target.value)}
-                      placeholder="Nombre del stream (opcional)"
-                      className="w-full max-w-md px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-white/40 focus:outline-none focus:border-primary text-sm"
-                    />
-                    <input
-                      type="text"
-                      value={inputUrl}
-                      onChange={(e) => setInputUrl(e.target.value)}
-                      placeholder="URL del stream (embed o m3u8)"
-                      className="w-full max-w-md px-4 py-3 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-white/40 focus:outline-none focus:border-primary text-sm"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleAddStream(slot.id);
-                        if (e.key === 'Escape') {
-                          setShowUrlInput(null);
-                          setInputUrl("");
-                          setInputTitle("");
-                        }
-                      }}
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleAddStream(slot.id)}
-                        disabled={!inputUrl.trim()}
-                        className="px-6 py-2 rounded-xl bg-primary text-white text-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/80 transition-all"
-                      >
-                        Añadir
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowUrlInput(null);
-                          setInputUrl("");
-                          setInputTitle("");
-                        }}
-                        className="px-6 py-2 rounded-xl bg-white/10 text-white text-sm font-bold hover:bg-white/20 transition-all"
-                      >
-                        Cancelar
-                      </button>
+                {showEventPicker === slot.id ? (
+                  <div className="absolute inset-0 flex flex-col p-4 bg-black/95 overflow-hidden">
+                    {/* Search */}
+                    <div className="relative mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+                      <Input
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Buscar partido..."
+                        className="pl-10 h-10 bg-white/5 border-white/10 text-sm"
+                        autoFocus
+                      />
                     </div>
+
+                    {/* Events list */}
+                    <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                      {loading ? (
+                        <div className="flex items-center justify-center h-20">
+                          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      ) : filteredEvents.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-20 text-white/40">
+                          <Trophy className="w-6 h-6 mb-2" />
+                          <span className="text-xs">No hay partidos disponibles</span>
+                        </div>
+                      ) : (
+                        filteredEvents.map((event) => (
+                          <button
+                            key={event.id}
+                            onClick={() => handleSelectEvent(slot.id, event)}
+                            className="w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-primary/50 transition-all text-left group"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/20 to-accent/10 border border-primary/20 flex items-center justify-center shrink-0">
+                                <Trophy className="w-5 h-5 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-bold text-white truncate">
+                                    {event.name}
+                                  </span>
+                                  {event.is_live && (
+                                    <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-[9px] font-bold text-red-400 uppercase">
+                                      Live
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] text-white/40">
+                                  {event.league && <span>{event.league}</span>}
+                                  <span>•</span>
+                                  <span>
+                                    {new Date(event.event_date).toLocaleDateString(undefined, {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" title="Link disponible" />
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+
+                    {/* Cancel button */}
+                    <button
+                      onClick={() => {
+                        setShowEventPicker(null);
+                        setSearchQuery("");
+                      }}
+                      className="mt-3 w-full py-2 rounded-xl bg-white/5 text-white/60 text-sm font-medium hover:bg-white/10 transition-all"
+                    >
+                      Cancelar
+                    </button>
                   </div>
                 ) : (
                   <button
-                    onClick={() => setShowUrlInput(slot.id)}
+                    onClick={() => setShowEventPicker(slot.id)}
                     className="absolute inset-0 flex flex-col items-center justify-center gap-3 group"
                   >
-                    <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/10 group-hover:border-white/20 transition-all">
-                      <Plus className="w-8 h-8 text-white/40 group-hover:text-white/60 transition-colors" />
+                    <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-white/10 group-hover:border-primary/30 transition-all">
+                      <Plus className="w-8 h-8 text-white/40 group-hover:text-primary transition-colors" />
                     </div>
                     <span className="text-sm font-medium text-white/40 group-hover:text-white/60 transition-colors">
-                      Añadir Stream
+                      Añadir Partido
+                    </span>
+                    <span className="text-xs text-white/20">
+                      {availableEvents.length - selectedEventIds.length} disponibles
                     </span>
                   </button>
                 )}
@@ -249,7 +355,7 @@ export function MultiStreamView() {
       {/* Active streams counter */}
       <div className="mt-4 flex items-center justify-center">
         <div className="px-4 py-2 rounded-full bg-white/5 border border-white/10 text-xs text-white/50">
-          {activeSlots.length} de {layout} streams activos
+          {activeSlots.length} de {layout} partidos activos
         </div>
       </div>
     </div>
