@@ -1,11 +1,9 @@
-import { Search, Bell, LogOut } from "lucide-react";
+import { Search, Bell } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ViewType } from "./Sidebar";
 import { HistoryButton } from "./HistoryButton";
 import { useAuth } from "@/hooks/useAuth";
-import { useAppAuth } from "@/hooks/useAppAuth";
-import { Link, useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
 
 interface TopBarProps {
   activeView: ViewType;
@@ -21,8 +19,6 @@ const viewConfig: Record<ViewType, { title: string; subtitle: string; icon: stri
 
 export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps) {
   const { isAdmin } = useAuth();
-  const { appUser, logout } = useAppAuth();
-  const navigate = useNavigate();
   const config = viewConfig[activeView];
 
   const getPlaceholder = () => {
@@ -30,11 +26,6 @@ export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps)
       case "eventos": return "Buscar evento…";
       default: return "Buscar…";
     }
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate("/login");
   };
 
   return (
@@ -96,20 +87,6 @@ export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps)
           >
             Admin
           </Link>
-        )}
-
-        {/* User avatar / Logout */}
-        {appUser && (
-          <button
-            onClick={handleLogout}
-            className={cn(
-              "h-10 w-10 rounded-xl border flex items-center justify-center transition-all duration-300 overflow-hidden",
-              "border-red-500/20 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500/30"
-            )}
-            title="Cerrar sesión"
-          >
-            <LogOut className="w-4 h-4 text-red-400/70" />
-          </button>
         )}
       </div>
     </header>
