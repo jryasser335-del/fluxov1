@@ -1,10 +1,9 @@
-import { Tv, Trophy, Settings, LogOut, LayoutGrid } from "lucide-react";
+import { Trophy, Settings, LayoutGrid } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { useAppAuth } from "@/hooks/useAppAuth";
 
-export type ViewType = "canales" | "eventos" | "multistream";
+export type ViewType = "eventos" | "multistream";
 
 interface SidebarProps {
   activeView: ViewType;
@@ -12,12 +11,6 @@ interface SidebarProps {
 }
 
 const navItems: { view: ViewType; label: string; icon: React.ReactNode; color: string; badge?: string }[] = [
-  { 
-    view: "canales", 
-    label: "LIVE", 
-    icon: <Tv className="w-5 h-5 max-md:w-6 max-md:h-6" />,
-    color: "from-blue-500 to-cyan-400"
-  },
   { 
     view: "eventos", 
     label: "SPORT", 
@@ -35,7 +28,6 @@ const navItems: { view: ViewType; label: string; icon: React.ReactNode; color: s
 
 export function Sidebar({ activeView, onViewChange }: SidebarProps) {
   const { isAdmin } = useAuth();
-  const { appUser, logout } = useAppAuth();
 
   return (
     <>
@@ -126,19 +118,6 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
         {/* Divider */}
         <div className="w-8 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-3" />
 
-        {/* Logout Button */}
-        {appUser && (
-          <button
-            onClick={logout}
-            className="w-[62px] h-[50px] mb-2 rounded-2xl flex flex-col items-center justify-center gap-0.5 border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 hover:border-red-500/30 transition-all duration-300 group"
-          >
-            <LogOut className="w-4 h-4 text-red-400/70 group-hover:text-red-400 transition-colors" />
-            <span className="text-[7px] font-bold tracking-wider text-red-400/60 group-hover:text-red-400/80 transition-colors">
-              SALIR
-            </span>
-          </button>
-        )}
-
         {/* Admin Button */}
         {isAdmin && (
           <Link
@@ -163,7 +142,7 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
                 key={view}
                 onClick={() => onViewChange(view)}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1 px-4 py-2 rounded-xl transition-all duration-300",
+                  "relative flex flex-col items-center justify-center gap-1 px-6 py-2 rounded-xl transition-all duration-300",
                   isActive ? "bg-white/[0.08]" : "hover:bg-white/[0.04]"
                 )}
               >
