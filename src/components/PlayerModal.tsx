@@ -21,6 +21,7 @@ import { CastMenu } from "./player/CastMenu";
 import { AudioMixer } from "./player/AudioMixer";
 import { QualitySelector } from "./player/QualitySelector";
 import { GestureGuide } from "./player/GestureGuide";
+import { MobilePlayerControls } from "./player/MobilePlayerControls";
 import { toast } from "sonner";
 
 export function PlayerModal() {
@@ -693,10 +694,10 @@ export function PlayerModal() {
         </div>
       )}
       
-        {/* Always visible close button - top right corner */}
+        {/* Always visible close button - top right corner - Hidden on mobile since we have MobilePlayerControls */}
         <button
           onClick={closePlayer}
-          className="absolute top-4 right-4 md:top-6 md:right-6 z-[60] w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-md bg-black/60 hover:bg-red-500/80 border border-white/20 hover:border-red-500/50 transition-all duration-200 text-white/90 hover:text-white shadow-lg"
+          className="hidden md:flex absolute top-4 right-4 md:top-6 md:right-6 z-[60] w-11 h-11 rounded-full items-center justify-center backdrop-blur-md bg-black/60 hover:bg-red-500/80 border border-white/20 hover:border-red-500/50 transition-all duration-200 text-white/90 hover:text-white shadow-lg"
         >
           <X className="w-5 h-5" />
         </button>
@@ -705,10 +706,10 @@ export function PlayerModal() {
           ref={containerRef}
           className="relative w-full h-full overflow-hidden"
         >
-          {/* Floating Header - Overlays video */}
+          {/* Floating Header - Overlays video - DESKTOP ONLY */}
           <div 
             className={cn(
-              "absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-6 py-3 md:py-4 pr-20 md:pr-24 transition-all duration-300",
+              "hidden md:flex absolute top-0 left-0 right-0 z-50 items-center justify-between px-4 md:px-6 py-3 md:py-4 pr-20 md:pr-24 transition-all duration-300",
               showControls 
                 ? "opacity-100 translate-y-0" 
                 : "opacity-0 -translate-y-2 pointer-events-none"
@@ -877,11 +878,38 @@ export function PlayerModal() {
                   x-webkit-airplay="allow"
                 />
 
+                {/* Mobile Player Controls - Only shown on mobile */}
+                <MobilePlayerControls
+                  isVisible={showControls}
+                  isPlaying={isPlaying}
+                  isMuted={isMuted}
+                  isLiveContent={isLiveContent}
+                  currentTime={currentTime}
+                  duration={duration}
+                  title={title}
+                  subtitlesEnabled={subtitlesEnabled}
+                  hasMultipleOptions={hasMultipleOptions}
+                  activeOption={activeOption}
+                  availableOptions={availableOptions}
+                  onTogglePlay={togglePlay}
+                  onToggleMute={toggleMute}
+                  onSeek={seek}
+                  onSeekTo={(time) => {
+                    if (videoRef.current) videoRef.current.currentTime = time;
+                  }}
+                  onToggleFullscreen={toggleFullscreen}
+                  onToggleSubtitles={toggleSubtitles}
+                  onShowSettings={() => setShowQuickSettings(true)}
+                  onShowShare={() => setShowShareMenu(true)}
+                  onChangeOption={setActiveOption}
+                  onClose={closePlayer}
+                />
+
                 {/* AI Subtitles Overlay */}
                 {subtitlesEnabled && currentSubtitle && (
-                  <div className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none z-30">
-                    <div className="bg-black/80 backdrop-blur-sm px-6 py-3 rounded-lg max-w-[80%] border border-white/10">
-                      <p className="text-white text-lg md:text-xl font-medium text-center leading-relaxed">
+                  <div className="absolute bottom-24 md:bottom-24 left-0 right-0 flex justify-center pointer-events-none z-30">
+                    <div className="bg-black/80 backdrop-blur-sm px-4 md:px-6 py-2 md:py-3 rounded-lg max-w-[90%] md:max-w-[80%] border border-white/10 mx-4">
+                      <p className="text-white text-base md:text-xl font-medium text-center leading-relaxed">
                         {currentSubtitle}
                       </p>
                     </div>
@@ -898,10 +926,10 @@ export function PlayerModal() {
                   </div>
                 )}
 
-                {/* Custom controls - Premium borderless design */}
+                {/* Custom controls - Premium borderless design - DESKTOP ONLY */}
                 <div
                   className={cn(
-                    "absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-16 pt-20 transition-all duration-300",
+                    "hidden md:block absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-16 pt-20 transition-all duration-300",
                     showControls ? "opacity-100" : "opacity-0 pointer-events-none"
                   )}
                   style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 40%, transparent 100%)' }}
@@ -1216,10 +1244,10 @@ export function PlayerModal() {
           </div>
         </div>
 
-        {/* Floating Bottom Bar - Stream options - ALWAYS VISIBLE when multiple options - CENTERED */}
+        {/* Floating Bottom Bar - Stream options - DESKTOP ONLY */}
         {hasMultipleOptions && (
           <div 
-            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 pointer-events-auto"
+            className="hidden md:flex absolute bottom-20 left-1/2 -translate-x-1/2 z-[100] items-center gap-3 pointer-events-auto"
           >
             {availableOptions.map((opt) => (
               <button
@@ -1241,10 +1269,10 @@ export function PlayerModal() {
           </div>
         )}
 
-        {/* Status and controls bar */}
+        {/* Status and controls bar - DESKTOP ONLY */}
         <div 
           className={cn(
-            "absolute bottom-0 left-0 right-0 z-40 px-4 md:px-6 py-3 transition-all duration-300",
+            "hidden md:block absolute bottom-0 left-0 right-0 z-40 px-4 md:px-6 py-3 transition-all duration-300",
             showControls 
               ? "opacity-100 translate-y-0" 
               : "opacity-0 translate-y-2 pointer-events-none"
