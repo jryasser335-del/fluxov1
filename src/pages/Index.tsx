@@ -1,17 +1,14 @@
 import { useState } from "react";
-import { IntroScreen } from "@/components/IntroScreen";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { Sidebar, ViewType } from "@/components/Sidebar";
 import { TopBar } from "@/components/TopBar";
 import { PlayerModal } from "@/components/PlayerModal";
-import { ChannelsView } from "@/components/ChannelsView";
 import { EventsView } from "@/components/EventsView";
 import { MultiStreamView } from "@/components/MultiStreamView";
 import { NotificationCenter } from "@/components/NotificationCenter";
 
 const Index = () => {
-  const [showIntro, setShowIntro] = useState(true);
-  const [activeView, setActiveView] = useState<ViewType>("canales");
+  const [activeView, setActiveView] = useState<ViewType>("eventos");
   const [searchQuery, setSearchQuery] = useState("");
 
   const handleViewChange = (view: ViewType) => {
@@ -21,8 +18,6 @@ const Index = () => {
 
   return (
     <>
-      {showIntro && <IntroScreen onComplete={() => setShowIntro(false)} />}
-      
       <div className="grid grid-cols-[86px_1fr] max-md:grid-cols-1 min-h-screen relative bg-black">
         {/* Ambient background effects */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -43,7 +38,6 @@ const Index = () => {
           />
           
           <div className="mt-2">
-            {activeView === "canales" && <ChannelsView />}
             {activeView === "eventos" && <EventsView />}
             {activeView === "multistream" && <MultiStreamView />}
           </div>

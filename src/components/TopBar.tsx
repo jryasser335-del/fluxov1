@@ -12,7 +12,6 @@ interface TopBarProps {
 }
 
 const viewConfig: Record<ViewType, { title: string; subtitle: string; icon: string }> = {
-  canales: { title: "Canales", subtitle: "EN VIVO", icon: "📺" },
   eventos: { title: "Deportes", subtitle: "EVENTOS", icon: "⚽" },
   multistream: { title: "Multi Stream", subtitle: "MÚLTIPLE", icon: "🖥️" },
 };
@@ -40,7 +39,7 @@ export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps)
             <h1 className="font-display text-lg md:text-2xl tracking-wider text-white truncate">
               {config.title}
             </h1>
-            {activeView === "canales" && (
+            {activeView === "eventos" && (
               <span className="px-2 py-0.5 rounded-md bg-red-500/20 border border-red-500/30 text-[10px] font-bold text-red-400 uppercase tracking-wider animate-pulse shrink-0">
                 Live
               </span>
