@@ -12,7 +12,8 @@ import {
   Plus, Save, Trash2, Loader2, X, 
   RefreshCw, Trophy, Search, Calendar,
   Zap, Globe, Filter, ChevronDown, ChevronRight,
-  Circle, Radio, Eye, EyeOff, Link2, Sparkles, Clock
+  Circle, Radio, Eye, EyeOff, Link2, Sparkles, Clock,
+  Download, Wand2
 } from "lucide-react";
 import {
   Dialog,
@@ -261,6 +262,7 @@ export function AdminEvents() {
   const [eventLinks, setEventLinks] = useState<EventLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   // ESPN search state
@@ -291,6 +293,37 @@ export function AdminEvents() {
     } catch (error) {
       console.error("Error syncing event status:", error);
     }
+  };
+
+  const autoSyncStreams = async () => {
+    setSyncing(true);
+    try {
+      toast.info("🔍 Buscando enlaces en streamed.pk y sportsurge...");
+      const { data, error } = await supabase.functions.invoke("scrape-streams");
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data?.success) {
+        if (data.updatedCount > 0) {
+          toast.success(`✨ ${data.updatedCount} eventos actualizados con nuevos enlaces`);
+          fetchEventLinks(); // Refresh the list
+        } else if (data.matchedCount > 0) {
+          toast.info(`Se encontraron ${data.matchedCount} coincidencias pero ya tenían enlaces`);
+        } else {
+          toast.warning("No se encontraron coincidencias con los eventos actuales");
+        }
+        
+        console.log("Scrape results:", data);
+      } else {
+        toast.error(data?.error || "Error al sincronizar");
+      }
+    } catch (error) {
+      console.error("Error syncing streams:", error);
+      toast.error("Error al conectar con el servicio de scraping");
+    }
+    setSyncing(false);
   };
 
   const fetchEventLinks = async () => {
@@ -550,13 +583,28 @@ export function AdminEvents() {
             </p>
           </div>
 
-          <Button 
-            onClick={() => setIsDialogOpen(true)}
-            className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/25"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Agregar Evento
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={autoSyncStreams}
+              disabled={syncing}
+              variant="outline"
+              className="border-accent/50 bg-accent/10 text-accent hover:bg-accent/20"
+            >
+              {syncing ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Wand2 className="w-4 h-4 mr-2" />
+              )}
+              {syncing ? "Buscando..." : "Auto-Sync"}
+            </Button>
+            <Button 
+              onClick={() => setIsDialogOpen(true)}
+              className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/25"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Agregar Evento
+            </Button>
+          </div>
         </div>
 
         {/* Stats Row */}
