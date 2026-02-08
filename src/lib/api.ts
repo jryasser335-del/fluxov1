@@ -1,3 +1,46 @@
+import { TMDB_KEY } from "./constants";
+
+export interface TMDBResult {
+  id: number;
+  title?: string;
+  name?: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  vote_average: number;
+  release_date?: string;
+  first_air_date?: string;
+  overview?: string;
+}
+
+export interface TMDBResponse {
+  results: TMDBResult[];
+  total_pages: number;
+  page: number;
+}
+
+const tmdbCache = new Map<string, { data: TMDBResponse; timestamp: number }>();
+const CACHE_TTL = 20 * 60 * 1000; // 20 minutes
+
+export async function fetchTMDB(path: string): Promise<TMDBResponse> {
+  const cacheKey = path;
+  const cached = tmdbCache.get(cacheKey);
+
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  const separator = path.includes("?") ? "&" : "?";
+  const url = `https://api.themoviedb.org/3/${path}${separator}api_key=${TMDB_KEY}&language=es-ES`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("TMDB error");
+
+  const data = await res.json();
+  tmdbCache.set(cacheKey, { data, timestamp: Date.now() });
+
+  return data;
+}
+
 export interface ESPNEvent {
   id: string;
   date: string;
@@ -36,54 +79,29 @@ export interface ESPNResponse {
   }[];
 }
 
-/**
- * Obtiene eventos de cualquier liga y cualquier fecha.
- * Si no pasas una fecha, el sistema busca automáticamente los partidos de HOY.
- */
-export async function fetchESPNScoreboard(leagueKey: string, dateOffset: number = 0): Promise<ESPNResponse> {
-  // Calculamos la fecha según el offset (0 para hoy, 1 para mañana, etc.)
-  const targetDate = new Date();
-  targetDate.setDate(targetDate.getDate() + dateOffset);
+export async function fetchESPNScoreboard(leagueKey: string): Promise<ESPNResponse> {
+  const today = new Date();
+  const date = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
 
-  const dateStr = `${targetDate.getFullYear()}${String(targetDate.getMonth() + 1).padStart(2, "0")}${String(targetDate.getDate()).padStart(2, "0")}`;
-
+  // Lógica mejorada para detectar el deporte correcto
   let sportPath = "";
-  const key = leagueKey.toLowerCase().trim();
+  const key = leagueKey.toLowerCase();
 
-  // Mapeo inteligente de deportes y ligas
-  switch (key) {
-    case "nba":
-    case "wnba":
-      sportPath = `basketball/${key}`;
-      break;
-    case "nfl":
-    case "ncaa football":
-      sportPath = `football/${key === "ncaa football" ? "college-football" : "nfl"}`;
-      break;
-    case "mlb":
-      sportPath = "baseball/mlb";
-      break;
-    case "nhl":
-      sportPath = "hockey/nhl";
-      break;
-    case "ufc":
-    case "mma":
-      sportPath = "mma/ufc";
-      break;
-    case "f1":
-    case "formula 1":
-      sportPath = "racing/f1";
-      break;
-    default:
-      // Por defecto para todas las ligas de fútbol (Champions, LaLiga, etc.)
-      sportPath = `soccer/${key}`;
-      break;
+  if (key === "nba") {
+    sportPath = "basketball/nba";
+  } else if (key === "nfl") {
+    sportPath = "football/nfl"; // Activa el Super Bowl y NFL
+  } else if (key === "mlb") {
+    sportPath = "baseball/mlb";
+  } else {
+    // Para cualquier otra liga (laliga, champions, etc), asume soccer
+    sportPath = `soccer/${key}`;
   }
 
-  const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${dateStr}`;
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${date}`;
 
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Error en liga: ${leagueKey}`);
+  if (!res.ok) throw new Error("ESPN error");
 
   return await res.json();
 }
