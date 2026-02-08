@@ -6,6 +6,7 @@ export interface GeneratedLinks {
   url1: string;
   url2: string;
   url3: string;
+  url4: string; // Added for echo
 }
 
 /**
@@ -32,7 +33,7 @@ function teamToSlug(teamName: string): string {
  * Generates embedsports.top links for a match with different sources
  * @param homeTeam Home team name
  * @param awayTeam Away team name
- * @returns Object with url1 (admin), url2 (delta), url3 (golf)
+ * @returns Object with url1 (admin), url2 (delta), url3 (golf), url4 (echo)
  */
 export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
@@ -45,6 +46,7 @@ export function generateEmbedLinks(homeTeam: string, awayTeam: string): Generate
     url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
     url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
     url3: `https://embedsports.top/embed/golf/${matchSlug}/1`,
+    url4: `https://embedsports.top/embed/echo/${matchSlug}/1`,
   };
 }
 
@@ -62,6 +64,7 @@ export function generateAlternativeLinks(homeTeam: string, awayTeam: string): Ge
     url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
     url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
     url3: `https://embedsports.top/embed/golf/${matchSlug}/1`,
+    url4: `https://embedsports.top/embed/echo/${matchSlug}/1`,
   };
 }
 
