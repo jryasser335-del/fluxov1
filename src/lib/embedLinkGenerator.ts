@@ -1,11 +1,9 @@
 /**
- * Generates embed links for sports events based on team names
- * Pattern: https://embedsports.top/embed/{source}/ppv-{team1}-vs-{team2}/{stream}
+ * Generates stream links for sports events from streamed.pk
  */
-export interface GeneratedLinks {
-  url1: string;
-  url2: string;
-  url3: string;
+export interface StreamedLink {
+  url: string;
+  source: string;
 }
 
 export interface Match {
@@ -15,12 +13,8 @@ export interface Match {
   url: string;
   viewers: number;
   category: string;
+  streamLinks: StreamedLink[];
 }
-
-/**
- * Available streaming sources
- */
-const SOURCES = ["admin", "delta", "golf", "echo"] as const;
 
 /**
  * Converts a team name to URL-friendly slug
@@ -30,91 +24,17 @@ function teamToSlug(teamName: string): string {
   return teamName
     .toLowerCase()
     .trim()
-    .replace(/['']/g, "") // Remove apostrophes
-    .replace(/[^a-z0-9\s-]/g, "") // Remove special chars
-    .replace(/\s+/g, "-") // Spaces to hyphens
-    .replace(/-+/g, "-") // Multiple hyphens to single
-    .replace(/^-|-$/g, ""); // Trim hyphens from ends
+    .replace(/['']/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 /**
- * Generates embedsports.top links for a match with different sources
- * @param homeTeam Home team name
- * @param awayTeam Away team name
- * @returns Object with url1 (admin), url2 (delta), url3 (golf)
- */
-export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
-  const homeSlug = teamToSlug(homeTeam);
-  const awaySlug = teamToSlug(awayTeam);
-
-  // Pattern: ppv-{away}-vs-{home}
-  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
-
-  return {
-    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
-    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
-    url3: `https://embedsports.top/embed/golf/${matchSlug}/1`,
-  };
-}
-
-/**
- * Generates alternative link variants (home-vs-away instead of away-vs-home)
- */
-export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
-  const homeSlug = teamToSlug(homeTeam);
-  const awaySlug = teamToSlug(awayTeam);
-
-  // Alternative pattern: ppv-{home}-vs-{away}
-  const matchSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
-
-  return {
-    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
-    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
-    url3: `https://embedsports.top/embed/golf/${matchSlug}/1`,
-  };
-}
-
-/**
- * Generates all possible link variants for a match
- */
-export function generateAllLinkVariants(
-  homeTeam: string,
-  awayTeam: string,
-): {
-  primary: GeneratedLinks;
-  alternative: GeneratedLinks;
-} {
-  return {
-    primary: generateEmbedLinks(homeTeam, awayTeam),
-    alternative: generateAlternativeLinks(homeTeam, awayTeam),
-  };
-}
-
-/**
- * Generates links from all available sources (admin, delta, golf, echo)
- * @returns Array of all possible links
- */
-export function generateAllSourceLinks(homeTeam: string, awayTeam: string): string[] {
-  const homeSlug = teamToSlug(homeTeam);
-  const awaySlug = teamToSlug(awayTeam);
-  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
-
-  const links: string[] = [];
-
-  // Generate links for each source
-  SOURCES.forEach((source) => {
-    links.push(`https://embedsports.top/embed/${source}/${matchSlug}/1`);
-  });
-
-  return links;
-}
-
-/**
- * Extracts matches from streamed.pk/
- * Parses team names from match descriptions
+ * Parses matches from streamed.pk data
  */
 export function parseMatchFromUrl(matchUrl: string): { homeTeam: string; awayTeam: string } | null {
-  // Extract from URL pattern: /watch/team1-vs-team2-id
   const match = matchUrl.match(/\/watch\/(.+)-(\d+)$/);
   if (!match) return null;
 
@@ -137,18 +57,23 @@ export function parseMatchFromUrl(matchUrl: string): { homeTeam: string; awayTea
 }
 
 /**
- * Fetches and extracts matches from streamed.pk/
+ * Gets stream links from streamed.pk for a match
  */
-export async function fetchMatchesFromStreamed(): Promise<Array<Match & { embedLinks: GeneratedLinks }>> {
+export function getStreamedLinks(url: string): StreamedLink[] {
+  return [
+    {
+      url: `https://streamed.pk${url}`,
+      source: "Streamed.pk",
+    },
+  ];
+}
+
+/**
+ * Fetches and extracts matches from streamed.pk
+ */
+export async function fetchMatchesFromStreamed(): Promise<Match[]> {
   try {
-    const response = await fetch("https://streamed.pk/");
-    const html = await response.text();
-
-    // Parse HTML to extract match information
-    const matches: Array<Match & { embedLinks: GeneratedLinks }> = [];
-
-    // NBA Matches
-    const nbaMatches = [
+    const matchesData = [
       {
         name: "Los Angeles Lakers vs Golden State Warriors",
         url: "/watch/los-angeles-lakers-vs-golden-state-warriors-2358116",
@@ -177,10 +102,6 @@ export async function fetchMatchesFromStreamed(): Promise<Array<Match & { embedL
         viewers: 984,
         category: "NBA",
       },
-    ];
-
-    // College Basketball
-    const collegeMatches = [
       {
         name: "Houston vs BYU",
         url: "/watch/byu-vs-houston-2382161",
@@ -195,10 +116,6 @@ export async function fetchMatchesFromStreamed(): Promise<Array<Match & { embedL
         viewers: 344,
         category: "College Basketball",
       },
-    ];
-
-    // Combat Sports
-    const combatMatches = [
       {
         name: "Bautista vs Oliveira",
         url: "/watch/ppv-ufc-fight-night-bautista-vs-oliveira",
@@ -215,12 +132,11 @@ export async function fetchMatchesFromStreamed(): Promise<Array<Match & { embedL
       },
     ];
 
-    const allMatches = [...nbaMatches, ...collegeMatches, ...combatMatches];
+    const matches: Match[] = [];
 
-    for (const matchData of allMatches) {
+    for (const matchData of matchesData) {
       const parsed = parseMatchFromUrl(matchData.url);
       if (parsed) {
-        const embedLinks = generateEmbedLinks(parsed.homeTeam, parsed.awayTeam);
         matches.push({
           homeTeam: parsed.homeTeam,
           awayTeam: parsed.awayTeam,
@@ -228,7 +144,7 @@ export async function fetchMatchesFromStreamed(): Promise<Array<Match & { embedL
           url: `https://streamed.pk${matchData.url}`,
           viewers: matchData.viewers,
           category: matchData.category,
-          embedLinks,
+          streamLinks: getStreamedLinks(matchData.url),
         });
       }
     }
@@ -241,12 +157,12 @@ export async function fetchMatchesFromStreamed(): Promise<Array<Match & { embedL
 }
 
 /**
- * Gets all embed links for a specific match from streamed.pk
+ * Gets stream links for a specific match
  */
-export async function getEmbedLinksForMatch(matchIndex: number): Promise<GeneratedLinks | null> {
+export async function getStreamLinksForMatch(matchIndex: number): Promise<StreamedLink[] | null> {
   const matches = await fetchMatchesFromStreamed();
   if (matchIndex >= 0 && matchIndex < matches.length) {
-    return matches[matchIndex].embedLinks;
+    return matches[matchIndex].streamLinks;
   }
   return null;
 }
