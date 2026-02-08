@@ -1,4 +1,4 @@
-//**
+/**
  * Generates embed links for sports events based on team names
  * Pattern: https://streamed.pk/embed/{team1}-vs-{team2}/{stream}
  */
