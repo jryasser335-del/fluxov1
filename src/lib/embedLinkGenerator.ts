@@ -1,6 +1,6 @@
-/**
+//**
  * Generates embed links for sports events based on team names
- * Pattern: https://embedsports.top/embed/{source}/ppv-{team1}-vs-{team2}/{stream}
+ * Pattern: https://streamed.pk/embed/{team1}-vs-{team2}/{stream}
  */
 export interface GeneratedLinks {
   url1: string;
@@ -9,9 +9,9 @@ export interface GeneratedLinks {
 }
 
 /**
- * Available streaming sources
+ * Available streaming sources (Channels/Variants)
  */
-const SOURCES = ["admin", "delta", "golf", "echo"] as const;
+const SOURCES = ["", "1", "2", "3"] as const;
 
 /**
  * Converts a team name to URL-friendly slug
@@ -29,39 +29,39 @@ function teamToSlug(teamName: string): string {
 }
 
 /**
- * Generates embedsports.top links for a match with different sources
+ * Generates streamed.pk links for a match with different sources
  * @param homeTeam Home team name
  * @param awayTeam Away team name
- * @returns Object with url1 (admin), url2 (delta), url3 (golf)
+ * @returns Object with url1 (main), url2 (v1), url3 (v2)
  */
 export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
 
-  // Pattern: ppv-{away}-vs-{home}
-  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
+  // Pattern: {home}-vs-{away}
+  const matchSlug = `${homeSlug}-vs-${awaySlug}`;
 
   return {
-    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
-    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
-    url3: `https://embedsports.top/embed/golf/${matchSlug}/1`,
+    url1: `https://streamed.pk/embed/${matchSlug}`,
+    url2: `https://streamed.pk/embed/${matchSlug}/1`,
+    url3: `https://streamed.pk/embed/${matchSlug}/2`,
   };
 }
 
 /**
- * Generates alternative link variants (home-vs-away instead of away-vs-home)
+ * Generates alternative link variants (away-vs-home instead of home-vs-away)
  */
 export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
 
-  // Alternative pattern: ppv-{home}-vs-{away}
-  const matchSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
+  // Alternative pattern: {away}-vs-{home}
+  const matchSlug = `${awaySlug}-vs-${homeSlug}`;
 
   return {
-    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
-    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
-    url3: `https://embedsports.top/embed/golf/${matchSlug}/1`,
+    url1: `https://streamed.pk/embed/${matchSlug}`,
+    url2: `https://streamed.pk/embed/${matchSlug}/1`,
+    url3: `https://streamed.pk/embed/${matchSlug}/2`,
   };
 }
 
@@ -82,19 +82,20 @@ export function generateAllLinkVariants(
 }
 
 /**
- * Generates links from all available sources (admin, delta, golf, echo)
+ * Generates links from all available sources
  * @returns Array of all possible links
  */
 export function generateAllSourceLinks(homeTeam: string, awayTeam: string): string[] {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
-  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
+  const matchSlug = `${homeSlug}-vs-${awaySlug}`;
 
   const links: string[] = [];
 
-  // Generate links for each source
+  // Generate links for each source variant
   SOURCES.forEach((source) => {
-    links.push(`https://embedsports.top/embed/${source}/${matchSlug}/1`);
+    const suffix = source === "" ? "" : `/${source}`;
+    links.push(`https://streamed.pk/embed/${matchSlug}${suffix}`);
   });
 
   return links;
