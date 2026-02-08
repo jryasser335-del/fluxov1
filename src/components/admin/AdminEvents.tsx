@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchESPNScoreboard, ESPNEvent } from "@/lib/api";
+import { generateAllLinkVariants } from "@/lib/embedLinkGenerator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +13,7 @@ import {
   Plus, Save, Trash2, Loader2, X, 
   RefreshCw, Trophy, Search, Calendar,
   Zap, Globe, Filter, ChevronDown, ChevronRight,
-  Circle, Radio, Eye, EyeOff, Link2, Sparkles, Clock
+  Circle, Radio, Eye, EyeOff, Link2, Sparkles, Clock, Wand2
 } from "lucide-react";
 import {
   Dialog,
@@ -329,6 +330,20 @@ export function AdminEvents() {
   const selectEvent = (event: ESPNEvent) => {
     setSelectedEvent(event);
     setEspnEvents([]);
+    
+    // Auto-generate embed links based on team names
+    const comp = event.competitions[0];
+    const home = comp.competitors.find(c => c.homeAway === "home");
+    const away = comp.competitors.find(c => c.homeAway === "away");
+    
+    if (home?.team.displayName && away?.team.displayName) {
+      const links = generateAllLinkVariants(home.team.displayName, away.team.displayName);
+      // Use primary variant (away-vs-home pattern)
+      setNewStreamUrl(links.primary.url1);
+      setNewStreamUrl2(links.primary.url2);
+      setNewStreamUrl3(links.primary.url3);
+      toast.success("🔗 Links generados automáticamente");
+    }
   };
 
   const getEventName = (event: ESPNEvent) => {
@@ -818,6 +833,42 @@ export function AdminEvents() {
                     onClick={() => setSelectedEvent(null)}
                   >
                     <X className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* Auto-generated links info */}
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                  <Wand2 className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm text-emerald-400">Links generados automáticamente desde embedsports.top</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto h-7 text-xs"
+                    onClick={() => {
+                      // Toggle between primary and alternative variants
+                      const comp = selectedEvent.competitions[0];
+                      const home = comp.competitors.find(c => c.homeAway === "home");
+                      const away = comp.competitors.find(c => c.homeAway === "away");
+                      
+                      if (home?.team.displayName && away?.team.displayName) {
+                        const links = generateAllLinkVariants(home.team.displayName, away.team.displayName);
+                        // Check which variant is currently being used and switch
+                        if (newStreamUrl.includes(links.primary.url1.split('/').slice(-2, -1)[0])) {
+                          setNewStreamUrl(links.alternative.url1);
+                          setNewStreamUrl2(links.alternative.url2);
+                          setNewStreamUrl3(links.alternative.url3);
+                          toast.info("Cambiado a variante alternativa (home-vs-away)");
+                        } else {
+                          setNewStreamUrl(links.primary.url1);
+                          setNewStreamUrl2(links.primary.url2);
+                          setNewStreamUrl3(links.primary.url3);
+                          toast.info("Cambiado a variante primaria (away-vs-home)");
+                        }
+                      }
+                    }}
+                  >
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    Alternar orden
                   </Button>
                 </div>
 
