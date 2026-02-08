@@ -37,70 +37,53 @@ export interface ESPNResponse {
 }
 
 /**
- * Obtiene los eventos de ESPN detectando automáticamente el deporte según la liga.
- * Soporta NFL (Super Bowl), NBA, MLB, NHL, MMA, Tennis y todas tus ligas de Fútbol.
+ * Obtiene eventos de cualquier liga y cualquier fecha.
+ * Si no pasas una fecha, el sistema busca automáticamente los partidos de HOY.
  */
-export async function fetchESPNScoreboard(leagueKey: string): Promise<ESPNResponse> {
-  const today = new Date();
-  const date = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+export async function fetchESPNScoreboard(leagueKey: string, dateOffset: number = 0): Promise<ESPNResponse> {
+  // Calculamos la fecha según el offset (0 para hoy, 1 para mañana, etc.)
+  const targetDate = new Date();
+  targetDate.setDate(targetDate.getDate() + dateOffset);
+
+  const dateStr = `${targetDate.getFullYear()}${String(targetDate.getMonth() + 1).padStart(2, "0")}${String(targetDate.getDate()).padStart(2, "0")}`;
 
   let sportPath = "";
   const key = leagueKey.toLowerCase().trim();
 
-  // Mapeo exhaustivo basado en tus ligas de navegación
+  // Mapeo inteligente de deportes y ligas
   switch (key) {
     case "nba":
     case "wnba":
-    case "ncaa basketball":
-      sportPath = `basketball/${key === "ncaa basketball" ? "mens-college-basketball" : key}`;
+      sportPath = `basketball/${key}`;
       break;
-
     case "nfl":
     case "ncaa football":
       sportPath = `football/${key === "ncaa football" ? "college-football" : "nfl"}`;
       break;
-
     case "mlb":
       sportPath = "baseball/mlb";
       break;
-
     case "nhl":
-    case "khl":
-    case "shl":
-    case "ahl":
-      sportPath = `hockey/${key}`;
+      sportPath = "hockey/nhl";
       break;
-
     case "ufc":
-    case "bellator mma":
-    case "pfl":
-    case "boxing":
-      sportPath = "mma/ufc"; // ESPN agrupa la mayoría bajo mma o ufc scoreboard
+    case "mma":
+      sportPath = "mma/ufc";
       break;
-
-    case "atp tour":
-    case "wta tour":
-    case "grand slam":
-      sportPath = "tennis/atp";
-      break;
-
+    case "f1":
     case "formula 1":
-    case "motogp":
-    case "nascar":
-    case "indycar":
-      sportPath = `racing/${key.replace(/\s+/g, "-")}`;
+      sportPath = "racing/f1";
       break;
-
     default:
-      // Para todas las ligas de fútbol (LaLiga, Premier, Champions, etc.)
+      // Por defecto para todas las ligas de fútbol (Champions, LaLiga, etc.)
       sportPath = `soccer/${key}`;
       break;
   }
 
-  const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${date}`;
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${dateStr}`;
 
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Error cargando liga: ${leagueKey}`);
+  if (!res.ok) throw new Error(`Error en liga: ${leagueKey}`);
 
   return await res.json();
 }
