@@ -1,6 +1,8 @@
 /**
  * Generates embed links for sports events based on team names
- * Pattern: https://embedsports.top/embed/{source}/ppv-{team1}-vs-{team2}/{stream}
+ * Combines links from multiple sources:
+ * - embedsports.top: https://embedsports.top/embed/{source}/ppv-{team1}-vs-{team2}/{stream}
+ * - moviebite.cc: https://app.moviebite.cc/live/{source}/{team1}-vs-{team2}
  */
 export interface GeneratedLinks {
   url1: string;
@@ -29,39 +31,54 @@ function teamToSlug(teamName: string): string {
 }
 
 /**
- * Generates embedsports.top links for a match with different sources
+ * Generates combined links from embedsports.top AND moviebite.cc
+ * Distribution:
+ * - url1: embedsports.top/admin
+ * - url2: moviebite.cc/admin
+ * - url3: moviebite.cc/delta
+ *
  * @param homeTeam Home team name
  * @param awayTeam Away team name
- * @returns Object with url1 (admin), url2 (delta), url3 (golf)
+ * @returns Object with 3 URLs from different sources
  */
 export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
 
-  // Pattern: ppv-{away}-vs-{home}
-  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
+  // Pattern for embedsports: ppv-{away}-vs-{home}
+  const embedsportsSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
+
+  // Pattern for moviebite: {away}-vs-{home} (sin el prefijo "ppv-")
+  const moviebiteSlug = `${awaySlug}-vs-${homeSlug}`;
 
   return {
-    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
-    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
-    url3: `https://embedsports.top/embed/golf/${matchSlug}/1`,
+    // URL 1: embedsports.top - admin
+    url1: `https://embedsports.top/embed/admin/${embedsportsSlug}/1`,
+
+    // URL 2: moviebite.cc - admin
+    url2: `https://app.moviebite.cc/live/admin/${moviebiteSlug}`,
+
+    // URL 3: moviebite.cc - delta
+    url3: `https://app.moviebite.cc/live/delta/${moviebiteSlug}`,
   };
 }
 
 /**
  * Generates alternative link variants (home-vs-away instead of away-vs-home)
+ * Same distribution strategy but with reversed team order
  */
 export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
 
   // Alternative pattern: ppv-{home}-vs-{away}
-  const matchSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
+  const embedsportsSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
+  const moviebiteSlug = `${homeSlug}-vs-${awaySlug}`;
 
   return {
-    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
-    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
-    url3: `https://embedsports.top/embed/golf/${matchSlug}/1`,
+    url1: `https://embedsports.top/embed/admin/${embedsportsSlug}/1`,
+    url2: `https://app.moviebite.cc/live/admin/${moviebiteSlug}`,
+    url3: `https://app.moviebite.cc/live/delta/${moviebiteSlug}`,
   };
 }
 
@@ -82,20 +99,57 @@ export function generateAllLinkVariants(
 }
 
 /**
- * Generates links from all available sources (admin, delta, golf, echo)
- * @returns Array of all possible links
+ * Generates ALL links from both platforms and all sources
+ * @returns Array with all possible combinations
  */
 export function generateAllSourceLinks(homeTeam: string, awayTeam: string): string[] {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
-  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
+
+  const embedsportsSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
+  const moviebiteSlug = `${awaySlug}-vs-${homeSlug}`;
 
   const links: string[] = [];
 
-  // Generate links for each source
+  // Generate embedsports.top links for each source
   SOURCES.forEach((source) => {
-    links.push(`https://embedsports.top/embed/${source}/${matchSlug}/1`);
+    links.push(`https://embedsports.top/embed/${source}/${embedsportsSlug}/1`);
+  });
+
+  // Generate moviebite.cc links for each source
+  SOURCES.forEach((source) => {
+    links.push(`https://app.moviebite.cc/live/${source}/${moviebiteSlug}`);
   });
 
   return links;
+}
+
+/**
+ * Generates links ONLY from embedsports.top
+ */
+export function generateEmbedsportsOnlyLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
+  const homeSlug = teamToSlug(homeTeam);
+  const awaySlug = teamToSlug(awayTeam);
+  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
+
+  return {
+    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
+    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
+    url3: `https://embedsports.top/embed/golf/${matchSlug}/1`,
+  };
+}
+
+/**
+ * Generates links ONLY from moviebite.cc
+ */
+export function generateMoviebiteOnlyLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
+  const homeSlug = teamToSlug(homeTeam);
+  const awaySlug = teamToSlug(awayTeam);
+  const matchSlug = `${awaySlug}-vs-${homeSlug}`;
+
+  return {
+    url1: `https://app.moviebite.cc/live/admin/${matchSlug}`,
+    url2: `https://app.moviebite.cc/live/delta/${matchSlug}`,
+    url3: `https://app.moviebite.cc/live/golf/${matchSlug}`,
+  };
 }
