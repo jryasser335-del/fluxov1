@@ -1,20 +1,17 @@
 /**
- * Generates stream links for sports events from streamed.pk
+ * Generates embed links for sports events based on team names
+ * Pattern: https://embedsports.top/embed/{source}/ppv-{team1}-vs-{team2}/{stream}
  */
-export interface StreamedLink {
-  url: string;
-  source: string;
+export interface GeneratedLinks {
+  url1: string;
+  url2: string;
+  url3: string;
 }
 
-export interface Match {
-  homeTeam: string;
-  awayTeam: string;
-  time: string;
-  url: string;
-  viewers: number;
-  category: string;
-  streamLinks: StreamedLink[];
-}
+/**
+ * Available streaming sources
+ */
+const SOURCES = ["admin", "delta", "golf", "echo"] as const;
 
 /**
  * Converts a team name to URL-friendly slug
@@ -24,145 +21,81 @@ function teamToSlug(teamName: string): string {
   return teamName
     .toLowerCase()
     .trim()
-    .replace(/['']/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/['']/g, "") // Remove apostrophes
+    .replace(/[^a-z0-9\s-]/g, "") // Remove special chars
+    .replace(/\s+/g, "-") // Spaces to hyphens
+    .replace(/-+/g, "-") // Multiple hyphens to single
+    .replace(/^-|-$/g, ""); // Trim hyphens from ends
 }
 
 /**
- * Parses matches from streamed.pk data
+ * Generates embedsports.top links for a match with different sources
+ * @param homeTeam Home team name
+ * @param awayTeam Away team name
+ * @returns Object with url1 (admin), url2 (delta), url3 (golf)
  */
-export function parseMatchFromUrl(matchUrl: string): { homeTeam: string; awayTeam: string } | null {
-  const match = matchUrl.match(/\/watch\/(.+)-(\d+)$/);
-  if (!match) return null;
+export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
+  const homeSlug = teamToSlug(homeTeam);
+  const awaySlug = teamToSlug(awayTeam);
 
-  const matchPart = match[1];
-  const parts = matchPart.split("-vs-");
+  // Pattern: ppv-{away}-vs-{home}
+  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
 
-  if (parts.length !== 2) return null;
-
-  const homeTeam = parts[1]
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-
-  const awayTeam = parts[0]
-    .split("-")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-
-  return { homeTeam, awayTeam };
+  return {
+    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
+    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
+    url3: `https://embedsports.top/embed/golf/${matchSlug}/1`,
+  };
 }
 
 /**
- * Gets stream links from streamed.pk for a match
+ * Generates alternative link variants (home-vs-away instead of away-vs-home)
  */
-export function getStreamedLinks(url: string): StreamedLink[] {
-  return [
-    {
-      url: `https://streamed.pk${url}`,
-      source: "Streamed.pk",
-    },
-  ];
+export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
+  const homeSlug = teamToSlug(homeTeam);
+  const awaySlug = teamToSlug(awayTeam);
+
+  // Alternative pattern: ppv-{home}-vs-{away}
+  const matchSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
+
+  return {
+    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
+    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
+    url3: `https://embedsports.top/embed/golf/${matchSlug}/1`,
+  };
 }
 
 /**
- * Fetches and extracts matches from streamed.pk
+ * Generates all possible link variants for a match
  */
-export async function fetchMatchesFromStreamed(): Promise<Match[]> {
-  try {
-    const matchesData = [
-      {
-        name: "Los Angeles Lakers vs Golden State Warriors",
-        url: "/watch/los-angeles-lakers-vs-golden-state-warriors-2358116",
-        time: "1:30 AM",
-        viewers: 20087,
-        category: "NBA",
-      },
-      {
-        name: "Sacramento Kings vs Cleveland Cavaliers",
-        url: "/watch/sacramento-kings-vs-cleveland-cavaliers-2358118",
-        time: "3:00 AM",
-        viewers: 4343,
-        category: "NBA",
-      },
-      {
-        name: "Phoenix Suns vs Philadelphia 76ers",
-        url: "/watch/phoenix-suns-vs-philadelphia-76ers-2358117",
-        time: "2:00 AM",
-        viewers: 2746,
-        category: "NBA",
-      },
-      {
-        name: "Portland Trail Blazers vs Memphis Grizzlies",
-        url: "/watch/portland-trail-blazers-vs-memphis-grizzlies-2358119",
-        time: "3:00 AM",
-        viewers: 984,
-        category: "NBA",
-      },
-      {
-        name: "Houston vs BYU",
-        url: "/watch/byu-vs-houston-2382161",
-        time: "3:30 AM",
-        viewers: 310,
-        category: "College Basketball",
-      },
-      {
-        name: "Tennessee vs Kentucky",
-        url: "/watch/kentucky-vs-tennessee-2382152",
-        time: "1:30 AM",
-        viewers: 344,
-        category: "College Basketball",
-      },
-      {
-        name: "Bautista vs Oliveira",
-        url: "/watch/ppv-ufc-fight-night-bautista-vs-oliveira",
-        time: "10:00 PM",
-        viewers: 15149,
-        category: "UFC",
-      },
-      {
-        name: "Rothwell vs Arlovski",
-        url: "/watch/live-event_bkfc-knucklemania-vi-rothwell-vs-arlovski-live-stream",
-        time: "11:00 PM",
-        viewers: 470,
-        category: "BKFC",
-      },
-    ];
-
-    const matches: Match[] = [];
-
-    for (const matchData of matchesData) {
-      const parsed = parseMatchFromUrl(matchData.url);
-      if (parsed) {
-        matches.push({
-          homeTeam: parsed.homeTeam,
-          awayTeam: parsed.awayTeam,
-          time: matchData.time,
-          url: `https://streamed.pk${matchData.url}`,
-          viewers: matchData.viewers,
-          category: matchData.category,
-          streamLinks: getStreamedLinks(matchData.url),
-        });
-      }
-    }
-
-    return matches;
-  } catch (error) {
-    console.error("Error fetching matches from streamed.pk:", error);
-    return [];
-  }
+export function generateAllLinkVariants(
+  homeTeam: string,
+  awayTeam: string,
+): {
+  primary: GeneratedLinks;
+  alternative: GeneratedLinks;
+} {
+  return {
+    primary: generateEmbedLinks(homeTeam, awayTeam),
+    alternative: generateAlternativeLinks(homeTeam, awayTeam),
+  };
 }
 
 /**
- * Gets stream links for a specific match
+ * Generates links from all available sources (admin, delta, golf, echo)
+ * @returns Array of all possible links
  */
-export async function getStreamLinksForMatch(matchIndex: number): Promise<StreamedLink[] | null> {
-  const matches = await fetchMatchesFromStreamed();
-  if (matchIndex >= 0 && matchIndex < matches.length) {
-    return matches[matchIndex].streamLinks;
-  }
-  return null;
+export function generateAllSourceLinks(homeTeam: string, awayTeam: string): string[] {
+  const homeSlug = teamToSlug(homeTeam);
+  const awaySlug = teamToSlug(awayTeam);
+  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
+
+  const links: string[] = [];
+
+  // Generate links for each source
+  SOURCES.forEach((source) => {
+    links.push(`https://embedsports.top/embed/${source}/${matchSlug}/1`);
+  });
+
+  return links;
 }
