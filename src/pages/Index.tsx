@@ -1,54 +1,178 @@
-import { useState } from "react";
-import { InstallPrompt } from "@/components/InstallPrompt";
-import { Sidebar, ViewType } from "@/components/Sidebar";
-import { TopBar } from "@/components/TopBar";
-import { PlayerModal } from "@/components/PlayerModal";
-import { EventsView } from "@/components/EventsView";
-import { MultiStreamView } from "@/components/MultiStreamView";
-import { NotificationCenter } from "@/components/NotificationCenter";
+import { TMDB_KEY } from "./constants";
+import { useState, useEffect } from "react";
+import { fetchESPNScoreboard, getTimeUntilEvent, formatCountdown, ESPNEvent } from "./api";
 
-const Index = () => {
-  const [activeView, setActiveView] = useState<ViewType>("eventos");
-  const [searchQuery, setSearchQuery] = useState("");
+export interface TMDBResult {
+  id: number;
+  title?: string;
+  name?: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  vote_average: number;
+  release_date?: string;
+  first_air_date?: string;
+  overview?: string;
+}
 
-  const handleViewChange = (view: ViewType) => {
-    setActiveView(view);
-    setSearchQuery("");
-  };
+export interface TMDBResponse {
+  results: TMDBResult[];
+  total_pages: number;
+  page: number;
+}
+
+const tmdbCache = new Map<string, { data: TMDBResponse; timestamp: number }>();
+const CACHE_TTL = 20 * 60 * 1000; // 20 minutes
+
+export async function fetchTMDB(path: string): Promise<TMDBResponse> {
+  const cacheKey = path;
+  const cached = tmdbCache.get(cacheKey);
+
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  const separator = path.includes("?") ? "&" : "?";
+  const url = `https://api.themoviedb.org/3/${path}${separator}api_key=${TMDB_KEY}&language=es-ES`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("TMDB error");
+
+  const data = await res.json();
+  tmdbCache.set(cacheKey, { data, timestamp: Date.now() });
+
+  return data;
+}
+
+export interface ESPNEvent {
+  id: string;
+  date: string;
+  competitions: {
+    id: string;
+    date: string;
+    status: {
+      type: {
+        state: "pre" | "in" | "post";
+        detail?: string;
+        shortDetail?: string;
+      };
+      displayClock?: string;
+      period?: number;
+    };
+    competitors: {
+      homeAway: "home" | "away";
+      score?: string;
+      team: {
+        displayName: string;
+        shortDisplayName: string;
+        abbreviation: string;
+        logo: string;
+        color?: string;
+        alternateColor?: string;
+      };
+    }[];
+  }[];
+}
+
+export interface ESPNResponse {
+  events: ESPNEvent[];
+  leagues?: {
+    name: string;
+    abbreviation: string;
+  }[];
+}
+
+// Función para formatear fechas en formato YYYYMMDD
+function formatDateForESPN(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
+}
+
+// Función para obtener eventos de un rango de fechas
+export async function fetchESPNScoreboard(leagueKey: string, daysAhead: number = 7): Promise<ESPNResponse> {
+  const today = new Date();
+  const endDate = new Date(today);
+  endDate.setDate(endDate.getDate() + daysAhead);
+
+  const startDateStr = formatDateForESPN(today);
+  const endDateStr = formatDateForESPN(endDate);
+
+  const sport = leagueKey === "nba" ? "basketball/nba" : `soccer/${leagueKey}`;
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard?dates=${startDateStr}-${endDateStr}`;
+
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("ESPN error");
+
+  return await res.json();
+}
+
+// Función auxiliar para obtener el tiempo restante hasta un evento
+export function getTimeUntilEvent(eventDate: string): {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+  isLive: boolean;
+  isPast: boolean;
+} {
+  const now = new Date().getTime();
+  const event = new Date(eventDate).getTime();
+  const diff = event - now;
+
+  if (diff < 0) {
+    return { days: 0, hours: 0, minutes: 0, seconds: 0, isLive: false, isPast: true };
+  }
+
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+  return { days, hours, minutes, seconds, isLive: false, isPast: false };
+}
+
+// Función para formatear el contador
+export function formatCountdown(timeUntil: ReturnType<typeof getTimeUntilEvent>): string {
+  if (timeUntil.isPast) return "Finalizado";
+  if (timeUntil.isLive) return "EN VIVO";
+
+  const parts: string[] = [];
+
+  if (timeUntil.days > 0) {
+    parts.push(`${timeUntil.days}d`);
+  }
+  if (timeUntil.hours > 0 || timeUntil.days > 0) {
+    parts.push(`${timeUntil.hours}h`);
+  }
+  parts.push(`${timeUntil.minutes}m`);
+
+  return parts.join(" ");
+}
+
+// Componente EventCard
+function EventCard({ event }: { event: ESPNEvent }) {
+  const [countdown, setCountdown] = useState("");
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const competition = event.competitions[0];
+      const timeUntil = getTimeUntilEvent(competition.date);
+      setCountdown(formatCountdown(timeUntil));
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [event]);
+
+  const competition = event.competitions[0];
+  const status = competition.status.type.state;
 
   return (
-    <>
-      <div className="grid grid-cols-[86px_1fr] max-md:grid-cols-1 min-h-screen relative bg-black">
-        {/* Ambient background effects */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-0 left-1/3 w-[600px] h-[400px] bg-primary/5 blur-[150px] rounded-full" />
-          <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-accent/3 blur-[120px] rounded-full" />
-        </div>
-
-        {/* Sidebar - hidden on mobile, shown at bottom */}
-        <div className="max-md:fixed max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:z-50">
-          <Sidebar activeView={activeView} onViewChange={handleViewChange} />
-        </div>
-        
-        <main className="relative p-4 md:p-5 pb-24 md:pb-8 overflow-x-hidden">
-          <TopBar
-            activeView={activeView}
-            searchValue={searchQuery}
-            onSearchChange={setSearchQuery}
-          />
-          
-          <div className="mt-2">
-            {activeView === "eventos" && <EventsView />}
-            {activeView === "multistream" && <MultiStreamView />}
-          </div>
-        </main>
-      </div>
-
-      <PlayerModal />
-      <NotificationCenter />
-      <InstallPrompt />
-    </>
+    <div className="event-card">
+      <div className="countdown-badge">{status === "in" ? "EN VIVO" : countdown}</div>
+      {/* Resto de tu card */}
+    </div>
   );
-};
-
-export default Index;
+}
