@@ -1,27 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import {
-  X,
-  Loader2,
-  Maximize2,
-  Minimize2,
-  Volume2,
-  VolumeX,
-  Play,
-  Pause,
-  Rewind,
-  FastForward,
-  Subtitles,
-  Settings,
-  Share2,
-  PictureInPicture2,
-  MonitorPlay,
-  Keyboard,
-  BarChart3,
-  Moon,
-  Cast,
-  Music,
-  Smartphone,
-  Signal,
+import { 
+  X, Loader2, Maximize2, Minimize2, Volume2, VolumeX, Play, Pause, 
+  Rewind, FastForward, Subtitles, Settings, Share2, PictureInPicture2,
+  MonitorPlay, Keyboard, BarChart3, Moon, Cast, Music, Smartphone, Signal
 } from "lucide-react";
 import Hls from "hls.js";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
@@ -45,7 +26,7 @@ import { toast } from "sonner";
 export function PlayerModal() {
   const { isOpen, title, urls, contentType, closePlayer } = usePlayerModal();
   const { addToHistory } = useWatchHistory();
-
+  
   // Core states
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -57,7 +38,7 @@ export function PlayerModal() {
   const [activeOption, setActiveOption] = useState<1 | 2 | 3>(1);
   const [volume, setVolume] = useState(1);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-
+  
   // Premium features states
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPiP, setIsPiP] = useState(false);
@@ -75,7 +56,7 @@ export function PlayerModal() {
   const [streamStats, setStreamStats] = useState({ quality: "Auto", bitrate: 0, buffered: 0 });
   const [availableQualities, setAvailableQualities] = useState<string[]>(["Auto", "1080p", "720p", "480p", "360p"]);
   const [currentQuality, setCurrentQuality] = useState("Auto");
-
+  
   // Refs
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -104,17 +85,16 @@ export function PlayerModal() {
   };
 
   const url = getCurrentUrl();
-
+  
   // Detect URL type - embed URLs should use iframe, HLS uses video player
   const isHlsStream = url?.includes(".m3u8") && !url?.includes("/embed/");
   const isYouTube = url?.includes("youtube.com") || url?.includes("youtu.be");
-  const isEmbedUrl =
-    url?.includes("/embed/") ||
-    url?.includes("embed.") ||
-    url?.includes("/player/") ||
-    url?.includes("player.") ||
-    url?.includes("#player=") ||
-    (url && !url.includes(".m3u8") && !url.includes(".mp4") && !isYouTube);
+  const isEmbedUrl = url?.includes("/embed/") || 
+                     url?.includes("embed.") || 
+                     url?.includes("/player/") ||
+                     url?.includes("player.") ||
+                     url?.includes("#player=") ||
+                     (url && !url.includes(".m3u8") && !url.includes(".mp4") && !isYouTube);
   const isLiveContent = contentType === "live";
 
   // Available options
@@ -122,7 +102,7 @@ export function PlayerModal() {
     { num: 1 as const, url: urls.url1 },
     { num: 2 as const, url: urls.url2 },
     { num: 3 as const, url: urls.url3 },
-  ].filter((opt) => opt.url);
+  ].filter(opt => opt.url);
 
   const hasMultipleOptions = availableOptions.length > 1;
 
@@ -161,83 +141,80 @@ export function PlayerModal() {
   }, []);
 
   // Keyboard shortcuts
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!isOpen) return;
-
-      const video = videoRef.current;
-
-      switch (e.key.toLowerCase()) {
-        case " ":
-          e.preventDefault();
-          if (video) {
-            if (video.paused) {
-              video.play();
-              setIsPlaying(true);
-            } else {
-              video.pause();
-              setIsPlaying(false);
-            }
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!isOpen) return;
+    
+    const video = videoRef.current;
+    
+    switch (e.key.toLowerCase()) {
+      case " ":
+        e.preventDefault();
+        if (video) {
+          if (video.paused) {
+            video.play();
+            setIsPlaying(true);
+          } else {
+            video.pause();
+            setIsPlaying(false);
           }
-          break;
-        case "m":
-          if (video) {
-            video.muted = !video.muted;
-            setIsMuted(!video.muted);
-          }
-          break;
-        case "f":
-          toggleFullscreen();
-          break;
-        case "p":
-          togglePiP();
-          break;
-        case "t":
-          setIsTheaterMode(!isTheaterMode);
-          break;
-        case "arrowleft":
-          if (video && !isLiveContent) {
-            video.currentTime = Math.max(0, video.currentTime - 10);
-          }
-          break;
-        case "arrowright":
-          if (video && !isLiveContent) {
-            video.currentTime = Math.min(duration, video.currentTime + 10);
-          }
-          break;
-        case "arrowup":
-          e.preventDefault();
-          if (video) {
-            video.volume = Math.min(1, video.volume + 0.1);
-            setVolume(video.volume);
-          }
-          break;
-        case "arrowdown":
-          e.preventDefault();
-          if (video) {
-            video.volume = Math.max(0, video.volume - 0.1);
-            setVolume(video.volume);
-          }
-          break;
-        case "1":
-        case "2":
-        case "3":
-          const optNum = parseInt(e.key) as 1 | 2 | 3;
-          if (availableOptions.find((o) => o.num === optNum)) {
-            setActiveOption(optNum);
-            toast.success(`Cambiado a Opción ${optNum}`);
-          }
-          break;
-        case "escape":
-          closePlayer();
-          break;
-        case "?":
-          setShowKeyboardShortcuts(!showKeyboardShortcuts);
-          break;
-      }
-    },
-    [isOpen, isTheaterMode, isLiveContent, duration, availableOptions, showKeyboardShortcuts, closePlayer],
-  );
+        }
+        break;
+      case "m":
+        if (video) {
+          video.muted = !video.muted;
+          setIsMuted(!video.muted);
+        }
+        break;
+      case "f":
+        toggleFullscreen();
+        break;
+      case "p":
+        togglePiP();
+        break;
+      case "t":
+        setIsTheaterMode(!isTheaterMode);
+        break;
+      case "arrowleft":
+        if (video && !isLiveContent) {
+          video.currentTime = Math.max(0, video.currentTime - 10);
+        }
+        break;
+      case "arrowright":
+        if (video && !isLiveContent) {
+          video.currentTime = Math.min(duration, video.currentTime + 10);
+        }
+        break;
+      case "arrowup":
+        e.preventDefault();
+        if (video) {
+          video.volume = Math.min(1, video.volume + 0.1);
+          setVolume(video.volume);
+        }
+        break;
+      case "arrowdown":
+        e.preventDefault();
+        if (video) {
+          video.volume = Math.max(0, video.volume - 0.1);
+          setVolume(video.volume);
+        }
+        break;
+      case "1":
+      case "2":
+      case "3":
+        const optNum = parseInt(e.key) as 1 | 2 | 3;
+        if (availableOptions.find(o => o.num === optNum)) {
+          setActiveOption(optNum);
+          toast.success(`Cambiado a Opción ${optNum}`);
+        }
+        break;
+      case "escape":
+        closePlayer();
+        break;
+      case "?":
+        setShowKeyboardShortcuts(!showKeyboardShortcuts);
+        break;
+    }
+  }, [isOpen, isTheaterMode, isLiveContent, duration, availableOptions, showKeyboardShortcuts, closePlayer]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -286,7 +263,7 @@ export function PlayerModal() {
         setIsLoading(false);
         // Never show error for iframe content - we can't detect if it's working
         setLoadError(null);
-
+        
         // Try to autoplay iframe content by focusing on it
         if (iframeRef.current) {
           iframeRef.current.focus();
@@ -309,20 +286,20 @@ export function PlayerModal() {
         setIsLoading(false);
         return;
       }
-
+      
       // Check multiple conditions - don't show error if any sign of playback
       const hasVideoData = video.readyState >= 1;
       const isVideoPlaying = !video.paused;
       const hasCurrentTime = video.currentTime > 0;
       const hasBuffered = video.buffered.length > 0;
-
+      
       // If ANY indication that video is working, don't show error
       if (hasVideoData || isVideoPlaying || hasCurrentTime || hasBuffered) {
         setIsLoading(false);
         setLoadError(null);
         return;
       }
-
+      
       // Only show error if absolutely nothing is working after 15 seconds
       setIsLoading(false);
       // Don't set error - let the player try to recover
@@ -351,8 +328,9 @@ export function PlayerModal() {
       if (hasIpToken) {
         return streamUrl;
       }
-
-      const isExternalStream = !streamUrl.includes(window.location.hostname) && !streamUrl.includes("supabase.co");
+      
+      const isExternalStream = !streamUrl.includes(window.location.hostname) && 
+                               !streamUrl.includes("supabase.co");
       if (isExternalStream) {
         return `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stream-proxy?url=${encodeURIComponent(streamUrl)}`;
       }
@@ -373,7 +351,11 @@ export function PlayerModal() {
           lowLatencyMode: false,
           xhrSetup: (xhr, requestUrl) => {
             xhr.withCredentials = false;
-            if (accessToken && typeof requestUrl === "string" && requestUrl.includes("/functions/v1/stream-proxy")) {
+            if (
+              accessToken &&
+              typeof requestUrl === "string" &&
+              requestUrl.includes("/functions/v1/stream-proxy")
+            ) {
               xhr.setRequestHeader("Authorization", `Bearer ${accessToken}`);
               xhr.setRequestHeader("apikey", import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY);
             }
@@ -411,14 +393,14 @@ export function PlayerModal() {
           setLoadError(null);
           stopLoading();
           video.play().catch(() => {});
-
+          
           // Update quality info
           if (data.levels && data.levels.length > 0) {
             const level = data.levels[hls.currentLevel] || data.levels[0];
-            setStreamStats((prev) => ({
+            setStreamStats(prev => ({
               ...prev,
               quality: level.height ? `${level.height}p` : "Auto",
-              bitrate: level.bitrate || 0,
+              bitrate: level.bitrate || 0
             }));
           }
         });
@@ -427,14 +409,14 @@ export function PlayerModal() {
           setLoadError(null);
           stopLoading();
         });
-
+        
         // Also clear error when video starts playing
-        video.addEventListener("playing", () => {
+        video.addEventListener('playing', () => {
           setLoadError(null);
           stopLoading();
         });
-
-        video.addEventListener("canplay", () => {
+        
+        video.addEventListener('canplay', () => {
           setLoadError(null);
           stopLoading();
         });
@@ -443,17 +425,17 @@ export function PlayerModal() {
         hls.on(Hls.Events.FRAG_BUFFERED, () => {
           if (video.buffered.length > 0) {
             const buffered = video.buffered.end(video.buffered.length - 1) - video.currentTime;
-            setStreamStats((prev) => ({ ...prev, buffered }));
+            setStreamStats(prev => ({ ...prev, buffered }));
           }
         });
 
         hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
           const level = hls.levels[data.level];
           if (level) {
-            setStreamStats((prev) => ({
+            setStreamStats(prev => ({
               ...prev,
               quality: level.height ? `${level.height}p` : "Auto",
-              bitrate: level.bitrate || 0,
+              bitrate: level.bitrate || 0
             }));
           }
         });
@@ -532,26 +514,26 @@ export function PlayerModal() {
     try {
       const urlObj = new URL(rawUrl);
       // Add multiple autoplay parameters to maximize compatibility
-      if (!urlObj.searchParams.has("autoplay")) {
-        urlObj.searchParams.set("autoplay", "1");
+      if (!urlObj.searchParams.has('autoplay')) {
+        urlObj.searchParams.set('autoplay', '1');
       }
-      if (!urlObj.searchParams.has("auto_play")) {
-        urlObj.searchParams.set("auto_play", "true");
+      if (!urlObj.searchParams.has('auto_play')) {
+        urlObj.searchParams.set('auto_play', 'true');
       }
-      if (!urlObj.searchParams.has("muted")) {
-        urlObj.searchParams.set("muted", "0");
+      if (!urlObj.searchParams.has('muted')) {
+        urlObj.searchParams.set('muted', '0');
       }
-      if (!urlObj.searchParams.has("playsinline")) {
-        urlObj.searchParams.set("playsinline", "1");
+      if (!urlObj.searchParams.has('playsinline')) {
+        urlObj.searchParams.set('playsinline', '1');
       }
       // Disable ads where possible
-      if (!urlObj.searchParams.has("ads")) {
-        urlObj.searchParams.set("ads", "0");
+      if (!urlObj.searchParams.has('ads')) {
+        urlObj.searchParams.set('ads', '0');
       }
       return urlObj.toString();
     } catch {
       // If URL parsing fails, add params manually
-      const separator = rawUrl.includes("?") ? "&" : "?";
+      const separator = rawUrl.includes('?') ? '&' : '?';
       return `${rawUrl}${separator}autoplay=1&auto_play=true&playsinline=1`;
     }
   };
@@ -630,7 +612,7 @@ export function PlayerModal() {
   const toggleFullscreen = () => {
     const video = videoRef.current;
     const container = containerRef.current;
-
+    
     if (!video && !container) return;
 
     const isCurrentlyFullscreen = !!document.fullscreenElement;
@@ -700,78 +682,81 @@ export function PlayerModal() {
     >
       {/* Ultra-premium seamless backdrop */}
       <div className="absolute inset-0 bg-black" />
-
+      
       {/* Subtle ambient glow effect */}
       {ambientEnabled && ambientMode.colors && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div
+          <div 
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] blur-[250px] opacity-30 transition-all duration-1000"
             style={{ background: `radial-gradient(ellipse, ${ambientMode.colors.dominant}, transparent 60%)` }}
           />
         </div>
       )}
-
-      {/* Always visible close button - top right corner */}
-      <button
-        onClick={closePlayer}
-        className="absolute top-4 right-4 md:top-6 md:right-6 z-[60] w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-md bg-black/60 hover:bg-red-500/80 border border-white/20 hover:border-red-500/50 transition-all duration-200 text-white/90 hover:text-white shadow-lg"
-      >
-        <X className="w-5 h-5" />
-      </button>
-
-      <div ref={containerRef} className="relative w-full h-full overflow-hidden">
-        {/* Floating Header - Overlays video */}
-        <div
-          className={cn(
-            "absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-6 py-3 md:py-4 pr-20 md:pr-24 transition-all duration-300",
-            showControls ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none",
-          )}
-          style={{
-            background: "linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)",
-          }}
+      
+        {/* Always visible close button - top right corner */}
+        <button
+          onClick={closePlayer}
+          className="absolute top-4 right-4 md:top-6 md:right-6 z-[60] w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-md bg-black/60 hover:bg-red-500/80 border border-white/20 hover:border-red-500/50 transition-all duration-200 text-white/90 hover:text-white shadow-lg"
         >
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            {isLiveContent && (
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/30 backdrop-blur-sm shrink-0">
-                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/50" />
-                <span className="text-[10px] font-black text-white uppercase tracking-widest">EN VIVO</span>
-              </div>
+          <X className="w-5 h-5" />
+        </button>
+
+        <div 
+          ref={containerRef}
+          className="relative w-full h-full overflow-hidden"
+        >
+          {/* Floating Header - Overlays video */}
+          <div 
+            className={cn(
+              "absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-6 py-3 md:py-4 pr-20 md:pr-24 transition-all duration-300",
+              showControls 
+                ? "opacity-100 translate-y-0" 
+                : "opacity-0 -translate-y-2 pointer-events-none"
             )}
-            <h2 className="font-display text-base md:text-xl tracking-wide text-white truncate drop-shadow-lg">
-              {title || "Reproductor"}
-            </h2>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Ambient mode toggle */}
-            <button
-              onClick={() => setAmbientEnabled(!ambientEnabled)}
-              className={cn(
-                "hidden sm:flex w-10 h-10 rounded-full items-center justify-center backdrop-blur-md transition-all duration-200",
-                ambientEnabled
-                  ? "bg-accent/30 text-accent"
-                  : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white",
+            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 60%, transparent 100%)' }}
+          >
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              {isLiveContent && (
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-500/30 backdrop-blur-sm shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-lg shadow-red-500/50" />
+                  <span className="text-[10px] font-black text-white uppercase tracking-widest">EN VIVO</span>
+                </div>
               )}
-              title="Modo Ambiente"
-            >
-              <Smartphone className="w-4 h-4" />
-            </button>
-
-            {/* Theater mode toggle */}
-            <button
-              onClick={() => setIsTheaterMode(!isTheaterMode)}
-              className={cn(
-                "hidden sm:flex w-10 h-10 rounded-full items-center justify-center backdrop-blur-md transition-all duration-200",
-                isTheaterMode
-                  ? "bg-primary/30 text-primary"
-                  : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white",
-              )}
-              title="Modo Teatro (T)"
-            >
-              <MonitorPlay className="w-4 h-4" />
-            </button>
+              <h2 className="font-display text-base md:text-xl tracking-wide text-white truncate drop-shadow-lg">
+                {title || "Reproductor"}
+              </h2>
+            </div>
+            
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Ambient mode toggle */}
+              <button
+                onClick={() => setAmbientEnabled(!ambientEnabled)}
+                className={cn(
+                  "hidden sm:flex w-10 h-10 rounded-full items-center justify-center backdrop-blur-md transition-all duration-200",
+                  ambientEnabled 
+                    ? "bg-accent/30 text-accent" 
+                    : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
+                )}
+                title="Modo Ambiente"
+              >
+                <Smartphone className="w-4 h-4" />
+              </button>
+              
+              {/* Theater mode toggle */}
+              <button
+                onClick={() => setIsTheaterMode(!isTheaterMode)}
+                className={cn(
+                  "hidden sm:flex w-10 h-10 rounded-full items-center justify-center backdrop-blur-md transition-all duration-200",
+                  isTheaterMode 
+                    ? "bg-primary/30 text-primary" 
+                    : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
+                )}
+                title="Modo Teatro (T)"
+              >
+                <MonitorPlay className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
 
         {/* Player Container - Full screen, no padding, no borders */}
         <div className="w-full h-full">
@@ -782,7 +767,7 @@ export function PlayerModal() {
             onTouchStart={() => setShowControls(true)}
           >
             {/* Stream stats overlay */}
-            <StreamStats
+            <StreamStats 
               isVisible={showStats}
               quality={streamStats.quality}
               bitrate={streamStats.bitrate}
@@ -790,7 +775,10 @@ export function PlayerModal() {
             />
 
             {/* Keyboard shortcuts modal */}
-            <KeyboardShortcuts isOpen={showKeyboardShortcuts} onClose={() => setShowKeyboardShortcuts(false)} />
+            <KeyboardShortcuts 
+              isOpen={showKeyboardShortcuts} 
+              onClose={() => setShowKeyboardShortcuts(false)} 
+            />
 
             {/* Premium Loading Overlay */}
             {isLoading && !loadError && (
@@ -914,18 +902,14 @@ export function PlayerModal() {
                 <div
                   className={cn(
                     "absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-16 pt-20 transition-all duration-300",
-                    showControls ? "opacity-100" : "opacity-0 pointer-events-none",
+                    showControls ? "opacity-100" : "opacity-0 pointer-events-none"
                   )}
-                  style={{
-                    background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 40%, transparent 100%)",
-                  }}
+                  style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 40%, transparent 100%)' }}
                 >
                   {/* Progress bar for movies/series */}
                   {!isLiveContent && duration > 0 && (
                     <div className="mb-4 flex items-center gap-3">
-                      <span className="text-xs text-white/70 w-12 tabular-nums font-mono">
-                        {formatTime(currentTime)}
-                      </span>
+                      <span className="text-xs text-white/70 w-12 tabular-nums font-mono">{formatTime(currentTime)}</span>
                       <div className="flex-1 relative h-1.5 group/progress cursor-pointer">
                         <input
                           type="range"
@@ -936,19 +920,17 @@ export function PlayerModal() {
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                         />
                         <div className="h-1 group-hover/progress:h-1.5 bg-white/20 rounded-full overflow-hidden transition-all">
-                          <div
+                          <div 
                             className="h-full bg-white rounded-full transition-all"
                             style={{ width: `${(currentTime / duration) * 100}%` }}
                           />
                         </div>
-                        <div
+                        <div 
                           className="absolute top-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover/progress:opacity-100 transition-all scale-0 group-hover/progress:scale-100"
-                          style={{ left: `${(currentTime / duration) * 100}%`, transform: "translate(-50%, -50%)" }}
+                          style={{ left: `${(currentTime / duration) * 100}%`, transform: 'translate(-50%, -50%)' }}
                         />
                       </div>
-                      <span className="text-xs text-white/70 w-12 text-right tabular-nums font-mono">
-                        {formatTime(duration)}
-                      </span>
+                      <span className="text-xs text-white/70 w-12 text-right tabular-nums font-mono">{formatTime(duration)}</span>
                     </div>
                   )}
 
@@ -981,7 +963,7 @@ export function PlayerModal() {
                           <FastForward className="w-5 h-5 text-white" />
                         </button>
                       )}
-
+                      
                       {/* Volume control */}
                       <div className="flex items-center gap-2 group/volume ml-2">
                         <button
@@ -1004,7 +986,7 @@ export function PlayerModal() {
                           className="w-0 group-hover/volume:w-24 h-1 bg-white/30 rounded-full appearance-none cursor-pointer transition-all duration-200 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
                         />
                       </div>
-
+                      
                       {/* Subtitles */}
                       <button
                         onClick={toggleSubtitles}
@@ -1012,7 +994,7 @@ export function PlayerModal() {
                           "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                           subtitlesEnabled
                             ? "bg-white/30 text-white"
-                            : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white",
+                            : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white"
                         )}
                         title="Subtítulos IA"
                       >
@@ -1041,9 +1023,7 @@ export function PlayerModal() {
                       {sleepTimer.isActive && sleepTimer.remainingTime && (
                         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/30 backdrop-blur-md">
                           <Moon className="w-3.5 h-3.5 text-white" />
-                          <span className="text-xs font-mono text-white">
-                            {sleepTimer.formatTime(sleepTimer.remainingTime)}
-                          </span>
+                          <span className="text-xs font-mono text-white">{sleepTimer.formatTime(sleepTimer.remainingTime)}</span>
                         </div>
                       )}
                     </div>
@@ -1091,7 +1071,7 @@ export function PlayerModal() {
                             "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                             sleepTimer.isActive
                               ? "bg-purple-500/40 text-white"
-                              : "bg-white/10 hover:bg-white/20 text-white",
+                              : "bg-white/10 hover:bg-white/20 text-white"
                           )}
                           title="Temporizador de sueño"
                         >
@@ -1128,7 +1108,11 @@ export function PlayerModal() {
                         >
                           <Share2 className="w-4 h-4 text-white" />
                         </button>
-                        <ShareMenu title={title || ""} isOpen={showShareMenu} onClose={() => setShowShareMenu(false)} />
+                        <ShareMenu 
+                          title={title || ""} 
+                          isOpen={showShareMenu} 
+                          onClose={() => setShowShareMenu(false)} 
+                        />
                       </div>
 
                       {/* Stats toggle */}
@@ -1136,7 +1120,9 @@ export function PlayerModal() {
                         onClick={() => setShowStats(!showStats)}
                         className={cn(
                           "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
-                          showStats ? "bg-white/30" : "bg-white/10 hover:bg-white/20",
+                          showStats
+                            ? "bg-white/30"
+                            : "bg-white/10 hover:bg-white/20"
                         )}
                       >
                         <BarChart3 className="w-4 h-4 text-white" />
@@ -1147,7 +1133,9 @@ export function PlayerModal() {
                         onClick={togglePiP}
                         className={cn(
                           "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
-                          isPiP ? "bg-white/30" : "bg-white/10 hover:bg-white/20",
+                          isPiP
+                            ? "bg-white/30"
+                            : "bg-white/10 hover:bg-white/20"
                         )}
                         title="Picture-in-Picture (P)"
                       >
@@ -1160,12 +1148,12 @@ export function PlayerModal() {
                           onClick={() => setShowQuickSettings(!showQuickSettings)}
                           className={cn(
                             "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
-                            showQuickSettings ? "bg-white/30" : "bg-white/10 hover:bg-white/20",
+                            showQuickSettings
+                              ? "bg-white/30"
+                              : "bg-white/10 hover:bg-white/20"
                           )}
                         >
-                          <Settings
-                            className={cn("w-4 h-4 text-white transition-transform", showQuickSettings && "rotate-90")}
-                          />
+                          <Settings className={cn("w-4 h-4 text-white transition-transform", showQuickSettings && "rotate-90")} />
                         </button>
                         <QuickSettings
                           isOpen={showQuickSettings}
@@ -1205,12 +1193,17 @@ export function PlayerModal() {
               </>
             ) : isEmbedUrl || isYouTube || url ? (
               <iframe
-                src={streamUrl} // o la variable que use tu código
+                ref={iframeRef}
+                src={getEmbedUrl(url)}
                 className="w-full h-full border-0"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen; accelerometer; gyroscope; clipboard-write"
                 allowFullScreen
-                allow="autoplay; encrypted-media; picture-in-picture"
-                // ESTA ES LA LÍNEA QUE EVITA EL ERROR DE MANIFEST
-                referrerPolicy="no-referrer"
+                referrerPolicy="no-referrer-when-downgrade"
+                style={{ border: 'none' }}
+                onLoad={() => {
+                  setIsLoading(false);
+                  setLoadError(null);
+                }}
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-muted-foreground">
@@ -1225,7 +1218,9 @@ export function PlayerModal() {
 
         {/* Floating Bottom Bar - Stream options - ALWAYS VISIBLE when multiple options - CENTERED */}
         {hasMultipleOptions && (
-          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 pointer-events-auto">
+          <div 
+            className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 pointer-events-auto"
+          >
             {availableOptions.map((opt) => (
               <button
                 key={opt.num}
@@ -1237,7 +1232,7 @@ export function PlayerModal() {
                   "h-14 px-8 rounded-full text-base font-bold transition-all duration-200 backdrop-blur-xl shadow-2xl border-2 pointer-events-auto",
                   activeOption === opt.num
                     ? "bg-white text-black border-white scale-110"
-                    : "bg-black/90 text-white hover:bg-white hover:text-black hover:scale-105 border-white/50",
+                    : "bg-black/90 text-white hover:bg-white hover:text-black hover:scale-105 border-white/50"
                 )}
               >
                 Opción {opt.num}
@@ -1247,12 +1242,14 @@ export function PlayerModal() {
         )}
 
         {/* Status and controls bar */}
-        <div
+        <div 
           className={cn(
             "absolute bottom-0 left-0 right-0 z-40 px-4 md:px-6 py-3 transition-all duration-300",
-            showControls ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 pointer-events-none",
+            showControls 
+              ? "opacity-100 translate-y-0" 
+              : "opacity-0 translate-y-2 pointer-events-none"
           )}
-          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 60%, transparent 100%)" }}
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 60%, transparent 100%)' }}
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -1270,7 +1267,7 @@ export function PlayerModal() {
                   {streamStats.quality}
                 </span>
               )}
-
+              
               {/* Keyboard shortcut hint */}
               <button
                 onClick={() => setShowKeyboardShortcuts(true)}
