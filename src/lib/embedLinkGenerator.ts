@@ -1,4 +1,8 @@
 /**
+ * Generates embed links for sports events based on team names
+ * Pattern: https://embedsports.top/embed/{source}/ppv-{team1}-vs-{team2}/{stream}
+ */
+
 export interface GeneratedLinks {
   url1: string;
   url2: string;
@@ -6,8 +10,10 @@ export interface GeneratedLinks {
   url4: string;
 }
 
+const SOURCES = ["admin", "delta", "golf", "echo"] as const;
+
 /**
- * Limpia los nombres de los equipos para el formato de embedsports
+ * Convierte el nombre de un equipo a un slug amigable para URL
  * Ejemplo: "Real Madrid" -> "real-madrid"
  */
 function teamToSlug(teamName: string): string {
@@ -26,7 +32,7 @@ export function generateEmbedLinks(homeTeam: string, awayTeam: string): Generate
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
 
-  // Formato exacto: ppv-equipo1-vs-equipo2
+  // Formato exacto solicitado: ppv-home-vs-away
   const matchSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
 
   return {
@@ -37,13 +43,11 @@ export function generateEmbedLinks(homeTeam: string, awayTeam: string): Generate
   };
 }
 
-/**
- * Variante por si el servidor tiene los equipos en orden inverso
- */
 export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
 
+  // Formato inverso: ppv-away-vs-home
   const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
 
   return {
@@ -51,5 +55,15 @@ export function generateAlternativeLinks(homeTeam: string, awayTeam: string): Ge
     url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
     url3: `https://embedsports.top/embed/golf/${matchSlug}/1`,
     url4: `https://embedsports.top/embed/echo/${matchSlug}/1`,
+  };
+}
+
+/**
+ * Esta es la función que te faltaba y causaba el error TS2305
+ */
+export function generateAllLinkVariants(homeTeam: string, awayTeam: string) {
+  return {
+    primary: generateEmbedLinks(homeTeam, awayTeam),
+    alternative: generateAlternativeLinks(homeTeam, awayTeam),
   };
 }
