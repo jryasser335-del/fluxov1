@@ -19,24 +19,25 @@ export interface TMDBResponse {
 }
 
 const tmdbCache = new Map<string, { data: TMDBResponse; timestamp: number }>();
-const CACHE_TTL = 20 * 60 * 1000;
+const CACHE_TTL = 20 * 60 * 1000; // 20 minutes
 
 export async function fetchTMDB(path: string): Promise<TMDBResponse> {
   const cacheKey = path;
   const cached = tmdbCache.get(cacheKey);
-
+  
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
   }
+
   const separator = path.includes("?") ? "&" : "?";
   const url = `https://api.themoviedb.org/3/${path}${separator}api_key=${TMDB_KEY}&language=es-ES`;
-
+  
   const res = await fetch(url);
   if (!res.ok) throw new Error("TMDB error");
-
+  
   const data = await res.json();
   tmdbCache.set(cacheKey, { data, timestamp: Date.now() });
-
+  
   return data;
 }
 
@@ -78,67 +79,15 @@ export interface ESPNResponse {
   }[];
 }
 
-function formatDateForESPN(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}${month}${day}`;
-}
-
-export async function fetchESPNScoreboard(leagueKey: string, daysAhead: number = 7): Promise<ESPNResponse> {
+export async function fetchESPNScoreboard(leagueKey: string): Promise<ESPNResponse> {
   const today = new Date();
-  const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + daysAhead);
-
-  const startDateStr = formatDateForESPN(today);
-  const endDateStr = formatDateForESPN(endDate);
-
+  const date = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+  
   const sport = leagueKey === "nba" ? "basketball/nba" : `soccer/${leagueKey}`;
-  const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard?dates=${startDateStr}-${endDateStr}`;
-
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard?dates=${date}`;
+  
   const res = await fetch(url);
   if (!res.ok) throw new Error("ESPN error");
-
+  
   return await res.json();
-}
-
-export function getTimeUntilEvent(eventDate: string): {
-  days: number;
-  hours: number;
-  minutes: number;
-  seconds: number;
-  isLive: boolean;
-  isPast: boolean;
-} {
-  const now = new Date().getTime();
-  const event = new Date(eventDate).getTime();
-  const diff = event - now;
-
-  if (diff < 0) {
-    return { days: 0, hours: 0, minutes: 0, seconds: 0, isLive: false, isPast: true };
-  }
-
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-  return { days, hours, minutes, seconds, isLive: false, isPast: false };
-}
-
-export function formatCountdown(timeUntil: ReturnType<typeof getTimeUntilEvent>): string {
-  if (timeUntil.isPast) return "Finalizado";
-  if (timeUntil.isLive) return "EN VIVO";
-
-  const parts: string[] = [];
-
-  if (timeUntil.days > 0) {
-    parts.push(`${timeUntil.days}d`);
-  }
-  if (timeUntil.hours > 0 || timeUntil.days > 0) {
-    parts.push(`${timeUntil.hours}h`);
-  }
-  parts.push(`${timeUntil.minutes}m`);
-
-  return parts.join(" ");
 }
