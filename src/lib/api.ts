@@ -24,20 +24,20 @@ const CACHE_TTL = 20 * 60 * 1000; // 20 minutes
 export async function fetchTMDB(path: string): Promise<TMDBResponse> {
   const cacheKey = path;
   const cached = tmdbCache.get(cacheKey);
-  
+
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
   }
 
   const separator = path.includes("?") ? "&" : "?";
   const url = `https://api.themoviedb.org/3/${path}${separator}api_key=${TMDB_KEY}&language=es-ES`;
-  
+
   const res = await fetch(url);
   if (!res.ok) throw new Error("TMDB error");
-  
+
   const data = await res.json();
   tmdbCache.set(cacheKey, { data, timestamp: Date.now() });
-  
+
   return data;
 }
 
@@ -82,12 +82,26 @@ export interface ESPNResponse {
 export async function fetchESPNScoreboard(leagueKey: string): Promise<ESPNResponse> {
   const today = new Date();
   const date = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
-  
-  const sport = leagueKey === "nba" ? "basketball/nba" : `soccer/${leagueKey}`;
-  const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard?dates=${date}`;
-  
+
+  // Lógica mejorada para detectar el deporte correcto
+  let sportPath = "";
+  const key = leagueKey.toLowerCase();
+
+  if (key === "nba") {
+    sportPath = "basketball/nba";
+  } else if (key === "nfl") {
+    sportPath = "football/nfl"; // Activa el Super Bowl y NFL
+  } else if (key === "mlb") {
+    sportPath = "baseball/mlb";
+  } else {
+    // Para cualquier otra liga (laliga, champions, etc), asume soccer
+    sportPath = `soccer/${key}`;
+  }
+
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${date}`;
+
   const res = await fetch(url);
   if (!res.ok) throw new Error("ESPN error");
-  
+
   return await res.json();
 }
