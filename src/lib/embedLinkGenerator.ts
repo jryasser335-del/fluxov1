@@ -5,35 +5,35 @@ export interface GeneratedLinks {
   url4: string;
 }
 
-/**
- * GENERADOR DEFINITIVO BASADO EN ID REAL
- * Este código usa el ID exacto que extraemos de MovieBite
- */
-export function generateEmbedLinks(matchId: string): GeneratedLinks {
-  // Si no hay ID, devolvemos strings vacíos para evitar errores
-  if (!matchId) {
-    return { url1: "", url2: "", url3: "", url4: "" };
-  }
+function teamToSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
+  // Si lo que recibimos en homeTeam es un ID real de MovieBite (contiene números al final)
+  const isDirectId = /\d+$/.test(homeTeam);
+
+  const finalId = isDirectId ? homeTeam : `ppv-${teamToSlug(homeTeam)}-vs-${teamToSlug(awayTeam)}`;
 
   return {
-    // Servidor principal de MovieBite (Admin)
-    url1: `https://embedsports.top/embed/admin/${matchId}/1?autoplay=1`,
-
-    // Servidor secundario (Delta)
-    url2: `https://embedsports.top/embed/delta/${matchId}/1?autoplay=1`,
-
-    // Servidor Echo (El que sustituyó a Golf)
-    url3: `https://embedsports.top/embed/echo/${matchId}/1?autoplay=1`,
-
-    // Servidor Directo de respaldo
-    url4: `https://itv2.moviebite.cc/m1.php?id=${matchId}`,
+    url1: `https://embedsports.top/embed/admin/${finalId}/1?autoplay=1`,
+    url2: `https://embedsports.top/embed/delta/${finalId}/1?autoplay=1`,
+    url3: `https://embedsports.top/embed/echo/${finalId}/1?autoplay=1`,
+    url4: `https://itv2.moviebite.cc/m1.php?id=${finalId}`,
   };
 }
 
-// Mantener esta función por compatibilidad con tu Admin actual
-export function generateAllLinkVariants(matchId: string) {
+export function generateAllLinkVariants(homeTeam: string, awayTeam: string) {
   return {
-    primary: generateEmbedLinks(matchId),
-    alternative: generateEmbedLinks(matchId), // Aquí ya no hace falta invertir nombres porque el ID es único
+    primary: generateEmbedLinks(homeTeam, awayTeam),
+    alternative: generateEmbedLinks(awayTeam, homeTeam),
   };
 }
