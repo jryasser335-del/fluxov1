@@ -1,13 +1,7 @@
 /**
- * GENERADOR DE LINKS INTEGRADO PARA TU WEB
- * Versión optimizada y lista para producción
- *
- * CARACTERÍSTICAS:
- * ✅ Compatible con tu código original
- * ✅ Extrae IDs reales de MovieBite y Streamed
- * ✅ Maneja ambos tipos de IDs (ppv-team-vs-team y team-vs-team-sport-123456)
- * ✅ Función de búsqueda de partidos en vivo
- * ✅ Cache para evitar múltiples peticiones
+ * Enhanced Embed Link Generator with Live Match Fetching
+ * Supports: MovieBite.cc and Streamed.pk
+ * Pattern: https://embedsports.top/embed/{type}/{match-id}/{source}
  */
 
 export interface GeneratedLinks {
@@ -24,24 +18,15 @@ export interface MatchInfo {
   league?: string;
   time?: string;
   isLive?: boolean;
-  source?: "moviebite" | "streamed";
 }
 
-// ============================================
-// CONFIGURACIÓN
-// ============================================
-
-const PROXY_URL = process.env.NEXT_PUBLIC_PROXY_URL || "http://localhost:3001";
-const CACHE_DURATION = 60000; // 1 minuto
-let cachedMatches: MatchInfo[] | null = null;
-let cacheTimestamp = 0;
-
-// ============================================
-// FUNCIONES HELPER
-// ============================================
+export interface ScrapedMatch extends MatchInfo {
+  source: "moviebite" | "streamed";
+  embedUrls?: string[];
+}
 
 /**
- * Convierte nombre de equipo a slug URL-friendly
+ * Converts a team name to URL-friendly slug
  */
 function teamToSlug(teamName: string): string {
   if (!teamName) return "";
@@ -49,7 +34,7 @@ function teamToSlug(teamName: string): string {
     .toLowerCase()
     .trim()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u0300-\u036f]/g, "") // Quita acentos y tildes
     .replace(/['']/g, "")
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
@@ -58,29 +43,202 @@ function teamToSlug(teamName: string): string {
 }
 
 /**
- * Detecta si un string es un ID de MovieBite
+ * Extrae el ID numérico real de una URL de embedsports
+ * Ejemplos:
+ * - "canada-w-vs-czech-republic-w-hockey-419993" → "419993"
+ * - "pittsburgh-pirates-vs-cincinnati-reds-baseball-165016" → "165016"
  */
-function isMovieBiteId(text: string): boolean {
-  // Es un ID si tiene guiones y contiene "vs" o termina en números
-  return text.includes("-") && (text.includes("-vs-") || /\d{4,}$/.test(text));
+function extractRealIdFromUrl(url: string): string | null {
+  // Patrón para URLs tipo echo/charlie con ID al final
+  const echoPattern = /\/embed\/(?:echo|charlie)\/(.*?-(\d+))\/\d+/;
+  const match = url.match(echoPattern);
+
+  if (match) {
+    return match[1]; // Retorna el slug completo con ID: "team-vs-team-sport-123456"
+  }
+
+  // Si no tiene ID numérico, retorna el slug completo
+  const adminPattern = /\/embed\/admin\/([\w-]+)\/\d+/;
+  const adminMatch = url.match(adminPattern);
+
+  if (adminMatch) {
+    return adminMatch[1];
+  }
+
+  return null;
 }
 
-// ============================================
-// FUNCIONES PRINCIPALES (TU CÓDIGO ORIGINAL)
-// ============================================
+/**
+ * Detecta el deporte basado en keywords
+ */
+function detectSport(text: string): string | undefined {
+  const lowerText = text.toLowerCase();
+
+  if (lowerText.includes("hockey") || lowerText.includes("nhl")) return "hockey";
+  if (lowerText.includes("basketball") || lowerText.includes("nba")) return "basketball";
+  if (lowerText.includes("football") || lowerText.includes("nfl") || lowerText.includes("soccer")) return "football";
+  if (lowerText.includes("baseball") || lowerText.includes("mlb")) return "baseball";
+  if (lowerText.includes("tennis")) return "tennis";
+  if (lowerText.includes("cricket")) return "cricket";
+  if (lowerText.includes("rugby")) return "rugby";
+  if (lowerText.includes("mma") || lowerText.includes("ufc")) return "mma";
+
+  return undefined;
+}
 
 /**
- * Genera los links (COMPATIBLE CON TU CÓDIGO ORIGINAL)
- *
- * USO:
- * generateEmbedLinks('Real Madrid', 'Barcelona') // Modo manual
- * generateEmbedLinks('ppv-villarreal-vs-espanyol', '') // Con ID de MovieBite
+ * Fetch live matches from MovieBite.cc
+ * Uses CORS proxy or direct fetch depending on environment
+ */
+export async function fetchMovieBiteMatches(): Promise<ScrapedMatch[]> {
+  try {
+    const response = await fetch("https://app.moviebite.cc/", {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+    });
+
+    const html = await response.text();
+    const matches: ScrapedMatch[] = [];
+
+    // Buscar iframes con embedsports
+    const iframeRegex = /<iframe[^>]*src=["']([^"']*embedsports[^"']*)["']/gi;
+    let iframeMatch;
+
+    while ((iframeMatch = iframeRegex.exec(html)) !== null) {
+      const embedUrl = iframeMatch[1];
+      const realId = extractRealIdFromUrl(embedUrl);
+
+      if (realId) {
+        // Intentar extraer nombres de equipos del ID
+        const parts = realId.split("-");
+        const sport = detectSport(realId);
+
+        // Buscar "vs" en el slug para separar equipos
+        const vsIndex = parts.indexOf("vs");
+        if (vsIndex > 0) {
+          const homeTeamParts = parts.slice(0, vsIndex);
+          const awayTeamParts = parts.slice(vsIndex + 1).filter((p) => !/^\d+$/.test(p));
+
+          matches.push({
+            id: realId,
+            homeTeam: homeTeamParts.join(" "),
+            awayTeam: awayTeamParts.join(" "),
+            sport,
+            source: "moviebite",
+            embedUrls: [embedUrl],
+            isLive: true,
+          });
+        }
+      }
+    }
+
+    // También buscar datos JSON embebidos
+    const jsonRegex = /{[^}]*"id"\s*:\s*"?(\d+)"?[^}]*"teams?"[^}]*}/gi;
+    let jsonMatch;
+
+    while ((jsonMatch = jsonRegex.exec(html)) !== null) {
+      try {
+        const jsonData = JSON.parse(jsonMatch[0]);
+        if (jsonData.id) {
+          matches.push({
+            id: jsonData.id,
+            homeTeam: jsonData.homeTeam || jsonData.team1 || "Unknown",
+            awayTeam: jsonData.awayTeam || jsonData.team2 || "Unknown",
+            sport: jsonData.sport,
+            source: "moviebite",
+            isLive: jsonData.live || false,
+          });
+        }
+      } catch (e) {
+        // Ignorar errores de parsing JSON
+      }
+    }
+
+    return matches;
+  } catch (error) {
+    console.error("Error fetching MovieBite matches:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch live matches from Streamed.pk
+ */
+export async function fetchStreamedMatches(): Promise<ScrapedMatch[]> {
+  try {
+    const response = await fetch("https://streamed.pk/", {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+    });
+
+    const html = await response.text();
+    const matches: ScrapedMatch[] = [];
+
+    // Buscar iframes y enlaces de embedsports
+    const embedRegex = /(?:src|href)=["']([^"']*embedsports[^"']*)["']/gi;
+    let match;
+
+    while ((match = embedRegex.exec(html)) !== null) {
+      const embedUrl = match[1];
+      const realId = extractRealIdFromUrl(embedUrl);
+
+      if (realId) {
+        const parts = realId.split("-");
+        const sport = detectSport(realId);
+        const vsIndex = parts.indexOf("vs");
+
+        if (vsIndex > 0) {
+          const homeTeamParts = parts.slice(0, vsIndex);
+          const awayTeamParts = parts.slice(vsIndex + 1).filter((p) => !/^\d+$/.test(p));
+
+          matches.push({
+            id: realId,
+            homeTeam: homeTeamParts.join(" "),
+            awayTeam: awayTeamParts.join(" "),
+            sport,
+            source: "streamed",
+            embedUrls: [embedUrl],
+            isLive: true,
+          });
+        }
+      }
+    }
+
+    return matches;
+  } catch (error) {
+    console.error("Error fetching Streamed matches:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch all live matches from all sources
+ */
+export async function fetchAllLiveMatches(): Promise<ScrapedMatch[]> {
+  const [moviebiteMatches, streamedMatches] = await Promise.all([fetchMovieBiteMatches(), fetchStreamedMatches()]);
+
+  // Combinar y eliminar duplicados basados en ID
+  const allMatches = [...moviebiteMatches, ...streamedMatches];
+  const uniqueMatches = allMatches.reduce((acc, match) => {
+    if (!acc.find((m) => m.id === match.id)) {
+      acc.push(match);
+    }
+    return acc;
+  }, [] as ScrapedMatch[]);
+
+  return uniqueMatches;
+}
+
+/**
+ * Genera los links detectando si se le pasa un ID real o nombres de equipos
  */
 export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
-  const isDirectId = isMovieBiteId(homeTeam);
+  // Verificamos si homeTeam ya es un ID real (contiene números o guiones)
+  const isDirectId = /[\d-]/.test(homeTeam || "") && homeTeam.includes("-");
 
-  // Si es ID directo de MovieBite, usarlo tal cual
-  // Si no, generar slug automático con ppv-
+  // Si es ID directo lo usamos tal cual, si no, generamos el slug automático ppv-
   const finalId = isDirectId ? homeTeam : `ppv-${teamToSlug(homeTeam)}-vs-${teamToSlug(awayTeam)}`;
 
   return {
@@ -91,41 +249,7 @@ export function generateEmbedLinks(homeTeam: string, awayTeam: string): Generate
 }
 
 /**
- * Genera variante alternativa (COMPATIBLE CON TU CÓDIGO ORIGINAL)
- */
-export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
-  if (isMovieBiteId(homeTeam)) {
-    return generateEmbedLinks(homeTeam, awayTeam);
-  }
-  return generateEmbedLinks(awayTeam, homeTeam);
-}
-
-/**
- * Genera todas las variantes (COMPATIBLE CON TU CÓDIGO ORIGINAL)
- */
-export function generateAllLinkVariants(
-  homeTeam: string,
-  awayTeam: string,
-): {
-  primary: GeneratedLinks;
-  alternative: GeneratedLinks;
-  allTypes?: Record<string, string>;
-} {
-  const isDirectId = isMovieBiteId(homeTeam);
-
-  return {
-    primary: generateEmbedLinks(homeTeam, awayTeam),
-    alternative: generateAlternativeLinks(homeTeam, awayTeam),
-    allTypes: isDirectId ? generateAllEmbedTypes(homeTeam) : undefined,
-  };
-}
-
-// ============================================
-// NUEVAS FUNCIONES (EXTRAS)
-// ============================================
-
-/**
- * Genera TODOS los tipos de embed (admin, delta, echo, charlie, alpha, bravo)
+ * Genera links con TODOS los tipos de embed disponibles
  */
 export function generateAllEmbedTypes(matchId: string): Record<string, string> {
   const embedTypes = ["admin", "delta", "echo", "charlie", "alpha", "bravo"];
@@ -139,58 +263,55 @@ export function generateAllEmbedTypes(matchId: string): Record<string, string> {
 }
 
 /**
- * Obtiene partidos en vivo desde el proxy
+ * Genera variante alternativa (Invirtiendo el orden de los equipos)
  */
-export async function fetchLiveMatches(): Promise<MatchInfo[]> {
-  const now = Date.now();
-
-  // Usar cache si está disponible
-  if (cachedMatches && now - cacheTimestamp < CACHE_DURATION) {
-    return cachedMatches;
+export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
+  // Si ya tenemos un ID directo, no invertir
+  if (/[\d-]/.test(homeTeam || "") && homeTeam.includes("-")) {
+    return generateEmbedLinks(homeTeam, awayTeam);
   }
-
-  try {
-    const response = await fetch(`${PROXY_URL}/api/all-matches`);
-    const data = await response.json();
-
-    if (data.success) {
-      cachedMatches = data.matches;
-      cacheTimestamp = now;
-      return data.matches;
-    }
-
-    return [];
-  } catch (error) {
-    console.error("Error fetching live matches:", error);
-    return [];
-  }
+  return generateEmbedLinks(awayTeam, homeTeam);
 }
 
 /**
- * Busca un partido por nombre de equipo
+ * Generates all possible link variants for a match
  */
-export async function findMatch(teamName: string): Promise<MatchInfo | null> {
-  const matches = await fetchLiveMatches();
-  const search = teamName.toLowerCase();
+export function generateAllLinkVariants(
+  homeTeam: string,
+  awayTeam: string,
+): {
+  primary: GeneratedLinks;
+  alternative: GeneratedLinks;
+  allTypes?: Record<string, string>;
+} {
+  const isDirectId = /[\d-]/.test(homeTeam || "") && homeTeam.includes("-");
 
-  return (
-    matches.find((m) => m.homeTeam.toLowerCase().includes(search) || m.awayTeam.toLowerCase().includes(search)) || null
+  return {
+    primary: generateEmbedLinks(homeTeam, awayTeam),
+    alternative: generateAlternativeLinks(homeTeam, awayTeam),
+    allTypes: isDirectId ? generateAllEmbedTypes(homeTeam) : undefined,
+  };
+}
+
+/**
+ * Busca un partido específico por nombre de equipo en las fuentes live
+ */
+export async function findMatchByTeam(teamName: string): Promise<ScrapedMatch | null> {
+  const allMatches = await fetchAllLiveMatches();
+  const searchTerm = teamName.toLowerCase();
+
+  const found = allMatches.find(
+    (match) => match.homeTeam.toLowerCase().includes(searchTerm) || match.awayTeam.toLowerCase().includes(searchTerm),
   );
-}
 
-/**
- * Busca partidos por deporte
- */
-export async function findMatchesBySport(sport: string): Promise<MatchInfo[]> {
-  const matches = await fetchLiveMatches();
-  return matches.filter((m) => m.sport === sport);
+  return found || null;
 }
 
 /**
  * Genera links automáticamente buscando el partido en vivo
  */
-export async function generateLinksFromSearch(teamName: string): Promise<GeneratedLinks | null> {
-  const match = await findMatch(teamName);
+export async function generateLinksFromLiveMatch(teamName: string): Promise<GeneratedLinks | null> {
+  const match = await findMatchByTeam(teamName);
 
   if (match) {
     return generateEmbedLinks(match.id, "");
@@ -198,99 +319,3 @@ export async function generateLinksFromSearch(teamName: string): Promise<Generat
 
   return null;
 }
-
-// ============================================
-// VERSIÓN SIN PROXY (FALLBACK)
-// ============================================
-
-/**
- * Intenta obtener partidos directamente (puede fallar por CORS)
- * Solo usar como fallback si el proxy no está disponible
- */
-export async function fetchLiveMatchesDirect(): Promise<MatchInfo[]> {
-  try {
-    const response = await fetch("https://app.moviebite.cc/");
-    const html = await response.text();
-
-    const matches: MatchInfo[] = [];
-    const regex = /\/embed\/([\w]+)\/([\w-]+)\/\d+/g;
-    let match;
-
-    while ((match = regex.exec(html)) !== null) {
-      const embedType = match[1];
-      const matchId = match[2];
-
-      if (matchId.includes("-vs-")) {
-        const parts = matchId.split("-");
-        const vsIndex = parts.indexOf("vs");
-        const startIndex = parts[0] === "ppv" ? 1 : 0;
-
-        matches.push({
-          id: matchId,
-          homeTeam: parts.slice(startIndex, vsIndex).join(" "),
-          awayTeam: parts
-            .slice(vsIndex + 1)
-            .filter((p) => !/^\d+$/.test(p))
-            .join(" "),
-          isLive: true,
-          source: "moviebite",
-        });
-      }
-    }
-
-    return matches;
-  } catch (error) {
-    console.error("Direct fetch failed (CORS?):", error);
-    return [];
-  }
-}
-
-// ============================================
-// UTILIDADES
-// ============================================
-
-/**
- * Limpia la cache de partidos
- */
-export function clearMatchesCache(): void {
-  cachedMatches = null;
-  cacheTimestamp = 0;
-}
-
-/**
- * Verifica si el proxy está disponible
- */
-export async function checkProxyHealth(): Promise<boolean> {
-  try {
-    const response = await fetch(`${PROXY_URL}/health`);
-    const data = await response.json();
-    return data.status === "ok";
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Parsea un ID de MovieBite para extraer equipos
- */
-export function parseMovieBiteId(id: string): { homeTeam: string; awayTeam: string } | null {
-  if (!id.includes("-vs-")) return null;
-
-  const parts = id.split("-");
-  const vsIndex = parts.indexOf("vs");
-  const startIndex = parts[0] === "ppv" ? 1 : 0;
-
-  return {
-    homeTeam: parts.slice(startIndex, vsIndex).join(" "),
-    awayTeam: parts
-      .slice(vsIndex + 1)
-      .filter((p) => !/^\d+$/.test(p))
-      .join(" "),
-  };
-}
-
-// ============================================
-// EXPORTACIONES LEGACY (compatibilidad)
-// ============================================
-
-export { teamToSlug, isMovieBiteId, type MatchInfo as ScrapedMatch };
