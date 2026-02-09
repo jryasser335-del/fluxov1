@@ -1,6 +1,6 @@
 /**
  * Generates specific sports embed links
- * URL 1: Admin (moviebite.to + autoplay)
+ * URL 1: Admin (embedsports.top + autoplay)
  * URL 2: Delta (embedsports.top)
  * URL 3: Echo (embedsports.top)
  */
@@ -12,7 +12,7 @@ export interface GeneratedLinks {
 }
 
 /**
- * Limpia los nombres de los equipos para las URLs
+ * Convierte el nombre de un equipo a un slug amigable para URL
  */
 function teamToSlug(team: string): string {
   return team
@@ -23,29 +23,29 @@ function teamToSlug(team: string): string {
 }
 
 /**
- * Generador principal con lógica de dominios por servidor
+ * Generador principal con la lógica de dominios y parámetros solicitada
  */
 export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
 
-  // Orden principal solicitado: ppv-away-vs-home
+  // Orden principal: ppv-away-vs-home
   const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
 
   return {
-    // URL 1: Admin en Moviebite con Autoplay
-    url1: `https://moviebite.to/embed/admin/${matchSlug}/1?autoplay=1`,
+    // URL 1: Admin con Autoplay en embedsports.top
+    url1: `https://embedsports.top/embed/admin/${matchSlug}/1?autoplay=1`,
 
-    // URL 2: Delta en Embedsports (Streamed)
+    // URL 2: Delta en embedsports.top (sin autoplay)
     url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
 
-    // URL 3: Echo en Embedsports (Streamed)
+    // URL 3: Echo en embedsports.top (sin autoplay)
     url3: `https://embedsports.top/embed/echo/${matchSlug}/1`,
   };
 }
 
 /**
- * Variante con orden inverso (Home vs Away) manteniendo los mismos dominios
+ * Variante con orden inverso (Home vs Away)
  */
 export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
@@ -53,14 +53,14 @@ export function generateAlternativeLinks(homeTeam: string, awayTeam: string): Ge
   const matchSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
 
   return {
-    url1: `https://moviebite.to/embed/admin/${matchSlug}/1?autoplay=1`,
+    url1: `https://embedsports.top/embed/admin/${matchSlug}/1?autoplay=1`,
     url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
     url3: `https://embedsports.top/embed/echo/${matchSlug}/1`,
   };
 }
 
 /**
- * Exportación para solucionar el error de Lovable
+ * Exportación para Lovable
  */
 export function generateAllLinkVariants(homeTeam: string, awayTeam: string) {
   return {
