@@ -54,8 +54,7 @@ export function PlayerModal() {
   const [showControls, setShowControls] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  // Soporte extendido para 4 opciones (incluyendo el servidor echo)
-  const [activeOption, setActiveOption] = useState<1 | 2 | 3 | 4>(1);
+  const [activeOption, setActiveOption] = useState<1 | 2 | 3>(1);
   const [volume, setVolume] = useState(1);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
@@ -101,14 +100,10 @@ export function PlayerModal() {
   const getCurrentUrl = () => {
     if (activeOption === 2 && urls.url2) return urls.url2;
     if (activeOption === 3 && urls.url3) return urls.url3;
-    // Soporte para la nueva url4 generada
-    if (activeOption === 4 && (urls as any).url4) return (urls as any).url4;
     return urls.url1;
   };
 
   const url = getCurrentUrl();
-  // Definición de la variable para evitar el error de compilación
-  const streamUrl = url;
 
   // Detect URL type - embed URLs should use iframe, HLS uses video player
   const isHlsStream = url?.includes(".m3u8") && !url?.includes("/embed/");
@@ -127,7 +122,6 @@ export function PlayerModal() {
     { num: 1 as const, url: urls.url1 },
     { num: 2 as const, url: urls.url2 },
     { num: 3 as const, url: urls.url3 },
-    { num: 4 as const, url: (urls as any).url4 },
   ].filter((opt) => opt.url);
 
   const hasMultipleOptions = availableOptions.length > 1;
@@ -228,8 +222,7 @@ export function PlayerModal() {
         case "1":
         case "2":
         case "3":
-        case "4":
-          const optNum = parseInt(e.key) as 1 | 2 | 3 | 4;
+          const optNum = parseInt(e.key) as 1 | 2 | 3;
           if (availableOptions.find((o) => o.num === optNum)) {
             setActiveOption(optNum);
             toast.success(`Cambiado a Opción ${optNum}`);
@@ -284,11 +277,17 @@ export function PlayerModal() {
     setLoadError(null);
     fatalErrorCount.current = 0;
 
+    // For embed/iframe content, just set loading to false after a short delay
+    // Don't show any error messages for iframe content since we can't detect errors
     if (isEmbedUrl || isYouTube) {
       if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current);
+      // Short timeout just for loading indicator, no error messages for iframes
       loadingWatchdog.current = setTimeout(() => {
         setIsLoading(false);
+        // Never show error for iframe content - we can't detect if it's working
         setLoadError(null);
+
+        // Try to autoplay iframe content by focusing on it
         if (iframeRef.current) {
           iframeRef.current.focus();
         }
@@ -301,24 +300,32 @@ export function PlayerModal() {
       };
     }
 
+    // For HLS streams, use watchdog but be very careful about false positives
     if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current);
     loadingWatchdog.current = setTimeout(() => {
+      // Only show error if video element exists and has definitively failed
       const video = videoRef.current;
       if (!video) {
         setIsLoading(false);
         return;
       }
+
+      // Check multiple conditions - don't show error if any sign of playback
       const hasVideoData = video.readyState >= 1;
       const isVideoPlaying = !video.paused;
       const hasCurrentTime = video.currentTime > 0;
       const hasBuffered = video.buffered.length > 0;
 
+      // If ANY indication that video is working, don't show error
       if (hasVideoData || isVideoPlaying || hasCurrentTime || hasBuffered) {
         setIsLoading(false);
         setLoadError(null);
         return;
       }
+
+      // Only show error if absolutely nothing is working after 15 seconds
       setIsLoading(false);
+      // Don't set error - let the player try to recover
     }, 15000);
 
     return () => {
@@ -352,7 +359,7 @@ export function PlayerModal() {
       return streamUrl;
     };
 
-    const proxiedUrl = getProxiedUrl(url);
+    const streamUrl = getProxiedUrl(url);
 
     if (Hls.isSupported()) {
       const boot = async () => {
@@ -397,13 +404,15 @@ export function PlayerModal() {
           setLoadError(message);
         };
 
-        hls.loadSource(proxiedUrl);
+        hls.loadSource(streamUrl);
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
           setLoadError(null);
           stopLoading();
           video.play().catch(() => {});
+
+          // Update quality info
           if (data.levels && data.levels.length > 0) {
             const level = data.levels[hls.currentLevel] || data.levels[0];
             setStreamStats((prev) => ({
@@ -419,6 +428,7 @@ export function PlayerModal() {
           stopLoading();
         });
 
+        // Also clear error when video starts playing
         video.addEventListener("playing", () => {
           setLoadError(null);
           stopLoading();
@@ -429,6 +439,7 @@ export function PlayerModal() {
           stopLoading();
         });
 
+        // Track buffer and bitrate
         hls.on(Hls.Events.FRAG_BUFFERED, () => {
           if (video.buffered.length > 0) {
             const buffered = video.buffered.end(video.buffered.length - 1) - video.currentTime;
@@ -449,7 +460,9 @@ export function PlayerModal() {
 
         hls.on(Hls.Events.ERROR, (_, err) => {
           if (!err.fatal) return;
+
           fatalErrorCount.current += 1;
+
           const attempts = fatalErrorCount.current;
           if (attempts <= 1) {
             if (err.type === Hls.ErrorTypes.NETWORK_ERROR) {
@@ -461,6 +474,7 @@ export function PlayerModal() {
               return;
             }
           }
+
           fail(`No se pudo cargar el stream (${err.type}).`);
         });
       };
@@ -470,7 +484,7 @@ export function PlayerModal() {
         setLoadError("No se pudo iniciar el reproductor HLS.");
       });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = proxiedUrl;
+      video.src = streamUrl;
       const onLoaded = () => {
         if (loadingWatchdog.current) {
           clearTimeout(loadingWatchdog.current);
@@ -488,8 +502,10 @@ export function PlayerModal() {
         setIsLoading(false);
         setLoadError("No se pudo cargar el stream.");
       };
+
       video.addEventListener("loadedmetadata", onLoaded);
       video.addEventListener("error", onError);
+
       return () => {
         video.removeEventListener("loadedmetadata", onLoaded);
         video.removeEventListener("error", onError);
@@ -504,6 +520,41 @@ export function PlayerModal() {
       }
     };
   }, [isOpen, isHlsStream, url, isLoading]);
+
+  const getEmbedUrl = (rawUrl: string) => {
+    if (!rawUrl) return "";
+    // Handle YouTube URLs
+    const ytMatch = rawUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?]+)/);
+    if (ytMatch) {
+      return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=0&controls=1&rel=0&modestbranding=1&showinfo=0&playsinline=1`;
+    }
+    // For other embed URLs, add autoplay parameter if not present
+    try {
+      const urlObj = new URL(rawUrl);
+      // Add multiple autoplay parameters to maximize compatibility
+      if (!urlObj.searchParams.has("autoplay")) {
+        urlObj.searchParams.set("autoplay", "1");
+      }
+      if (!urlObj.searchParams.has("auto_play")) {
+        urlObj.searchParams.set("auto_play", "true");
+      }
+      if (!urlObj.searchParams.has("muted")) {
+        urlObj.searchParams.set("muted", "0");
+      }
+      if (!urlObj.searchParams.has("playsinline")) {
+        urlObj.searchParams.set("playsinline", "1");
+      }
+      // Disable ads where possible
+      if (!urlObj.searchParams.has("ads")) {
+        urlObj.searchParams.set("ads", "0");
+      }
+      return urlObj.toString();
+    } catch {
+      // If URL parsing fails, add params manually
+      const separator = rawUrl.includes("?") ? "&" : "?";
+      return `${rawUrl}${separator}autoplay=1&auto_play=true&playsinline=1`;
+    }
+  };
 
   const handleIframeLoad = () => {
     setIsLoading(false);
@@ -579,12 +630,25 @@ export function PlayerModal() {
   const toggleFullscreen = () => {
     const video = videoRef.current;
     const container = containerRef.current;
+
     if (!video && !container) return;
+
     const isCurrentlyFullscreen = !!document.fullscreenElement;
+
     if (isCurrentlyFullscreen) {
       document.exitFullscreen?.();
       return;
     }
+
+    // iOS Safari
+    if ((video as any)?.webkitEnterFullscreen) {
+      try {
+        (video as any).webkitEnterFullscreen();
+        return;
+      } catch {}
+    }
+
+    // Standard
     if (container?.requestFullscreen) {
       container.requestFullscreen();
     } else if ((container as any)?.webkitRequestFullscreen) {
@@ -595,6 +659,7 @@ export function PlayerModal() {
   const togglePiP = async () => {
     const video = videoRef.current;
     if (!video) return;
+
     try {
       if (document.pictureInPictureElement) {
         await document.exitPictureInPicture();
@@ -633,7 +698,10 @@ export function PlayerModal() {
       onClick={(e) => e.target === e.currentTarget && closePlayer()}
       className="fixed inset-0 z-[9990] flex items-center justify-center animate-in fade-in duration-200"
     >
+      {/* Ultra-premium seamless backdrop */}
       <div className="absolute inset-0 bg-black" />
+
+      {/* Subtle ambient glow effect */}
       {ambientEnabled && ambientMode.colors && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div
@@ -642,6 +710,8 @@ export function PlayerModal() {
           />
         </div>
       )}
+
+      {/* Always visible close button - top right corner */}
       <button
         onClick={closePlayer}
         className="absolute top-4 right-4 md:top-6 md:right-6 z-[60] w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-md bg-black/60 hover:bg-red-500/80 border border-white/20 hover:border-red-500/50 transition-all duration-200 text-white/90 hover:text-white shadow-lg"
@@ -650,6 +720,7 @@ export function PlayerModal() {
       </button>
 
       <div ref={containerRef} className="relative w-full h-full overflow-hidden">
+        {/* Floating Header - Overlays video */}
         <div
           className={cn(
             "absolute top-0 left-0 right-0 z-50 flex items-center justify-between px-4 md:px-6 py-3 md:py-4 pr-20 md:pr-24 transition-all duration-300",
@@ -672,6 +743,7 @@ export function PlayerModal() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {/* Ambient mode toggle */}
             <button
               onClick={() => setAmbientEnabled(!ambientEnabled)}
               className={cn(
@@ -684,6 +756,8 @@ export function PlayerModal() {
             >
               <Smartphone className="w-4 h-4" />
             </button>
+
+            {/* Theater mode toggle */}
             <button
               onClick={() => setIsTheaterMode(!isTheaterMode)}
               className={cn(
@@ -699,6 +773,7 @@ export function PlayerModal() {
           </div>
         </div>
 
+        {/* Player Container - Full screen, no padding, no borders */}
         <div className="w-full h-full">
           <div
             className="relative w-full h-full overflow-hidden bg-black group"
@@ -706,39 +781,61 @@ export function PlayerModal() {
             onMouseLeave={() => setShowControls(false)}
             onTouchStart={() => setShowControls(true)}
           >
+            {/* Stream stats overlay */}
             <StreamStats
               isVisible={showStats}
               quality={streamStats.quality}
               bitrate={streamStats.bitrate}
               buffered={streamStats.buffered}
             />
+
+            {/* Keyboard shortcuts modal */}
             <KeyboardShortcuts isOpen={showKeyboardShortcuts} onClose={() => setShowKeyboardShortcuts(false)} />
 
+            {/* Premium Loading Overlay */}
             {isLoading && !loadError && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/95 backdrop-blur-xl">
-                <div className="relative w-20 h-20">
-                  <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
-                  <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
-                  <div className="absolute inset-3 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                    <Loader2 className="w-6 h-6 text-primary animate-pulse" />
-                  </div>
+                {/* Animated background */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-gradient-to-br from-primary/15 via-purple-600/10 to-accent/15 blur-[150px] animate-pulse" />
                 </div>
-                <div className="text-center mt-5 space-y-2">
-                  <h3 className="text-base font-display tracking-wider text-white/80 max-w-[260px] truncate">
-                    {title || "Cargando..."}
-                  </h3>
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="flex gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+
+                <div className="relative z-10 flex flex-col items-center gap-5">
+                  {/* Premium loader */}
+                  <div className="relative w-20 h-20">
+                    <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+                    <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
+                    <div className="absolute inset-3 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 text-primary animate-pulse" />
                     </div>
-                    <span className="text-sm text-white/40">Conectando</span>
+                    {/* Orbiting dot */}
+                    <div className="absolute inset-0 animate-[spin_3s_linear_infinite]">
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-primary shadow-lg shadow-primary/50" />
+                    </div>
                   </div>
+
+                  <div className="text-center space-y-2">
+                    <h3 className="text-base font-display tracking-wider text-white/80 max-w-[260px] truncate">
+                      {title || "Cargando..."}
+                    </h3>
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="flex gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0ms]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:150ms]" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:300ms]" />
+                      </div>
+                      <span className="text-sm text-white/40">Conectando</span>
+                    </div>
+                  </div>
+
+                  <kbd className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white/30">
+                    Presiona <span className="font-mono text-white/50">?</span> para atajos
+                  </kbd>
                 </div>
               </div>
             )}
 
+            {/* Error overlay - Never show for embed/iframe content */}
             {loadError && !isEmbedUrl && !isYouTube && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-gradient-radial from-primary/10 via-black/85 to-black z-20 p-6 text-center">
                 <div className="w-16 h-16 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center">
@@ -755,13 +852,23 @@ export function PlayerModal() {
                   >
                     Reintentar
                   </button>
-                  {hasMultipleOptions && activeOption < availableOptions.length && (
+                  {hasMultipleOptions && activeOption < 3 && (
                     <button
-                      onClick={() => setActiveOption((activeOption + 1) as any)}
+                      onClick={() => setActiveOption((activeOption + 1) as 1 | 2 | 3)}
                       className="h-11 px-4 rounded-xl bg-primary/20 hover:bg-primary/30 border border-primary/30 transition-all duration-200 text-sm text-primary"
                     >
                       Probar Opción {activeOption + 1}
                     </button>
+                  )}
+                  {url && (
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="h-11 px-4 rounded-xl bg-white/10 hover:bg-white/20 border border-white/10 transition-all duration-200 text-sm text-white inline-flex items-center"
+                    >
+                      Abrir enlace
+                    </a>
                   )}
                 </div>
               </div>
@@ -777,7 +884,12 @@ export function PlayerModal() {
                   muted={isMuted}
                   crossOrigin="anonymous"
                   onTimeUpdate={handleTimeUpdate}
+                  onLoadedMetadata={handleTimeUpdate}
+                  webkit-playsinline="true"
+                  x-webkit-airplay="allow"
                 />
+
+                {/* AI Subtitles Overlay */}
                 {subtitlesEnabled && currentSubtitle && (
                   <div className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none z-30">
                     <div className="bg-black/80 backdrop-blur-sm px-6 py-3 rounded-lg max-w-[80%] border border-white/10">
@@ -787,6 +899,18 @@ export function PlayerModal() {
                     </div>
                   </div>
                 )}
+
+                {/* Subtitle processing indicator */}
+                {subtitlesEnabled && subtitlesProcessing && !currentSubtitle && (
+                  <div className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none z-30">
+                    <div className="bg-black/60 px-4 py-2 rounded-lg flex items-center gap-2">
+                      <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                      <span className="text-white/60 text-sm">Procesando audio...</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom controls - Premium borderless design */}
                 <div
                   className={cn(
                     "absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-16 pt-20 transition-all duration-300",
@@ -796,6 +920,7 @@ export function PlayerModal() {
                     background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 40%, transparent 100%)",
                   }}
                 >
+                  {/* Progress bar for movies/series */}
                   {!isLiveContent && duration > 0 && (
                     <div className="mb-4 flex items-center gap-3">
                       <span className="text-xs text-white/70 w-12 tabular-nums font-mono">
@@ -816,6 +941,10 @@ export function PlayerModal() {
                             style={{ width: `${(currentTime / duration) * 100}%` }}
                           />
                         </div>
+                        <div
+                          className="absolute top-1/2 w-4 h-4 bg-white rounded-full shadow-lg opacity-0 group-hover/progress:opacity-100 transition-all scale-0 group-hover/progress:scale-100"
+                          style={{ left: `${(currentTime / duration) * 100}%`, transform: "translate(-50%, -50%)" }}
+                        />
                       </div>
                       <span className="text-xs text-white/70 w-12 text-right tabular-nums font-mono">
                         {formatTime(duration)}
@@ -824,6 +953,7 @@ export function PlayerModal() {
                   )}
 
                   <div className="flex items-center justify-between gap-4">
+                    {/* Left controls */}
                     <div className="flex items-center gap-2">
                       {!isLiveContent && (
                         <button
@@ -851,6 +981,8 @@ export function PlayerModal() {
                           <FastForward className="w-5 h-5 text-white" />
                         </button>
                       )}
+
+                      {/* Volume control */}
                       <div className="flex items-center gap-2 group/volume ml-2">
                         <button
                           onClick={toggleMute}
@@ -869,25 +1001,61 @@ export function PlayerModal() {
                           step={0.1}
                           value={isMuted ? 0 : volume}
                           onChange={handleVolumeChange}
-                          className="w-0 group-hover/volume:w-24 h-1 bg-white/30 rounded-full appearance-none cursor-pointer transition-all duration-200"
+                          className="w-0 group-hover/volume:w-24 h-1 bg-white/30 rounded-full appearance-none cursor-pointer transition-all duration-200 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full"
                         />
                       </div>
+
+                      {/* Subtitles */}
                       <button
                         onClick={toggleSubtitles}
                         className={cn(
                           "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
-                          subtitlesEnabled ? "bg-white/30 text-white" : "bg-white/10 text-white/70",
+                          subtitlesEnabled
+                            ? "bg-white/30 text-white"
+                            : "bg-white/10 hover:bg-white/20 text-white/70 hover:text-white",
                         )}
+                        title="Subtítulos IA"
                       >
                         <Subtitles className="w-5 h-5" />
                       </button>
                     </div>
 
+                    {/* Center badges */}
+                    <div className="flex items-center gap-2">
+                      {/* Live badge */}
+                      {isLiveContent && (
+                        <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/30 backdrop-blur-md">
+                          <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+                          <span className="text-xs font-bold text-white uppercase tracking-wider">En vivo</span>
+                        </div>
+                      )}
+
+                      {/* Speed indicator */}
+                      {playbackSpeed !== 1 && (
+                        <div className="px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold text-white">
+                          {playbackSpeed}x
+                        </div>
+                      )}
+
+                      {/* Sleep timer indicator */}
+                      {sleepTimer.isActive && sleepTimer.remainingTime && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-500/30 backdrop-blur-md">
+                          <Moon className="w-3.5 h-3.5 text-white" />
+                          <span className="text-xs font-mono text-white">
+                            {sleepTimer.formatTime(sleepTimer.remainingTime)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right controls */}
                     <div className="flex items-center gap-1.5">
+                      {/* Quality selector */}
                       <div className="relative hidden sm:block">
                         <button
                           onClick={() => setShowQualitySelector(!showQualitySelector)}
                           className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
+                          title="Calidad"
                         >
                           <Signal className="w-4 h-4 text-white" />
                         </button>
@@ -902,22 +1070,30 @@ export function PlayerModal() {
                           }}
                         />
                       </div>
+
+                      {/* Audio mixer */}
                       <div className="relative hidden sm:block">
                         <button
                           onClick={() => setShowAudioMixer(!showAudioMixer)}
                           className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
+                          title="Audio"
                         >
                           <Music className="w-4 h-4 text-white" />
                         </button>
                         <AudioMixer isOpen={showAudioMixer} onClose={() => setShowAudioMixer(false)} />
                       </div>
+
+                      {/* Sleep timer */}
                       <div className="relative hidden sm:block">
                         <button
                           onClick={() => setShowSleepTimer(!showSleepTimer)}
                           className={cn(
                             "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
-                            sleepTimer.isActive ? "bg-purple-500/40 text-white" : "bg-white/10 text-white",
+                            sleepTimer.isActive
+                              ? "bg-purple-500/40 text-white"
+                              : "bg-white/10 hover:bg-white/20 text-white",
                           )}
+                          title="Temporizador de sueño"
                         >
                           <Moon className="w-4 h-4" />
                         </button>
@@ -931,15 +1107,20 @@ export function PlayerModal() {
                           onCancelTimer={sleepTimer.cancelTimer}
                         />
                       </div>
+
+                      {/* Cast */}
                       <div className="relative hidden sm:block">
                         <button
                           onClick={() => setShowCastMenu(!showCastMenu)}
                           className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
+                          title="Transmitir"
                         >
                           <Cast className="w-4 h-4 text-white" />
                         </button>
                         <CastMenu isOpen={showCastMenu} onClose={() => setShowCastMenu(false)} />
                       </div>
+
+                      {/* Share button */}
                       <div className="relative">
                         <button
                           onClick={() => setShowShareMenu(!showShareMenu)}
@@ -949,6 +1130,8 @@ export function PlayerModal() {
                         </button>
                         <ShareMenu title={title || ""} isOpen={showShareMenu} onClose={() => setShowShareMenu(false)} />
                       </div>
+
+                      {/* Stats toggle */}
                       <button
                         onClick={() => setShowStats(!showStats)}
                         className={cn(
@@ -958,15 +1141,20 @@ export function PlayerModal() {
                       >
                         <BarChart3 className="w-4 h-4 text-white" />
                       </button>
+
+                      {/* PiP */}
                       <button
                         onClick={togglePiP}
                         className={cn(
                           "w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all",
                           isPiP ? "bg-white/30" : "bg-white/10 hover:bg-white/20",
                         )}
+                        title="Picture-in-Picture (P)"
                       >
                         <PictureInPicture2 className="w-4 h-4 text-white" />
                       </button>
+
+                      {/* Settings */}
                       <div className="relative">
                         <button
                           onClick={() => setShowQuickSettings(!showQuickSettings)}
@@ -998,9 +1186,12 @@ export function PlayerModal() {
                           onShowShare={() => setShowShareMenu(true)}
                         />
                       </div>
+
+                      {/* Fullscreen */}
                       <button
                         onClick={toggleFullscreen}
                         className="w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 backdrop-blur-md transition-all"
+                        title="Pantalla completa (F)"
                       >
                         {isFullscreen ? (
                           <Minimize2 className="w-5 h-5 text-white" />
@@ -1014,43 +1205,39 @@ export function PlayerModal() {
               </>
             ) : isEmbedUrl || isYouTube || url ? (
               <iframe
-                ref={iframeRef}
-                src={streamUrl}
+                src={streamUrl} // o la variable que use tu código
                 className="w-full h-full border-0"
                 allowFullScreen
                 allow="autoplay; encrypted-media; picture-in-picture"
-                // LÍNEA CLAVE PARA EVITAR BLOQUEOS DE ORIGEN
+                // ESTA ES LA LÍNEA QUE EVITA EL ERROR DE MANIFEST
                 referrerPolicy="no-referrer"
-                onLoad={handleIframeLoad}
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-muted-foreground">
-                <Play className="w-10 h-10 text-white/20" />
+                <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
+                  <Play className="w-10 h-10 text-white/20" />
+                </div>
                 <span className="text-sm text-white/40">Sin enlace disponible</span>
               </div>
             )}
           </div>
         </div>
 
+        {/* Floating Bottom Bar - Stream options - ALWAYS VISIBLE when multiple options - CENTERED */}
         {hasMultipleOptions && (
-          <div
-            className={cn(
-              "absolute bottom-20 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 transition-all",
-              showControls ? "opacity-100" : "opacity-0 pointer-events-none",
-            )}
-          >
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-3 pointer-events-auto">
             {availableOptions.map((opt) => (
               <button
                 key={opt.num}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setActiveOption(opt.num as any);
+                  setActiveOption(opt.num);
                 }}
                 className={cn(
-                  "h-14 px-8 rounded-full text-base font-bold transition-all duration-200 backdrop-blur-xl shadow-2xl border-2",
+                  "h-14 px-8 rounded-full text-base font-bold transition-all duration-200 backdrop-blur-xl shadow-2xl border-2 pointer-events-auto",
                   activeOption === opt.num
                     ? "bg-white text-black border-white scale-110"
-                    : "bg-black/90 text-white border-white/50 hover:bg-white hover:text-black",
+                    : "bg-black/90 text-white hover:bg-white hover:text-black hover:scale-105 border-white/50",
                 )}
               >
                 Opción {opt.num}
@@ -1059,6 +1246,7 @@ export function PlayerModal() {
           </div>
         )}
 
+        {/* Status and controls bar */}
         <div
           className={cn(
             "absolute bottom-0 left-0 right-0 z-40 px-4 md:px-6 py-3 transition-all duration-300",
@@ -1067,16 +1255,23 @@ export function PlayerModal() {
           style={{ background: "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 60%, transparent 100%)" }}
         >
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs text-white/50">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="hidden sm:inline">{isLiveContent ? "En tiempo real" : "Conectado"}</span>
-            </div>
             <div className="flex items-center gap-3">
+              {/* Status indicator */}
+              <div className="flex items-center gap-2 text-xs text-white/50">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="hidden sm:inline">{isLiveContent ? "En tiempo real" : "Conectado"}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {/* Quality badge */}
               {streamStats.quality !== "Auto" && (
                 <span className="px-2.5 py-1 rounded-full bg-white/10 text-xs font-medium text-white/70">
                   {streamStats.quality}
                 </span>
               )}
+
+              {/* Keyboard shortcut hint */}
               <button
                 onClick={() => setShowKeyboardShortcuts(true)}
                 className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
