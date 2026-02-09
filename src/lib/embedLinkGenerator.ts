@@ -6,6 +6,7 @@ export interface GeneratedLinks {
 }
 
 function teamToSlug(text: string): string {
+  if (!text) return "";
   return text
     .toLowerCase()
     .trim()
@@ -17,10 +18,14 @@ function teamToSlug(text: string): string {
     .replace(/^-|-$/g, "");
 }
 
+/**
+ * Generador principal compatible con nombres de equipos o IDs directos
+ */
 export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
-  // Si lo que recibimos en homeTeam es un ID real de MovieBite (contiene números al final)
-  const isDirectId = /\d+$/.test(homeTeam);
+  // Verificamos si homeTeam es un ID real de MovieBite (ej: termina en números como 1391048)
+  const isDirectId = /\d+$/.test(homeTeam || "");
 
+  // Si es ID directo lo usamos, si no, generamos el slug automático ppv-
   const finalId = isDirectId ? homeTeam : `ppv-${teamToSlug(homeTeam)}-vs-${teamToSlug(awayTeam)}`;
 
   return {
@@ -31,6 +36,9 @@ export function generateEmbedLinks(homeTeam: string, awayTeam: string): Generate
   };
 }
 
+/**
+ * Esta función es necesaria para que AdminEvents.tsx no de error de "Expected 1 arguments, but got 2"
+ */
 export function generateAllLinkVariants(homeTeam: string, awayTeam: string) {
   return {
     primary: generateEmbedLinks(homeTeam, awayTeam),
