@@ -43,26 +43,28 @@ function teamToSlug(teamName: string): string {
 }
 
 /**
- * Extrae el ID numérico real de una URL de embedsports
- * Ejemplos:
- * - "canada-w-vs-czech-republic-w-hockey-419993" → "419993"
- * - "pittsburgh-pirates-vs-cincinnati-reds-baseball-165016" → "165016"
+ * Extrae el ID completo de una URL de embedsports
+ * Maneja AMBOS tipos de MovieBite:
+ * - Admin: "ppv-villarreal-vs-espanyol" (sin nÃºmero)
+ * - Echo/Delta: "canada-w-vs-czech-republic-w-hockey-419993" (con nÃºmero)
  */
-function extractRealIdFromUrl(url: string): string | null {
-  // Patrón para URLs tipo echo/charlie con ID al final
-  const echoPattern = /\/embed\/(?:echo|charlie)\/(.*?-(\d+))\/\d+/;
-  const match = url.match(echoPattern);
+function extractRealIdFromUrl(url: string): { id: string; type: string; hasNumericId: boolean } | null {
+  // PatrÃ³n general: /embed/{type}/{match-id}/{source}
+  const generalPattern = /\/embed\/([\w]+)\/([\w-]+)\/\d+/;
+  const match = url.match(generalPattern);
 
   if (match) {
-    return match[1]; // Retorna el slug completo con ID: "team-vs-team-sport-123456"
-  }
+    const embedType = match[1]; // admin, echo, delta, charlie, etc.
+    const matchId = match[2]; // El ID completo del partido
 
-  // Si no tiene ID numérico, retorna el slug completo
-  const adminPattern = /\/embed\/admin\/([\w-]+)\/\d+/;
-  const adminMatch = url.match(adminPattern);
+    // Verificar si tiene ID numÃ©rico al final
+    const hasNumericId = /\d{4,}$/.test(matchId);
 
-  if (adminMatch) {
-    return adminMatch[1];
+    return {
+      id: matchId,
+      type: embedType,
+      hasNumericId,
+    };
   }
 
   return null;
@@ -107,21 +109,23 @@ export async function fetchMovieBiteMatches(): Promise<ScrapedMatch[]> {
 
     while ((iframeMatch = iframeRegex.exec(html)) !== null) {
       const embedUrl = iframeMatch[1];
-      const realId = extractRealIdFromUrl(embedUrl);
+      const extracted = extractRealIdFromUrl(embedUrl);
 
-      if (realId) {
+      if (extracted) {
         // Intentar extraer nombres de equipos del ID
-        const parts = realId.split("-");
-        const sport = detectSport(realId);
+        const parts = extracted.id.split("-");
+        const sport = detectSport(extracted.id);
 
         // Buscar "vs" en el slug para separar equipos
         const vsIndex = parts.indexOf("vs");
         if (vsIndex > 0) {
-          const homeTeamParts = parts.slice(0, vsIndex);
+          // Remover "ppv" si estÃ¡ al inicio
+          const startIndex = parts[0] === "ppv" ? 1 : 0;
+          const homeTeamParts = parts.slice(startIndex, vsIndex);
           const awayTeamParts = parts.slice(vsIndex + 1).filter((p) => !/^\d+$/.test(p));
 
           matches.push({
-            id: realId,
+            id: extracted.id,
             homeTeam: homeTeamParts.join(" "),
             awayTeam: awayTeamParts.join(" "),
             sport,
@@ -133,7 +137,7 @@ export async function fetchMovieBiteMatches(): Promise<ScrapedMatch[]> {
       }
     }
 
-    // También buscar datos JSON embebidos
+    // TambiÃ©n buscar datos JSON embebidos
     const jsonRegex = /{[^}]*"id"\s*:\s*"?(\d+)"?[^}]*"teams?"[^}]*}/gi;
     let jsonMatch;
 
@@ -182,19 +186,20 @@ export async function fetchStreamedMatches(): Promise<ScrapedMatch[]> {
 
     while ((match = embedRegex.exec(html)) !== null) {
       const embedUrl = match[1];
-      const realId = extractRealIdFromUrl(embedUrl);
+      const extracted = extractRealIdFromUrl(embedUrl);
 
-      if (realId) {
-        const parts = realId.split("-");
-        const sport = detectSport(realId);
+      if (extracted) {
+        const parts = extracted.id.split("-");
+        const sport = detectSport(extracted.id);
         const vsIndex = parts.indexOf("vs");
 
         if (vsIndex > 0) {
-          const homeTeamParts = parts.slice(0, vsIndex);
+          const startIndex = parts[0] === "ppv" ? 1 : 0;
+          const homeTeamParts = parts.slice(startIndex, vsIndex);
           const awayTeamParts = parts.slice(vsIndex + 1).filter((p) => !/^\d+$/.test(p));
 
           matches.push({
-            id: realId,
+            id: extracted.id,
             homeTeam: homeTeamParts.join(" "),
             awayTeam: awayTeamParts.join(" "),
             sport,
@@ -235,10 +240,10 @@ export async function fetchAllLiveMatches(): Promise<ScrapedMatch[]> {
  * Genera los links detectando si se le pasa un ID real o nombres de equipos
  */
 export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
-  // Verificamos si homeTeam ya es un ID real (contiene números o guiones)
+  // Verificamos si homeTeam ya es un ID real (contiene nÃºmeros o guiones)
   const isDirectId = /[\d-]/.test(homeTeam || "") && homeTeam.includes("-");
 
-  // Si es ID directo lo usamos tal cual, si no, generamos el slug automático ppv-
+  // Si es ID directo lo usamos tal cual, si no, generamos el slug automÃ¡tico ppv-
   const finalId = isDirectId ? homeTeam : `ppv-${teamToSlug(homeTeam)}-vs-${teamToSlug(awayTeam)}`;
 
   return {
@@ -294,7 +299,7 @@ export function generateAllLinkVariants(
 }
 
 /**
- * Busca un partido específico por nombre de equipo en las fuentes live
+ * Busca un partido especÃ­fico por nombre de equipo en las fuentes live
  */
 export async function findMatchByTeam(teamName: string): Promise<ScrapedMatch | null> {
   const allMatches = await fetchAllLiveMatches();
@@ -308,7 +313,7 @@ export async function findMatchByTeam(teamName: string): Promise<ScrapedMatch | 
 }
 
 /**
- * Genera links automáticamente buscando el partido en vivo
+ * Genera links automÃ¡ticamente buscando el partido en vivo
  */
 export async function generateLinksFromLiveMatch(teamName: string): Promise<GeneratedLinks | null> {
   const match = await findMatchByTeam(teamName);
