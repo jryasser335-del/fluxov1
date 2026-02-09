@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { fetchESPNScoreboard, ESPNEvent } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
-import { useAutoLinkEvents } from "@/hooks/useAutoLinkEvents";
 import { supabase } from "@/integrations/supabase/client";
 import { Section } from "./Section";
 import { EventCard } from "./events/EventCard";
@@ -12,19 +11,6 @@ import { PremiumFilters } from "./events/PremiumFilters";
 import { FeaturedMatch } from "./events/FeaturedMatch";
 import { SkeletonEventCard } from "./Skeleton";
 import { Trophy, Sparkles } from "lucide-react";
-
-// Helper to detect sport from league key
-function detectSportFromLeague(key: string): string {
-  const k = key.toLowerCase();
-  if (["nba", "wnba", "ncaab", "euroleague"].some(l => k.includes(l))) return "Basketball";
-  if (["nfl", "ncaaf", "xfl"].some(l => k.includes(l))) return "Football";
-  if (["nhl", "khl", "shl", "ahl"].some(l => k.includes(l))) return "Hockey";
-  if (k.includes("mlb")) return "Baseball";
-  if (["ufc", "bellator", "pfl", "boxing", "mma"].some(l => k.includes(l))) return "MMA";
-  if (["atp", "wta", "tennis"].some(l => k.includes(l))) return "Tennis";
-  if (["f1", "motogp", "nascar", "indycar"].some(l => k.includes(l))) return "Motorsports";
-  return "Soccer";
-}
 
 const EVENT_FILTERS = [
   { value: "all", label: "Todos" },
@@ -43,13 +29,12 @@ interface EventLink {
 
 export function EventsView() {
   const { openPlayer } = usePlayerModal();
-  const { autoLinkEvents } = useAutoLinkEvents();
   const [league, setLeague] = useState("nba");
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [events, setEvents] = useState<ESPNEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [leagueInfo, setLeagueInfo] = useState<{ name: string; sub: string; sport?: string }>({ name: "", sub: "" });
+  const [leagueInfo, setLeagueInfo] = useState({ name: "", sub: "" });
   const [eventLinks, setEventLinks] = useState<Map<string, { url1: string; url2?: string; url3?: string }>>(new Map());
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("fluxoFavEvents");
@@ -82,30 +67,17 @@ export function EventsView() {
     setLoading(true);
     try {
       const data = await fetchESPNScoreboard(league);
-      const fetchedEvents = data.events || [];
-      setEvents(fetchedEvents);
+      setEvents(data.events || []);
       const lg = data.leagues?.[0];
-      const info = {
+      setLeagueInfo({
         name: lg?.name || lg?.abbreviation || league,
         sub: lg?.abbreviation || "",
-        sport: detectSportFromLeague(league),
-      };
-      setLeagueInfo(info);
-
-      // Auto-asignar links a eventos detectados
-      if (fetchedEvents.length > 0) {
-        const result = await autoLinkEvents(fetchedEvents, info);
-        if (result.linked > 0) {
-          console.log(`🔗 Auto-linked ${result.linked} events`);
-          // Refrescar los links después de auto-asignar
-          fetchEventLinks();
-        }
-      }
+      });
     } catch {
       setEvents([]);
     }
     setLoading(false);
-  }, [league, autoLinkEvents, fetchEventLinks]);
+  }, [league]);
 
   useEffect(() => {
     fetchEventLinks();

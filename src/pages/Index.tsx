@@ -6,11 +6,8 @@ import { PlayerModal } from "@/components/PlayerModal";
 import { EventsView } from "@/components/EventsView";
 import { MultiStreamView } from "@/components/MultiStreamView";
 import { NotificationCenter } from "@/components/NotificationCenter";
-import { useAutoLinkAllLeagues } from "@/hooks/useAutoLinkAllLeagues";
 
 const Index = () => {
-  // Auto-linkear eventos de TODAS las ligas al cargar la app
-  useAutoLinkAllLeagues();
   const [activeView, setActiveView] = useState<ViewType>("eventos");
   const [searchQuery, setSearchQuery] = useState("");
 
