@@ -1,3 +1,45 @@
+// ============= TMDB Types & Functions =============
+
+export interface TMDBResult {
+  id: number;
+  title?: string;
+  name?: string;
+  poster_path: string | null;
+  backdrop_path?: string | null;
+  overview?: string;
+  vote_average?: number;
+  release_date?: string;
+  first_air_date?: string;
+  media_type?: string;
+  original_language?: string;
+}
+
+export interface TMDBResponse {
+  results: TMDBResult[];
+  page: number;
+  total_pages: number;
+  total_results: number;
+}
+
+const TMDB_API_KEY = "3fd2be6f0c70a2a598f084ddfb75487c";
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+
+export async function fetchTMDB(path: string): Promise<TMDBResponse> {
+  const separator = path.includes("?") ? "&" : "?";
+  const url = `${TMDB_BASE_URL}/${path}${separator}api_key=${TMDB_API_KEY}&language=es-ES`;
+  
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Error TMDB: ${res.status}`);
+  
+  return await res.json();
+}
+
+export async function searchTMDB(query: string, type: "movie" | "tv" = "movie"): Promise<TMDBResponse> {
+  return fetchTMDB(`search/${type}?query=${encodeURIComponent(query)}`);
+}
+
+// ============= ESPN Types & Functions =============
+
 export interface ESPNEvent {
   id: string;
   date: string;
