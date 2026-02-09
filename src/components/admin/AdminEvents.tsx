@@ -32,7 +32,6 @@ import {
   Sparkles,
   Clock,
   Wand2,
-  SearchCode,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -72,6 +71,14 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
     ],
   },
   {
+    name: "🏈 Football Americano",
+    icon: "🏈",
+    leagues: [
+      { key: "nfl", name: "NFL", sport: "Football", flag: "🇺🇸" },
+      { key: "ncaaf", name: "NCAA Football", sport: "Football", flag: "🇺🇸" },
+    ],
+  },
+  {
     name: "⚽ Ligas Top Europeas",
     icon: "⚽",
     leagues: [
@@ -94,9 +101,6 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
 
 const ALL_LEAGUES = LEAGUE_CATEGORIES.flatMap((cat) => cat.leagues);
 
-/**
- * FUNCIÓN DE BÚSQUEDA AUTOMÁTICA DE ID EN MOVIEBITE
- */
 const fetchMovieBiteId = async (homeTeam: string): Promise<string | null> => {
   try {
     const proxyUrl = "https://api.allorigins.win/get?url=";
@@ -104,16 +108,13 @@ const fetchMovieBiteId = async (homeTeam: string): Promise<string | null> => {
     const response = await fetch(`${proxyUrl}${targetUrl}`);
     const data = await response.json();
     const html = data.contents;
-
     const searchWord = homeTeam
       .toLowerCase()
       .split(" ")[0]
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "");
-
     const regex = new RegExp(`/watch/([a-z0-9-]+${searchWord}[a-z0-9-]+-[0-9]+)`, "i");
     const match = html.match(regex);
-
     return match ? match[1] : null;
   } catch (error) {
     console.error("Error en auto-search:", error);
@@ -126,7 +127,6 @@ export function AdminEvents() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
   const [selectedLeague, setSelectedLeague] = useState<string>("");
   const [espnEvents, setEspnEvents] = useState<ESPNEvent[]>([]);
   const [searching, setSearching] = useState(false);
@@ -135,7 +135,6 @@ export function AdminEvents() {
   const [newStreamUrl2, setNewStreamUrl2] = useState("");
   const [newStreamUrl3, setNewStreamUrl3] = useState("");
   const [espnSearchQuery, setEspnSearchQuery] = useState("");
-
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "live" | "with-link" | "without-link">("all");
   const [leagueSearch, setLeagueSearch] = useState("");
@@ -150,32 +149,22 @@ export function AdminEvents() {
     try {
       await supabase.functions.invoke("sync-event-status");
     } catch (error) {
-      console.error("Error syncing event status:", error);
+      console.error(error);
     }
   };
 
   const fetchEventLinks = async () => {
     const { data, error } = await supabase.from("events").select("*").order("event_date", { ascending: true });
-    if (error) {
-      toast.error("Error al cargar eventos");
-    } else {
-      setEventLinks((data as EventLink[]) || []);
-    }
+    if (!error) setEventLinks((data as EventLink[]) || []);
     setLoading(false);
   };
 
   const searchESPN = async () => {
-    if (!selectedLeague) {
-      toast.error("Selecciona una liga");
-      return;
-    }
+    if (!selectedLeague) return;
     setSearching(true);
     try {
       const response = await fetchESPNScoreboard(selectedLeague);
       setEspnEvents(response.events || []);
-      if (response.events?.length === 0) {
-        toast.info("No hay eventos para hoy en esta liga");
-      }
     } catch {
       toast.error("Error buscando en ESPN");
     }
@@ -188,7 +177,6 @@ export function AdminEvents() {
     const comp = event.competitions[0];
     const home = comp.competitors.find((c) => c.homeAway === "home");
     const away = comp.competitors.find((c) => c.homeAway === "away");
-
     if (home?.team.displayName && away?.team.displayName) {
       const links = generateAllLinkVariants(home.team.displayName, away.team.displayName);
       setNewStreamUrl(links.primary.url1);
@@ -201,7 +189,6 @@ export function AdminEvents() {
     if (!selectedEvent) return;
     const home = selectedEvent.competitions[0].competitors.find((c) => c.homeAway === "home");
     if (!home) return;
-
     setSearching(true);
     const realId = await fetchMovieBiteId(home.team.displayName);
     if (realId) {
@@ -209,9 +196,9 @@ export function AdminEvents() {
       setNewStreamUrl(links.url1);
       setNewStreamUrl2(links.url2);
       setNewStreamUrl3(links.url3);
-      toast.success("✨ ID real de MovieBite encontrado");
+      toast.success("✨ ID real encontrado");
     } else {
-      toast.error("No se encontró ID numérico, usando genérico");
+      toast.error("ID no encontrado");
     }
     setSearching(false);
   };
@@ -224,15 +211,10 @@ export function AdminEvents() {
   };
 
   const addEventLink = async () => {
-    if (!selectedEvent || !newStreamUrl) {
-      toast.error("Selecciona un evento y agrega el link");
-      return;
-    }
+    if (!selectedEvent || !newStreamUrl) return;
     const comp = selectedEvent.competitions[0];
     const home = comp.competitors.find((c) => c.homeAway === "home");
-    const away = comp.competitors.find((c) => c.homeAway === "away");
     const league = ALL_LEAGUES.find((l) => l.key === selectedLeague);
-
     const { data, error } = await supabase
       .from("events")
       .insert({
@@ -242,7 +224,7 @@ export function AdminEvents() {
         sport: league?.sport || null,
         league: league?.name || null,
         team_home: home?.team.displayName || null,
-        team_away: away?.team.displayName || null,
+        team_away: comp.competitors.find((c) => c.homeAway === "away")?.team.displayName || null,
         thumbnail: home?.team.logo || null,
         stream_url: newStreamUrl,
         stream_url_2: newStreamUrl2 || null,
@@ -251,13 +233,10 @@ export function AdminEvents() {
       })
       .select()
       .single();
-
-    if (error) {
-      toast.error("Error al guardar");
-    } else {
+    if (!error) {
       setEventLinks([data as EventLink, ...eventLinks]);
       resetDialog();
-      toast.success("Evento guardado correctamente");
+      toast.success("Evento agregado");
     }
   };
 
@@ -272,10 +251,9 @@ export function AdminEvents() {
   const updateStreamUrls = async (event: EventLink, urls: any) => {
     setSaving(event.id);
     const { error } = await supabase.from("events").update(urls).eq("id", event.id);
-    if (error) toast.error("Error al guardar");
-    else {
+    if (!error) {
       setEventLinks(eventLinks.map((e) => (e.id === event.id ? { ...e, ...urls } : e)));
-      toast.success("Links actualizados");
+      toast.success("Actualizado");
     }
     setSaving(null);
   };
@@ -298,58 +276,72 @@ export function AdminEvents() {
     });
   }, [eventLinks, searchQuery, filterStatus]);
 
+  if (loading)
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
+
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-2xl glass-panel p-6 bg-card/50 border">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Premium Header - Restaurado */}
+      <div className="relative overflow-hidden rounded-2xl glass-panel p-6">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-accent/10" />
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
+            <h2 className="text-2xl font-display font-bold tracking-wide flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
                 <Trophy className="w-5 h-5 text-white" />
               </div>
-              Panel de Control FluxoTV
+              Gestión de Eventos
             </h2>
+            <p className="text-sm text-muted-foreground mt-1">Administra links de streaming para partidos</p>
           </div>
-          <Button onClick={() => setIsDialogOpen(true)} className="bg-primary">
+          <Button
+            onClick={() => setIsDialogOpen(true)}
+            className="bg-gradient-to-r from-primary to-accent shadow-lg shadow-primary/25"
+          >
             <Plus className="w-4 h-4 mr-2" /> Agregar Evento
           </Button>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+        <div className="relative grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
           <StatCard label="Total" value={stats.total} icon={<Calendar className="w-4 h-4" />} color="text-foreground" />
           <StatCard
-            label="En Vivo"
+            label="Live"
             value={stats.live}
             icon={<Radio className="w-4 h-4" />}
-            color="text-red-500"
+            color="text-red-400"
             pulse={stats.live > 0}
           />
           <StatCard
             label="Con Link"
             value={stats.withLink}
             icon={<Link2 className="w-4 h-4" />}
-            color="text-green-500"
+            color="text-green-400"
           />
           <StatCard
             label="Sin Link"
             value={stats.withoutLink}
             icon={<Circle className="w-4 h-4" />}
-            color="text-yellow-500"
+            color="text-yellow-400"
           />
         </div>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="bg-card border-border max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Sincronizar con ESPN & MovieBite</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-primary" /> Nuevo Evento
+            </DialogTitle>
           </DialogHeader>
-
           {!selectedEvent ? (
             <div className="space-y-4">
               <div className="flex gap-2">
                 <select
-                  className="flex-1 bg-background border p-2 rounded-md"
+                  className="flex-1 bg-background border p-2 rounded-md text-sm"
                   onChange={(e) => setSelectedLeague(e.target.value)}
                 >
                   <option value="">Selecciona Liga...</option>
@@ -363,22 +355,21 @@ export function AdminEvents() {
                   {searching ? <Loader2 className="animate-spin" /> : "Buscar"}
                 </Button>
               </div>
-
-              <ScrollArea className="h-[300px]">
-                {espnEvents.map((event) => (
+              <ScrollArea className="h-[300px] rounded-md border p-2">
+                {espnEvents.map((e) => (
                   <div
-                    key={event.id}
-                    onClick={() => selectEvent(event)}
-                    className="p-3 border-b cursor-pointer hover:bg-muted"
+                    key={e.id}
+                    onClick={() => selectEvent(e)}
+                    className="p-3 mb-1 rounded-lg hover:bg-primary/10 cursor-pointer border border-transparent hover:border-primary/20 transition-all"
                   >
-                    {getEventName(event)}
+                    {getEventName(e)}
                   </div>
                 ))}
               </ScrollArea>
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="p-4 bg-primary/10 rounded-lg flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-between">
                 <span className="font-bold">{getEventName(selectedEvent)}</span>
                 <Button variant="outline" size="sm" onClick={handleMagicSearch} disabled={searching}>
                   {searching ? (
@@ -390,16 +381,21 @@ export function AdminEvents() {
                   )}
                 </Button>
               </div>
-
-              <div className="space-y-2">
-                <Label>Stream URL 1 (Admin)</Label>
-                <Input value={newStreamUrl} onChange={(e) => setNewStreamUrl(e.target.value)} />
-                <Label>Stream URL 2 (Delta)</Label>
-                <Input value={newStreamUrl2} onChange={(e) => setNewStreamUrl2(e.target.value)} />
-                <Label>Stream URL 3 (Echo)</Label>
-                <Input value={newStreamUrl3} onChange={(e) => setNewStreamUrl3(e.target.value)} />
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">URL 1 (Admin)</Label>
+                  <Input value={newStreamUrl} onChange={(e) => setNewStreamUrl(e.target.value)} className="h-9" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">URL 2 (Delta)</Label>
+                  <Input value={newStreamUrl2} onChange={(e) => setNewStreamUrl2(e.target.value)} className="h-9" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">URL 3 (Echo)</Label>
+                  <Input value={newStreamUrl3} onChange={(e) => setNewStreamUrl3(e.target.value)} className="h-9" />
+                </div>
               </div>
-              <Button className="w-full" onClick={addEventLink}>
+              <Button className="w-full bg-primary" onClick={addEventLink}>
                 Guardar Evento
               </Button>
             </div>
@@ -407,17 +403,17 @@ export function AdminEvents() {
         </DialogContent>
       </Dialog>
 
-      <ScrollArea className="h-[600px]">
-        <div className="space-y-3">
-          {filteredEvents.map((event, i) => (
+      <ScrollArea className="h-[calc(100vh-400px)]">
+        <div className="space-y-3 pr-4">
+          {filteredEvents.map((event, index) => (
             <EventRow
               key={event.id}
               event={event}
-              index={i}
+              index={index}
               saving={saving === event.id}
-              onUpdateStreams={(urls: any) => updateStreamUrls(event, urls)}
-              onToggleLive={(l: any) => updateStreamUrls(event, { is_live: l })}
-              onToggleActive={(a: any) => updateStreamUrls(event, { is_active: a })}
+              onUpdateStreams={(urls) => updateStreamUrls(event, urls)}
+              onToggleLive={(live) => updateStreamUrls(event, { is_live: live })}
+              onToggleActive={(active) => updateStreamUrls(event, { is_active: active })}
               onDelete={async () => {
                 await supabase.from("events").delete().eq("id", event.id);
                 fetchEventLinks();
@@ -432,43 +428,66 @@ export function AdminEvents() {
 
 function StatCard({ label, value, icon, color, pulse }: any) {
   return (
-    <div className="glass-panel p-4 border rounded-xl">
-      <div className={`flex items-center gap-2 ${color}`}>
-        {icon} <span className="text-xs">{label}</span>
+    <div className="glass-panel rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-1">
+        <div className={`${color} ${pulse ? "animate-pulse" : ""}`}>{icon}</div>
+        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">{label}</span>
       </div>
-      <p className="text-2xl font-bold mt-1">{value}</p>
+      <p className={`text-2xl font-bold ${color}`}>{value}</p>
     </div>
   );
 }
 
-function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive, onDelete }: any) {
-  const [url1, setUrl1] = useState(event.stream_url || "");
-  const [isExpanded, setIsExpanded] = useState(false);
-
+function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive, onDelete, index }: any) {
+  const [u1, setU1] = useState(event.stream_url || "");
+  const [exp, setExp] = useState(false);
   return (
-    <div className="border rounded-xl bg-card p-4">
-      <div className="flex items-center justify-between cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-        <div className="flex items-center gap-4">
-          <div className={`w-3 h-3 rounded-full ${event.is_live ? "bg-red-500 animate-pulse" : "bg-green-500"}`} />
-          <span className="font-medium">{event.name}</span>
-        </div>
-        <ChevronDown className={isExpanded ? "rotate-180" : ""} />
+    <div
+      className={`glass-panel rounded-xl overflow-hidden transition-all duration-300 animate-fade-in ${!event.is_active ? "opacity-50" : ""}`}
+      style={{ animationDelay: `${index * 50}ms` }}
+    >
+      <div className="flex items-center gap-3 p-4 cursor-pointer hover:bg-white/5" onClick={() => setExp(!exp)}>
+        <div className={`w-2 h-2 rounded-full ${event.is_live ? "bg-red-500 animate-pulse" : "bg-green-500"}`} />
+        <div className="flex-1 font-medium text-sm">{event.name}</div>
+        <Badge variant="secondary" className="text-[10px]">
+          {event.league}
+        </Badge>
+        <ChevronDown className={`w-4 h-4 transition-transform ${exp ? "rotate-180" : ""}`} />
       </div>
-
-      {isExpanded && (
-        <div className="mt-4 space-y-4 pt-4 border-t">
-          <div className="grid grid-cols-2 gap-4">
+      {exp && (
+        <div className="p-4 border-t border-white/5 bg-white/5 space-y-4">
+          <div className="flex gap-4">
             <div className="flex items-center gap-2">
               <Switch checked={event.is_live} onCheckedChange={onToggleLive} />
-              <Label>En Vivo</Label>
+              <Label className="text-xs">Live</Label>
             </div>
-            <Button variant="destructive" size="sm" onClick={onDelete}>
-              <Trash2 className="w-4 h-4" />
+            <div className="flex items-center gap-2">
+              <Switch checked={event.is_active} onCheckedChange={onToggleActive} />
+              <Label className="text-xs">Visible</Label>
+            </div>
+            <Button variant="ghost" size="sm" className="ml-auto text-red-400 h-7" onClick={onDelete}>
+              <Trash2 className="w-3 h-3 mr-1" /> Eliminar
             </Button>
           </div>
-          <Input value={url1} onChange={(e) => setUrl1(e.target.value)} placeholder="URL del stream..." />
-          <Button onClick={() => onUpdateStreams({ stream_url: url1 })} disabled={saving}>
-            {saving ? <Loader2 className="animate-spin" /> : "Actualizar Link"}
+          <Input
+            value={u1}
+            onChange={(e) => setU1(e.target.value)}
+            placeholder="URL Stream..."
+            className="h-8 text-xs"
+          />
+          <Button
+            size="sm"
+            className="w-full h-8"
+            onClick={() => onUpdateStreams({ stream_url: u1 })}
+            disabled={saving}
+          >
+            {saving ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <>
+                <Save className="w-3 h-3 mr-1" /> Guardar
+              </>
+            )}
           </Button>
         </div>
       )}
