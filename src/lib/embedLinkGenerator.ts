@@ -1,5 +1,5 @@
 /**
- * Generates embed links for sports events based on team names or direct IDs
+ * Generates embed links for sports events based on team names
  * Pattern: https://embedsports.top/embed/admin/ppv-{team1}-vs-{team2}/{source}
  */
 
@@ -11,58 +11,60 @@ export interface GeneratedLinks {
 
 /**
  * Converts a team name to URL-friendly slug
+ * e.g., "Oklahoma City Thunder" -> "oklahoma-city-thunder"
  */
 function teamToSlug(teamName: string): string {
-  if (!teamName) return "";
   return teamName
     .toLowerCase()
     .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // Quita acentos y tildes
-    .replace(/['']/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
+    .replace(/['']/g, '') // Remove apostrophes
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
+    .replace(/\s+/g, '-') // Spaces to hyphens
+    .replace(/-+/g, '-') // Multiple hyphens to single
+    .replace(/^-|-$/g, ''); // Trim hyphens from ends
 }
 
 /**
- * Genera los links detectando si se le pasa un ID real (con números)
- * o si debe construir el slug con los nombres de los equipos.
+ * Generates embedsports.top links for a match
+ * @param homeTeam Home team name
+ * @param awayTeam Away team name  
+ * @returns Object with url1, url2, url3
  */
 export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
-  // Verificamos si homeTeam ya es un ID real de MovieBite (termina en números: ej 1391048)
-  const isDirectId = /\d+$/.test(homeTeam || "");
-
-  // Si es ID directo lo usamos tal cual, si no, generamos el slug automático ppv-
-  const finalId = isDirectId ? homeTeam : `ppv-${teamToSlug(homeTeam)}-vs-${teamToSlug(awayTeam)}`;
-
+  const homeSlug = teamToSlug(homeTeam);
+  const awaySlug = teamToSlug(awayTeam);
+  
+  // Pattern: ppv-{away}-vs-{home} (as seen in the example URLs)
+  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
+  
   return {
-    url1: `https://embedsports.top/embed/admin/${finalId}/1?autoplay=1`,
-    url2: `https://embedsports.top/embed/delta/${finalId}/1?autoplay=1`,
-    url3: `https://embedsports.top/embed/echo/${finalId}/1?autoplay=1`,
+    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
+    url2: `https://embedsports.top/embed/admin/${matchSlug}/2`,
+    url3: `https://embedsports.top/embed/admin/${matchSlug}/3`,
   };
 }
 
 /**
- * Genera variante alternativa (Invirtiendo el orden de los equipos)
+ * Generates alternative link variants (home-vs-away instead of away-vs-home)
  */
 export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
-  // Si ya tenemos un ID directo con números, devolvemos lo mismo (no se puede invertir un ID único)
-  if (/\d+$/.test(homeTeam || "")) {
-    return generateEmbedLinks(homeTeam, awayTeam);
-  }
-
-  return generateEmbedLinks(awayTeam, homeTeam);
+  const homeSlug = teamToSlug(homeTeam);
+  const awaySlug = teamToSlug(awayTeam);
+  
+  // Alternative pattern: ppv-{home}-vs-{away}
+  const matchSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
+  
+  return {
+    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
+    url2: `https://embedsports.top/embed/admin/${matchSlug}/2`,
+    url3: `https://embedsports.top/embed/admin/${matchSlug}/3`,
+  };
 }
 
 /**
  * Generates all possible link variants for a match
  */
-export function generateAllLinkVariants(
-  homeTeam: string,
-  awayTeam: string,
-): {
+export function generateAllLinkVariants(homeTeam: string, awayTeam: string): {
   primary: GeneratedLinks;
   alternative: GeneratedLinks;
 } {
