@@ -1,3 +1,46 @@
+import { TMDB_KEY } from "./constants";
+
+export interface TMDBResult {
+  id: number;
+  title?: string;
+  name?: string;
+  poster_path: string | null;
+  backdrop_path: string | null;
+  vote_average: number;
+  release_date?: string;
+  first_air_date?: string;
+  overview?: string;
+}
+
+export interface TMDBResponse {
+  results: TMDBResult[];
+  total_pages: number;
+  page: number;
+}
+
+const tmdbCache = new Map<string, { data: TMDBResponse; timestamp: number }>();
+const CACHE_TTL = 20 * 60 * 1000; // 20 minutes
+
+export async function fetchTMDB(path: string): Promise<TMDBResponse> {
+  const cacheKey = path;
+  const cached = tmdbCache.get(cacheKey);
+  
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+
+  const separator = path.includes("?") ? "&" : "?";
+  const url = `https://api.themoviedb.org/3/${path}${separator}api_key=${TMDB_KEY}&language=es-ES`;
+  
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("TMDB error");
+  
+  const data = await res.json();
+  tmdbCache.set(cacheKey, { data, timestamp: Date.now() });
+  
+  return data;
+}
+
 export interface ESPNEvent {
   id: string;
   date: string;
@@ -36,71 +79,15 @@ export interface ESPNResponse {
   }[];
 }
 
-/**
- * Obtiene los eventos de ESPN detectando automáticamente el deporte según la liga.
- * Soporta NFL (Super Bowl), NBA, MLB, NHL, MMA, Tennis y todas tus ligas de Fútbol.
- */
 export async function fetchESPNScoreboard(leagueKey: string): Promise<ESPNResponse> {
   const today = new Date();
   const date = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
-
-  let sportPath = "";
-  const key = leagueKey.toLowerCase().trim();
-
-  // Mapeo exhaustivo basado en tus ligas de navegación
-  switch (key) {
-    case "nba":
-    case "wnba":
-    case "ncaa basketball":
-      sportPath = `basketball/${key === "ncaa basketball" ? "mens-college-basketball" : key}`;
-      break;
-
-    case "nfl":
-    case "ncaa football":
-      sportPath = `football/${key === "ncaa football" ? "college-football" : "nfl"}`;
-      break;
-
-    case "mlb":
-      sportPath = "baseball/mlb";
-      break;
-
-    case "nhl":
-    case "khl":
-    case "shl":
-    case "ahl":
-      sportPath = `hockey/${key}`;
-      break;
-
-    case "ufc":
-    case "bellator mma":
-    case "pfl":
-    case "boxing":
-      sportPath = "mma/ufc"; // ESPN agrupa la mayoría bajo mma o ufc scoreboard
-      break;
-
-    case "atp tour":
-    case "wta tour":
-    case "grand slam":
-      sportPath = "tennis/atp";
-      break;
-
-    case "formula 1":
-    case "motogp":
-    case "nascar":
-    case "indycar":
-      sportPath = `racing/${key.replace(/\s+/g, "-")}`;
-      break;
-
-    default:
-      // Para todas las ligas de fútbol (LaLiga, Premier, Champions, etc.)
-      sportPath = `soccer/${key}`;
-      break;
-  }
-
-  const url = `https://site.api.espn.com/apis/site/v2/sports/${sportPath}/scoreboard?dates=${date}`;
-
+  
+  const sport = leagueKey === "nba" ? "basketball/nba" : `soccer/${leagueKey}`;
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard?dates=${date}`;
+  
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Error cargando liga: ${leagueKey}`);
-
+  if (!res.ok) throw new Error("ESPN error");
+  
   return await res.json();
 }
