@@ -1012,10 +1012,11 @@ export function AdminEvents() {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
                 <ExternalLink className="w-4 h-4 text-white" />
               </div>
-              Moviebite — Links en Vivo
+              Moviebite — Partidos en Vivo
             </DialogTitle>
             <p className="text-xs text-muted-foreground mt-1">
-              URLs de canales y partidos encontrados en moviebite.cc. Haz clic en un link para copiarlo.
+              Solo se muestran los partidos activos en moviebite.cc. Al copiar, se genera automáticamente el link de
+              embedsports.top.
             </p>
           </DialogHeader>
 
@@ -1025,7 +1026,7 @@ export function AdminEvents() {
               <Input
                 value={moviebiteFilter}
                 onChange={(e) => setMoviebiteFilter(e.target.value)}
-                placeholder="Filtrar por nombre..."
+                placeholder="Filtrar partidos..."
                 className="pl-10"
               />
             </div>
@@ -1038,75 +1039,76 @@ export function AdminEvents() {
             {moviebiteLoading ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Scrapeando moviebite.cc (6 páginas)...</p>
+                <p className="text-sm text-muted-foreground">Buscando partidos activos...</p>
               </div>
             ) : (
               <ScrollArea className="h-full">
                 <div className="space-y-1 pr-4">
                   {(() => {
                     const filter = moviebiteFilter.toLowerCase();
-                    const allItems = [
-                      ...moviebiteResults.map((m) => ({ ...m, type: "match" })),
-                      ...moviebiteChannels
-                        .filter((l) => l.includes("/channel/"))
-                        .map((l) => {
-                          const name = decodeURIComponent(l.split("/channel/")[1] || "").replace(/%20/g, " ");
-                          return { name: `📺 Canal: ${name}`, url: l, source: "channels", type: "channel" };
-                        }),
-                    ].filter((item) => !filter || item.name.toLowerCase().includes(filter));
 
-                    if (allItems.length === 0) {
+                    // FILTRAR SOLO PARTIDOS (matches) ignorando canales estáticos
+                    const matchesOnly = moviebiteResults
+                      .filter(
+                        (m) =>
+                          !m.url.includes("/channel/") &&
+                          !m.url.includes("/channels") &&
+                          m.url !== "https://app.moviebite.cc/live",
+                      )
+                      .map((m) => ({ ...m, type: "match" }));
+
+                    const filteredItems = matchesOnly.filter(
+                      (item) => !filter || item.name.toLowerCase().includes(filter),
+                    );
+
+                    if (filteredItems.length === 0) {
                       return (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <p>No se encontraron partidos ni canales.</p>
+                        <div className="text-center py-12 glass-panel rounded-xl border border-dashed border-border">
+                          <Radio className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-20" />
+                          <p className="text-sm font-medium">No se encontraron partidos ahora mismo.</p>
+                          <p className="text-xs text-muted-foreground">Intenta refrescar la búsqueda.</p>
                         </div>
                       );
                     }
 
-                    return allItems.map((item, idx) => (
+                    return filteredItems.map((item, idx) => (
                       <button
                         key={idx}
                         onClick={() => {
                           let finalUrl = item.url;
 
+                          // Transformación automática al formato ADMIN ppv-
                           if (item.url.includes("moviebite.cc")) {
                             const parts = item.url.split("/");
                             const slug = parts[parts.length - 1];
-
-                            if (item.type === "match") {
-                              finalUrl = `https://embedsports.top/embed/admin/ppv-${slug}/1?autoplay=1`;
-                            } else {
-                              finalUrl = `https://embedsports.top/embed/admin/tv-${slug}/1?autoplay=1`;
-                            }
+                            finalUrl = `https://embedsports.top/embed/admin/ppv-${slug}/1?autoplay=1`;
                           }
 
                           navigator.clipboard.writeText(finalUrl);
                           toast.success(`📋 Copiado para Admin: ${item.name}`);
                         }}
-                        className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left group border ${
-                          item.type === "match"
-                            ? "bg-primary/5 border-primary/20 hover:bg-primary/10"
-                            : "hover:bg-muted/50 border-transparent"
-                        }`}
+                        className="w-full flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-all group mb-2 text-left"
                       >
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-sm font-medium truncate ${item.type === "match" ? "text-primary" : "text-foreground"}`}
-                          >
-                            {item.name}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground truncate">{item.url}</p>
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <Trophy className="w-5 h-5 text-primary" />
                         </div>
-                        <div className="flex items-center gap-2">
-                          {item.type === "match" && (
-                            <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">Partido</Badge>
-                          )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-bold truncate text-foreground">{item.name}</p>
+                            <Badge className="bg-red-500/20 text-red-500 border-red-500/30 text-[10px] animate-pulse">
+                              LIVE
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground truncate opacity-70">{item.url}</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
                           <Badge
                             variant="outline"
-                            className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="text-[10px] group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
                           >
                             Copiar Admin
                           </Badge>
+                          <span className="text-[9px] text-primary/60 font-mono italic">embedsports.top</span>
                         </div>
                       </button>
                     ));
@@ -1117,17 +1119,14 @@ export function AdminEvents() {
           </div>
 
           <div className="shrink-0 flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
-            <span>
-              {moviebiteResults.length + moviebiteChannels.filter((l) => l.includes("/channel/")).length} links
-              encontrados
-            </span>
+            <span>{moviebiteResults.filter((m) => !m.url.includes("/channel/")).length} partidos en vivo</span>
             <a
               href="https://app.moviebite.cc/live"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 hover:text-foreground transition-colors"
             >
-              Abrir moviebite.cc <ExternalLink className="w-3 h-3" />
+              moviebite.cc <ExternalLink className="w-3 h-3" />
             </a>
           </div>
         </DialogContent>
