@@ -13,7 +13,8 @@ import {
   Plus, Save, Trash2, Loader2, X, 
   RefreshCw, Trophy, Search, Calendar,
   Zap, Globe, Filter, ChevronDown, ChevronRight,
-  Circle, Radio, Eye, EyeOff, Link2, Sparkles, Clock, Wand2
+  Circle, Radio, Eye, EyeOff, Link2, Sparkles, Clock, Wand2,
+  Rocket, ExternalLink
 } from "lucide-react";
 import {
   Dialog,
@@ -263,6 +264,8 @@ export function AdminEvents() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [autoAssigning, setAutoAssigning] = useState(false);
+  const [moviebiteOpen, setMoviebiteOpen] = useState(false);
   
   // ESPN search state
   const [selectedLeague, setSelectedLeague] = useState<string>("");
@@ -292,6 +295,25 @@ export function AdminEvents() {
     } catch (error) {
       console.error("Error syncing event status:", error);
     }
+  };
+
+  const handleAutoAssign = async () => {
+    setAutoAssigning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("auto-assign-links");
+      if (error) throw error;
+      const result = data as { totalAssigned: number; assignedEvents: string[]; leaguesScanned: number };
+      if (result.totalAssigned > 0) {
+        toast.success(`⚡ ${result.totalAssigned} eventos asignados automáticamente`);
+        fetchEventLinks();
+      } else {
+        toast.info("No hay partidos por empezar en los próximos 30 minutos");
+      }
+    } catch (error) {
+      console.error("Error auto-assigning:", error);
+      toast.error("Error al auto-asignar links");
+    }
+    setAutoAssigning(false);
   };
 
   const fetchEventLinks = async () => {
@@ -565,13 +587,35 @@ export function AdminEvents() {
             </p>
           </div>
 
-          <Button 
-            onClick={() => setIsDialogOpen(true)}
-            className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/25"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Agregar Evento
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button 
+              onClick={handleAutoAssign}
+              disabled={autoAssigning}
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 shadow-lg shadow-emerald-500/25"
+            >
+              {autoAssigning ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Rocket className="w-4 h-4 mr-2" />
+              )}
+              Auto-Asignar (30 min)
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setMoviebiteOpen(true)}
+              className="border-border/50 bg-card/50"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              IFRAME Quicklink
+            </Button>
+            <Button 
+              onClick={() => setIsDialogOpen(true)}
+              className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/25"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Agregar Evento
+            </Button>
+          </div>
         </div>
 
         {/* Stats Row */}
@@ -955,6 +999,31 @@ export function AdminEvents() {
           )}
         </div>
       </ScrollArea>
+
+      {/* Moviebite IFRAME Quicklink Dialog */}
+      <Dialog open={moviebiteOpen} onOpenChange={setMoviebiteOpen}>
+        <DialogContent className="bg-card border-border max-w-4xl h-[80vh] flex flex-col p-0">
+          <DialogHeader className="p-4 pb-2 shrink-0">
+            <DialogTitle className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
+                <ExternalLink className="w-4 h-4 text-white" />
+              </div>
+              IFRAME Quicklink — Moviebite
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Navega, encuentra el partido y copia el link del iframe para pegarlo en los campos de stream.
+            </p>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            <iframe
+              src="https://app.moviebite.cc/"
+              className="w-full h-full border-0 rounded-b-lg"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
