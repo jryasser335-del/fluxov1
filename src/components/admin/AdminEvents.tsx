@@ -264,68 +264,877 @@ export function AdminEvents() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
- <ScrollArea className="h-full">
-  <div className="space-y-1 pr-4">
-    {(() => {
-      const filter = moviebiteFilter.toLowerCase();
-      
-      // 1. Combinamos resultados de partidos (matches) y canales
-      const allItems = [
-        ...moviebiteResults.map(m => ({ ...m, type: 'match' })),
-        ...moviebiteChannels
-          .filter(l => l.includes("/channel/"))
-          .map(l => {
-            const name = decodeURIComponent(l.split("/channel/")[1] || "").replace(/%20/g, " ");
-            return { name: `📺 Canal: ${name}`, url: l, source: "channels", type: 'channel' };
-          }),
-      ].filter(item => !filter || item.name.toLowerCase().includes(filter));
+  const [autoAssigning, setAutoAssigning] = useState(false);
+  const [moviebiteOpen, setMoviebiteOpen] = useState(false);
+  const [moviebiteLoading, setMoviebiteLoading] = useState(false);
+  const [moviebiteResults, setMoviebiteResults] = useState<{ name: string; url: string; source: string }[]>([]);
+  const [moviebiteChannels, setMoviebiteChannels] = useState<string[]>([]);
+  const [moviebiteFilter, setMoviebiteFilter] = useState("");
+  
+  // ESPN search state
+  const [selectedLeague, setSelectedLeague] = useState<string>("");
+  const [espnEvents, setEspnEvents] = useState<ESPNEvent[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<ESPNEvent | null>(null);
+  const [newStreamUrl, setNewStreamUrl] = useState("");
+  const [newStreamUrl2, setNewStreamUrl2] = useState("");
+  const [newStreamUrl3, setNewStreamUrl3] = useState("");
+  const [espnSearchQuery, setEspnSearchQuery] = useState("");
+  
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"all" | "live" | "with-link" | "without-link">("all");
+  const [leagueSearch, setLeagueSearch] = useState("");
+  const [openCategories, setOpenCategories] = useState<string[]>(["🏀 Basketball", "⚽ Ligas Top Europeas"]);
 
-      if (allItems.length === 0) {
-        return (
-          <div className="text-center py-8 text-muted-foreground">
-            <p>No se encontraron resultados</p>
-          </div>
-        );
+  useEffect(() => {
+    fetchEventLinks();
+    // Sync event status on load
+    syncEventStatus();
+  }, []);
+
+  const syncEventStatus = async () => {
+    try {
+      await supabase.functions.invoke("sync-event-status");
+    } catch (error) {
+      console.error("Error syncing event status:", error);
+    }
+  };
+
+  const handleAutoAssign = async () => {
+    setAutoAssigning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("auto-assign-links");
+      if (error) throw error;
+      const result = data as { totalAssigned: number; assignedEvents: string[]; leaguesScanned: number };
+      if (result.totalAssigned > 0) {
+        toast.success(`⚡ ${result.totalAssigned} eventos asignados automáticamente`);
+        fetchEventLinks();
+      } else {
+        toast.info("No hay partidos por empezar en los próximos 30 minutos");
       }
+    } catch (error) {
+      console.error("Error auto-assigning:", error);
+      toast.error("Error al auto-asignar links");
+    }
+    setAutoAssigning(false);
+  };
 
-      return allItems.map((item, idx) => (
-        <button
-          key={idx}
-          onClick={() => {
-            let finalUrl = item.url;
-            
-            // 2. Lógica de transformación para el ADMIN
-            if (item.url.includes("moviebite.cc/")) {
-              // Extraemos el slug (ej: detroit-pistons-vs-charlotte-hornets)
-              const parts = item.url.split("/");
-              const slug = parts[parts.length - 1];
-              
-              if (item.type === 'match') {
-                // Formato para partidos: ppv-[slug]
-                finalUrl = `https://embedsports.top/embed/admin/ppv-${slug}/1?autoplay=1`;
-              } else {
-                // Formato para canales: tv-[slug]
-                finalUrl = `https://embedsports.top/embed/admin/tv-${slug}/1?autoplay=1`;
-              }
-            }
+  const handleScrapeMoviebite = async () => {
+    setMoviebiteLoading(true);
+    setMoviebiteResults([]);
+    setMoviebiteChannels([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-moviebite");
+      if (error) throw error;
+      const result = data as { 
+        matches: { name: string; url: string; source: string }[]; 
+        allLinks: string[];
+        totalFound: number;
+      };
+      setMoviebiteResults(result.matches || []);
+      setMoviebiteChannels(result.allLinks || []);
+      if (result.totalFound === 0 && result.allLinks.length === 0) {
+        toast.info("No se encontraron links en moviebite");
+      } else {
+        toast.success(`🔍 ${result.matches.length} resultados, ${result.allLinks.length} links totales`);
+      }
+    } catch (error) {
+      console.error("Error scraping moviebite:", error);
+      toast.error("Error al scrapear moviebite");
+    }
+    setMoviebiteLoading(false);
+  };
 
-            navigator.clipboard.writeText(finalUrl);
-            toast.success(`📋 Link de Admin copiado: ${item.name}`);
-          }}
-          className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left group border border-transparent hover:border-border"
-        >
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
-            <p className="text-xs text-primary truncate">Transformará a: embedsports.top...</p>
+  const fetchEventLinks = async () => {
+    const { data, error } = await supabase
+      .from("events")
+      .select("*")
+      .order("event_date", { ascending: true });
+
+    if (error) {
+      toast.error("Error al cargar eventos");
+    } else {
+      setEventLinks((data as EventLink[]) || []);
+    }
+    setLoading(false);
+  };
+
+  const searchESPN = async () => {
+    if (!selectedLeague) {
+      toast.error("Selecciona una liga");
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const response = await fetchESPNScoreboard(selectedLeague);
+      setEspnEvents(response.events || []);
+      if (response.events?.length === 0) {
+        toast.info("No hay eventos para hoy en esta liga");
+      }
+    } catch {
+      toast.error("Error buscando en ESPN");
+    }
+    setSearching(false);
+  };
+
+  const selectEvent = (event: ESPNEvent) => {
+    setSelectedEvent(event);
+    setEspnEvents([]);
+    
+    // Auto-generate embed links based on team names
+    const comp = event.competitions[0];
+    const home = comp.competitors.find(c => c.homeAway === "home");
+    const away = comp.competitors.find(c => c.homeAway === "away");
+    
+    if (home?.team.displayName && away?.team.displayName) {
+      const links = generateAllLinkVariants(home.team.displayName, away.team.displayName);
+      // Use primary variant (away-vs-home pattern)
+      setNewStreamUrl(links.primary.url1);
+      setNewStreamUrl2(links.primary.url2);
+      setNewStreamUrl3(links.primary.url3);
+      toast.success("🔗 Links generados automáticamente");
+    }
+  };
+
+  const getEventName = (event: ESPNEvent) => {
+    const comp = event.competitions[0];
+    const home = comp.competitors.find(c => c.homeAway === "home");
+    const away = comp.competitors.find(c => c.homeAway === "away");
+    return `${home?.team.displayName || "TBD"} vs ${away?.team.displayName || "TBD"}`;
+  };
+
+  const addEventLink = async () => {
+    if (!selectedEvent || !newStreamUrl) {
+      toast.error("Selecciona un evento y agrega el link");
+      return;
+    }
+
+    const comp = selectedEvent.competitions[0];
+    const home = comp.competitors.find(c => c.homeAway === "home");
+    const away = comp.competitors.find(c => c.homeAway === "away");
+    const league = ALL_LEAGUES.find(l => l.key === selectedLeague);
+
+    const { data, error } = await supabase
+      .from("events")
+      .insert({
+        espn_id: selectedEvent.id,
+        name: getEventName(selectedEvent),
+        event_date: selectedEvent.date,
+        sport: league?.sport || null,
+        league: league?.name || null,
+        team_home: home?.team.displayName || null,
+        team_away: away?.team.displayName || null,
+        thumbnail: home?.team.logo || null,
+        stream_url: newStreamUrl,
+        stream_url_2: newStreamUrl2 || null,
+        stream_url_3: newStreamUrl3 || null,
+        is_live: comp.status.type.state === "in",
+      })
+      .select()
+      .single();
+
+    if (error) {
+      if (error.message.includes("duplicate")) {
+        toast.error("Ya existe un link para este evento");
+      } else {
+        toast.error("Error al agregar link");
+      }
+    } else {
+      setEventLinks([data as EventLink, ...eventLinks]);
+      resetDialog();
+      toast.success("✨ Link agregado correctamente");
+    }
+  };
+
+  const resetDialog = () => {
+    setSelectedEvent(null);
+    setNewStreamUrl("");
+    setNewStreamUrl2("");
+    setNewStreamUrl3("");
+    setLeagueSearch("");
+    setEspnEvents([]);
+    setEspnSearchQuery("");
+    setIsDialogOpen(false);
+  };
+
+  const updateStreamUrls = async (event: EventLink, urls: { stream_url?: string; stream_url_2?: string; stream_url_3?: string }) => {
+    setSaving(event.id);
+    const { error } = await supabase
+      .from("events")
+      .update(urls)
+      .eq("id", event.id);
+
+    if (error) {
+      toast.error("Error al guardar links");
+    } else {
+      setEventLinks(eventLinks.map(e => e.id === event.id ? { ...e, ...urls } : e));
+      toast.success("Links guardados");
+    }
+    setSaving(null);
+  };
+
+  const toggleLive = async (event: EventLink, is_live: boolean) => {
+    const { error } = await supabase
+      .from("events")
+      .update({ is_live })
+      .eq("id", event.id);
+
+    if (error) {
+      toast.error("Error al cambiar estado");
+    } else {
+      setEventLinks(eventLinks.map(e => e.id === event.id ? { ...e, is_live } : e));
+    }
+  };
+
+  const toggleActive = async (event: EventLink, is_active: boolean) => {
+    const { error } = await supabase
+      .from("events")
+      .update({ is_active })
+      .eq("id", event.id);
+
+    if (error) {
+      toast.error("Error al cambiar estado");
+    } else {
+      setEventLinks(eventLinks.map(e => e.id === event.id ? { ...e, is_active } : e));
+    }
+  };
+
+  const deleteEventLink = async (id: string) => {
+    const { error } = await supabase.from("events").delete().eq("id", id);
+
+    if (error) {
+      toast.error("Error al eliminar");
+    } else {
+      setEventLinks(eventLinks.filter(e => e.id !== id));
+      toast.success("Evento eliminado");
+    }
+  };
+
+  // Stats
+  const stats = useMemo(() => {
+    const total = eventLinks.length;
+    const live = eventLinks.filter(e => e.is_live).length;
+    const withLink = eventLinks.filter(e => e.stream_url).length;
+    const withoutLink = eventLinks.filter(e => !e.stream_url).length;
+    return { total, live, withLink, withoutLink };
+  }, [eventLinks]);
+
+  // Filtered events - improved search by team names
+  const filteredEvents = useMemo(() => {
+    return eventLinks.filter(event => {
+      // Search filter - improved to search by team names
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase().trim();
+        const matchesSearch = 
+          event.name.toLowerCase().includes(query) ||
+          event.league?.toLowerCase().includes(query) ||
+          event.team_home?.toLowerCase().includes(query) ||
+          event.team_away?.toLowerCase().includes(query) ||
+          event.sport?.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
+      
+      // Status filter
+      if (filterStatus === "live" && !event.is_live) return false;
+      if (filterStatus === "with-link" && !event.stream_url) return false;
+      if (filterStatus === "without-link" && event.stream_url) return false;
+      
+      return true;
+    });
+  }, [eventLinks, searchQuery, filterStatus]);
+
+  // Filtered leagues for dialog
+  const filteredCategories = useMemo(() => {
+    if (!leagueSearch) return LEAGUE_CATEGORIES;
+    const query = leagueSearch.toLowerCase();
+    return LEAGUE_CATEGORIES.map(cat => ({
+      ...cat,
+      leagues: cat.leagues.filter(l => 
+        l.name.toLowerCase().includes(query) || 
+        l.key.toLowerCase().includes(query)
+      )
+    })).filter(cat => cat.leagues.length > 0);
+  }, [leagueSearch]);
+
+  // Filter ESPN events by team name
+  const filteredEspnEvents = useMemo(() => {
+    if (!espnSearchQuery.trim()) return espnEvents;
+    const query = espnSearchQuery.toLowerCase().trim();
+    return espnEvents.filter(event => {
+      const comp = event.competitions[0];
+      const home = comp.competitors.find(c => c.homeAway === "home");
+      const away = comp.competitors.find(c => c.homeAway === "away");
+      return (
+        home?.team.displayName?.toLowerCase().includes(query) ||
+        home?.team.shortDisplayName?.toLowerCase().includes(query) ||
+        away?.team.displayName?.toLowerCase().includes(query) ||
+        away?.team.shortDisplayName?.toLowerCase().includes(query)
+      );
+    });
+  }, [espnEvents, espnSearchQuery]);
+  const toggleCategory = (catName: string) => {
+    setOpenCategories(prev => 
+      prev.includes(catName) 
+        ? prev.filter(c => c !== catName)
+        : [...prev, catName]
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full border-2 border-primary/30 animate-spin" 
+                 style={{ borderTopColor: 'hsl(var(--primary))' }} />
+            <Sparkles className="w-5 h-5 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
           </div>
-          <Badge variant="secondary" className="shrink-0">
-            Copiar Admin
-          </Badge>
-        </button>
-      ));
-    })()}
-  </div>
-</ScrollArea>
+          <p className="text-sm text-muted-foreground">Cargando eventos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Premium Header */}
+      <div className="relative overflow-hidden rounded-2xl glass-panel p-6">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-accent/10" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
+        
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-display font-bold tracking-wide flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <Trophy className="w-5 h-5 text-white" />
+              </div>
+              Gestión de Eventos
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Administra links de streaming para partidos y eventos deportivos
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button 
+              onClick={handleAutoAssign}
+              disabled={autoAssigning}
+              className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 shadow-lg shadow-emerald-500/25"
+            >
+              {autoAssigning ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Rocket className="w-4 h-4 mr-2" />
+              )}
+              Auto-Asignar (30 min)
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setMoviebiteOpen(true)}
+              className="border-border/50 bg-card/50"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              IFRAME Quicklink
+            </Button>
+            <Button 
+              onClick={() => setIsDialogOpen(true)}
+              className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/25"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Agregar Evento
+            </Button>
+          </div>
+        </div>
+
+        {/* Stats Row */}
+        <div className="relative grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+          <StatCard
+            label="Total Eventos"
+            value={stats.total}
+            icon={<Calendar className="w-4 h-4" />}
+            color="text-foreground"
+          />
+          <StatCard
+            label="En Vivo"
+            value={stats.live}
+            icon={<Radio className="w-4 h-4" />}
+            color="text-red-400"
+            pulse={stats.live > 0}
+          />
+          <StatCard
+            label="Con Link"
+            value={stats.withLink}
+            icon={<Link2 className="w-4 h-4" />}
+            color="text-green-400"
+          />
+          <StatCard
+            label="Sin Link"
+            value={stats.withoutLink}
+            icon={<Circle className="w-4 h-4" />}
+            color="text-yellow-400"
+          />
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar por equipo, liga o evento... (ej: Lakers, NBA)"
+            className="pl-10 bg-card/50 border-border/50"
+          />
+        </div>
+        
+        <div className="flex gap-2">
+          <FilterButton
+            active={filterStatus === "all"}
+            onClick={() => setFilterStatus("all")}
+            label="Todos"
+            count={stats.total}
+          />
+          <FilterButton
+            active={filterStatus === "live"}
+            onClick={() => setFilterStatus("live")}
+            label="🔴 Live"
+            count={stats.live}
+          />
+          <FilterButton
+            active={filterStatus === "with-link"}
+            onClick={() => setFilterStatus("with-link")}
+            label="✓ Con Link"
+            count={stats.withLink}
+          />
+          <FilterButton
+            active={filterStatus === "without-link"}
+            onClick={() => setFilterStatus("without-link")}
+            label="⚠ Sin Link"
+            count={stats.withoutLink}
+          />
+        </div>
+      </div>
+
+      {/* Add Link Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        if (!open) resetDialog();
+        setIsDialogOpen(open);
+      }}>
+        <DialogContent className="bg-card border-border max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <Plus className="w-4 h-4 text-white" />
+              </div>
+              Agregar Nuevo Evento
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {!selectedEvent ? (
+              <div className="space-y-4 h-full flex flex-col">
+                {/* League Search */}
+                <div className="relative shrink-0">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    value={leagueSearch}
+                    onChange={(e) => setLeagueSearch(e.target.value)}
+                    placeholder="Buscar liga... (ej: Champions, NBA, UFC)"
+                    className="pl-10"
+                  />
+                </div>
+
+                {/* Selected League Indicator */}
+                {selectedLeague && (
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/30 shrink-0">
+                    <Trophy className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">
+                      {ALL_LEAGUES.find(l => l.key === selectedLeague)?.name}
+                    </span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 ml-auto"
+                      onClick={() => setSelectedLeague("")}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                    <Button 
+                      size="sm"
+                      onClick={searchESPN}
+                      disabled={searching}
+                      className="h-7"
+                    >
+                      {searching ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Search className="w-3 h-3 mr-1" />
+                          Buscar en ESPN
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {/* ESPN Results */}
+                {espnEvents.length > 0 ? (
+                  <div className="flex flex-col flex-1 min-h-0 space-y-3">
+                    {/* Search within results */}
+                    <div className="relative shrink-0">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        value={espnSearchQuery}
+                        onChange={(e) => setEspnSearchQuery(e.target.value)}
+                        placeholder="Buscar por equipo... (ej: Lakers, Bulls)"
+                        className="pl-10"
+                      />
+                    </div>
+                    
+                    <p className="text-xs text-muted-foreground shrink-0">
+                      {filteredEspnEvents.length} de {espnEvents.length} evento(s)
+                    </p>
+                    
+                    {/* Scrollable results */}
+                    <div className="flex-1 min-h-0 overflow-y-auto max-h-[350px] space-y-2 pr-2">
+                      {filteredEspnEvents.map((event) => {
+                        const comp = event.competitions[0];
+                        const home = comp.competitors.find(c => c.homeAway === "home");
+                        const away = comp.competitors.find(c => c.homeAway === "away");
+                        const isLive = comp.status.type.state === "in";
+                        
+                        return (
+                          <div
+                            key={event.id}
+                            onClick={() => selectEvent(event)}
+                            className="flex items-center gap-3 p-3 rounded-xl glass-panel hover:bg-white/5 cursor-pointer transition-all hover:scale-[1.01]"
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              {home?.team.logo && (
+                                <img src={home.team.logo} alt="" className="w-10 h-10 object-contain" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">
+                                  {home?.team.shortDisplayName || "TBD"} vs {away?.team.shortDisplayName || "TBD"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(event.date).toLocaleString("es-ES")}
+                                </p>
+                              </div>
+                              {away?.team.logo && (
+                                <img src={away.team.logo} alt="" className="w-10 h-10 object-contain" />
+                              )}
+                            </div>
+                            {isLive && (
+                              <Badge variant="destructive" className="animate-pulse">
+                                🔴 LIVE
+                              </Badge>
+                            )}
+                          </div>
+                        );
+                      })}
+                      
+                      {filteredEspnEvents.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No se encontraron partidos con "{espnSearchQuery}"</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* Categories List */
+                  <ScrollArea className="flex-1 -mx-2 px-2">
+                    <div className="space-y-2 pb-4">
+                      {filteredCategories.map((category) => (
+                        <Collapsible
+                          key={category.name}
+                          open={openCategories.includes(category.name)}
+                          onOpenChange={() => toggleCategory(category.name)}
+                        >
+                          <CollapsibleTrigger className="flex items-center gap-3 w-full p-3 rounded-xl glass-panel hover:bg-white/5 transition-all">
+                            <span className="text-lg">{category.icon}</span>
+                            <span className="font-medium flex-1 text-left">{category.name.replace(/^[^\s]+\s/, '')}</span>
+                            <Badge variant="secondary" className="mr-2">
+                              {category.leagues.length}
+                            </Badge>
+                            {openCategories.includes(category.name) ? (
+                              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                            )}
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="grid grid-cols-2 gap-2 pt-2 pl-4">
+                              {category.leagues.map((league) => (
+                                <button
+                                  key={league.key}
+                                  onClick={() => setSelectedLeague(league.key)}
+                                  className={`flex items-center gap-2 p-2.5 rounded-lg text-left text-sm transition-all ${
+                                    selectedLeague === league.key
+                                      ? 'bg-primary/20 border border-primary/50 text-primary'
+                                      : 'hover:bg-white/5 border border-transparent'
+                                  }`}
+                                >
+                                  <span>{league.flag}</span>
+                                  <span className="truncate">{league.name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </div>
+            ) : (
+              /* Selected Event Form */
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
+                  <Trophy className="w-6 h-6 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{getEventName(selectedEvent)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {ALL_LEAGUES.find(l => l.key === selectedLeague)?.name} • {new Date(selectedEvent.date).toLocaleString("es-ES")}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setSelectedEvent(null)}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                {/* Auto-generated links info */}
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
+                  <Wand2 className="w-4 h-4 text-emerald-400" />
+                  <span className="text-sm text-emerald-400">Links generados automáticamente desde embedsports.top</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-auto h-7 text-xs"
+                    onClick={() => {
+                      // Toggle between primary and alternative variants
+                      const comp = selectedEvent.competitions[0];
+                      const home = comp.competitors.find(c => c.homeAway === "home");
+                      const away = comp.competitors.find(c => c.homeAway === "away");
+                      
+                      if (home?.team.displayName && away?.team.displayName) {
+                        const links = generateAllLinkVariants(home.team.displayName, away.team.displayName);
+                        // Check which variant is currently being used and switch
+                        if (newStreamUrl.includes(links.primary.url1.split('/').slice(-2, -1)[0])) {
+                          setNewStreamUrl(links.alternative.url1);
+                          setNewStreamUrl2(links.alternative.url2);
+                          setNewStreamUrl3(links.alternative.url3);
+                          toast.info("Cambiado a variante alternativa (home-vs-away)");
+                        } else {
+                          setNewStreamUrl(links.primary.url1);
+                          setNewStreamUrl2(links.primary.url2);
+                          setNewStreamUrl3(links.primary.url3);
+                          toast.info("Cambiado a variante primaria (away-vs-home)");
+                        }
+                      }
+                    }}
+                  >
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    Alternar orden
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-primary/20 text-primary text-xs flex items-center justify-center font-bold">1</span>
+                      Stream Principal *
+                    </Label>
+                    <Input
+                      placeholder="https://...m3u8"
+                      value={newStreamUrl}
+                      onChange={(e) => setNewStreamUrl(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold">2</span>
+                      Stream Alternativo 1
+                    </Label>
+                    <Input
+                      placeholder="https://...m3u8 (opcional)"
+                      value={newStreamUrl2}
+                      onChange={(e) => setNewStreamUrl2(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold">3</span>
+                      Stream Alternativo 2
+                    </Label>
+                    <Input
+                      placeholder="https://...m3u8 (opcional)"
+                      value={newStreamUrl3}
+                      onChange={(e) => setNewStreamUrl3(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <Button 
+                  onClick={addEventLink} 
+                  className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90"
+                  disabled={!newStreamUrl}
+                >
+                  <Zap className="w-4 h-4 mr-2" />
+                  Agregar Evento
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Event Links List - with scroll area */}
+      <ScrollArea className="h-[calc(100vh-400px)] min-h-[400px]">
+        <div className="space-y-3 pr-4">
+          {filteredEvents.length === 0 ? (
+            <div className="text-center py-16 glass-panel rounded-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <p className="text-muted-foreground mb-2">No hay eventos que mostrar</p>
+              <p className="text-xs text-muted-foreground/60">
+                {searchQuery || filterStatus !== "all" 
+                  ? "Intenta cambiar los filtros de búsqueda"
+                  : "Busca en ESPN y agrega un link de stream"}
+              </p>
+            </div>
+          ) : (
+            filteredEvents.map((event, index) => (
+              <EventRow
+                key={event.id}
+                event={event}
+                saving={saving === event.id}
+                onUpdateStreams={(urls) => updateStreamUrls(event, urls)}
+                onToggleLive={(live) => toggleLive(event, live)}
+                onToggleActive={(active) => toggleActive(event, active)}
+                onDelete={() => deleteEventLink(event.id)}
+                index={index}
+              />
+            ))
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Moviebite Quicklink Dialog */}
+      <Dialog open={moviebiteOpen} onOpenChange={(open) => {
+        setMoviebiteOpen(open);
+        if (open && moviebiteResults.length === 0 && !moviebiteLoading) {
+          handleScrapeMoviebite();
+        }
+      }}>
+        <DialogContent className="bg-card border-border max-w-3xl h-[80vh] flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
+                <ExternalLink className="w-4 h-4 text-white" />
+              </div>
+              Moviebite — Links en Vivo
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              URLs de canales y partidos encontrados en moviebite.cc. Haz clic en un link para copiarlo.
+            </p>
+          </DialogHeader>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={moviebiteFilter}
+                onChange={(e) => setMoviebiteFilter(e.target.value)}
+                placeholder="Filtrar por nombre..."
+                className="pl-10"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={handleScrapeMoviebite}
+              disabled={moviebiteLoading}
+              variant="outline"
+            >
+              {moviebiteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            </Button>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {moviebiteLoading ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Scrapeando moviebite.cc (6 páginas)...</p>
+              </div>
+            ) : (
+              <ScrollArea className="h-full">
+                <div className="space-y-1 pr-4">
+                  {/* Sport channels */}
+                  {(() => {
+                    const filter = moviebiteFilter.toLowerCase();
+                    const allItems = [
+                      ...moviebiteResults.filter(m => 
+                        !m.url.includes("/channel/") && 
+                        m.url !== "https://app.moviebite.cc/live" &&
+                        m.url !== "https://app.moviebite.cc/channels"
+                      ),
+                      ...moviebiteChannels
+                        .filter(l => l.includes("/channel/"))
+                        .map(l => {
+                          const name = decodeURIComponent(l.split("/channel/")[1] || "");
+                          return { name: `📺 ${name}`, url: l, source: "channels" };
+                        }),
+                    ].filter(item => !filter || item.name.toLowerCase().includes(filter) || item.url.toLowerCase().includes(filter));
+
+                    if (allItems.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No se encontraron resultados</p>
+                        </div>
+                      );
+                    }
+
+                    return allItems.map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          navigator.clipboard.writeText(item.url);
+                          toast.success(`📋 Copiado: ${item.name}`);
+                        }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left group"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{item.url}</p>
+                        </div>
+                        <Badge variant="outline" className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          Copiar
+                        </Badge>
+                      </button>
+                    ));
+                  })()}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+
+          <div className="shrink-0 flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
+            <span>{moviebiteResults.length + moviebiteChannels.filter(l => l.includes("/channel/")).length} links encontrados</span>
+            <a href="https://app.moviebite.cc/live" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground transition-colors">
+              Abrir moviebite.cc <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        </DialogContent>
       </Dialog>
     </div>
   );
