@@ -1046,29 +1046,19 @@ export function AdminEvents() {
                   {(() => {
                     const filter = moviebiteFilter.toLowerCase();
                     const allItems = [
-                      ...moviebiteResults
-                        .filter(
-                          (m) =>
-                            !m.url.includes("/channel/") &&
-                            m.url !== "https://app.moviebite.cc/live" &&
-                            m.url !== "https://app.moviebite.cc/channels",
-                        )
-                        .map((m) => ({ ...m, type: "match" })),
+                      ...moviebiteResults.map((m) => ({ ...m, type: "match" })),
                       ...moviebiteChannels
                         .filter((l) => l.includes("/channel/"))
                         .map((l) => {
                           const name = decodeURIComponent(l.split("/channel/")[1] || "").replace(/%20/g, " ");
                           return { name: `📺 Canal: ${name}`, url: l, source: "channels", type: "channel" };
                         }),
-                    ].filter(
-                      (item) =>
-                        !filter || item.name.toLowerCase().includes(filter) || item.url.toLowerCase().includes(filter),
-                    );
+                    ].filter((item) => !filter || item.name.toLowerCase().includes(filter));
 
                     if (allItems.length === 0) {
                       return (
                         <div className="text-center py-8 text-muted-foreground">
-                          <p>No se encontraron resultados</p>
+                          <p>No se encontraron partidos ni canales.</p>
                         </div>
                       );
                     }
@@ -1079,35 +1069,45 @@ export function AdminEvents() {
                         onClick={() => {
                           let finalUrl = item.url;
 
-                          // Lógica de transformación para el ADMIN
-                          if (item.url.includes("moviebite.cc/")) {
+                          if (item.url.includes("moviebite.cc")) {
                             const parts = item.url.split("/");
                             const slug = parts[parts.length - 1];
 
                             if (item.type === "match") {
-                              // Formato para partidos: ppv-[slug]
                               finalUrl = `https://embedsports.top/embed/admin/ppv-${slug}/1?autoplay=1`;
                             } else {
-                              // Formato para canales: tv-[slug]
                               finalUrl = `https://embedsports.top/embed/admin/tv-${slug}/1?autoplay=1`;
                             }
                           }
 
                           navigator.clipboard.writeText(finalUrl);
-                          toast.success(`📋 Link de Admin copiado: ${item.name}`);
+                          toast.success(`📋 Copiado para Admin: ${item.name}`);
                         }}
-                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left group border border-transparent hover:border-border"
+                        className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left group border ${
+                          item.type === "match"
+                            ? "bg-primary/5 border-primary/20 hover:bg-primary/10"
+                            : "hover:bg-muted/50 border-transparent"
+                        }`}
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
-                          <p className="text-xs text-primary truncate">Copia link de embedsports.top...</p>
+                          <p
+                            className={`text-sm font-medium truncate ${item.type === "match" ? "text-primary" : "text-foreground"}`}
+                          >
+                            {item.name}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">{item.url}</p>
                         </div>
-                        <Badge
-                          variant="secondary"
-                          className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          Copiar Admin
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {item.type === "match" && (
+                            <Badge className="bg-primary/20 text-primary border-primary/30 text-[10px]">Partido</Badge>
+                          )}
+                          <Badge
+                            variant="outline"
+                            className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            Copiar Admin
+                          </Badge>
+                        </div>
                       </button>
                     ));
                   })()}
