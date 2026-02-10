@@ -1009,7 +1009,7 @@ export function AdminEvents() {
         <DialogContent className="bg-card border-border max-w-3xl h-[80vh] flex flex-col p-6">
           <DialogHeader className="shrink-0 mb-4">
             <DialogTitle className="flex items-center gap-3 text-xl font-bold">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
                 <ExternalLink className="w-5 h-5 text-white" />
               </div>
               Moviebite — Partidos en Vivo
@@ -1044,7 +1044,10 @@ export function AdminEvents() {
           <div className="flex-1 min-h-0 overflow-hidden bg-muted/10 rounded-2xl border border-border/50">
             {moviebiteLoading ? (
               <div className="flex flex-col items-center justify-center h-full gap-4">
-                <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+                <div className="relative">
+                  <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+                  <Radio className="w-4 h-4 text-orange-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
+                </div>
                 <p className="text-sm font-medium animate-pulse">Sincronizando eventos en vivo...</p>
               </div>
             ) : (
@@ -1053,9 +1056,12 @@ export function AdminEvents() {
                   {(() => {
                     const filter = moviebiteFilter.toLowerCase();
 
-                    // FILTRAR SOLO PARTIDOS ACTIVOS ignorando canales estáticos
+                    // FILTRAR PARA LIMPIAR RESULTADOS NO VÁLIDOS (como el de tu imagen)
                     const matchesOnly = moviebiteResults.filter(
                       (m) =>
+                        // Eliminamos basura del scraper
+                        !m.name.includes("i.pinimg.com") &&
+                        !m.name.startsWith("!") &&
                         !m.url.includes("/channel/") &&
                         !m.url.includes("/channels") &&
                         m.url !== "https://app.moviebite.cc/live" &&
@@ -1071,7 +1077,9 @@ export function AdminEvents() {
                         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                           <Trophy className="w-12 h-12 mb-4 opacity-10" />
                           <p className="text-base font-medium">No hay partidos en vivo</p>
-                          <p className="text-xs text-center mt-1">Verifica que haya juegos activos en este momento.</p>
+                          <p className="text-xs text-center mt-1">
+                            Verifica que haya juegos activos en este momento en moviebite.cc
+                          </p>
                         </div>
                       );
                     }
@@ -1082,7 +1090,6 @@ export function AdminEvents() {
                         onClick={() => {
                           let finalUrl = item.url;
 
-                          // Transformación automática al formato ADMIN ppv-slug
                           if (item.url.includes("moviebite.cc")) {
                             const parts = item.url.split("/");
                             const slug = parts[parts.length - 1];
@@ -1091,12 +1098,13 @@ export function AdminEvents() {
 
                           navigator.clipboard.writeText(finalUrl);
                           toast.success(`📋 Copiado: ${item.name}`, {
-                            description: "Link generado para URL 1 (Admin)",
+                            description: "Listo para URL 1 (Admin)",
+                            icon: <Link2 className="w-4 h-4" />,
                           });
                         }}
                         className="w-full flex items-center gap-4 p-4 rounded-xl bg-card border border-border/50 hover:border-orange-500/50 hover:bg-orange-500/[0.02] transition-all group text-left shadow-sm mb-2"
                       >
-                        <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center shrink-0">
+                        <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
                           <Trophy className="w-6 h-6 text-orange-600" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -1108,8 +1116,8 @@ export function AdminEvents() {
                               LIVE
                             </Badge>
                           </div>
-                          <p className="text-[11px] text-muted-foreground truncate font-mono">
-                            {item.url.split(".cc/")[1]}
+                          <p className="text-[11px] text-muted-foreground truncate font-mono opacity-70">
+                            {item.url.includes(".cc/") ? item.url.split(".cc/")[1] : item.url}
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-2 shrink-0">
@@ -1119,9 +1127,7 @@ export function AdminEvents() {
                           >
                             Copiar Admin
                           </Badge>
-                          <span className="text-[9px] text-primary/60 font-mono tracking-tighter italic">
-                            embedsports.top
-                          </span>
+                          <span className="text-[9px] text-primary/60 font-mono italic">embedsports.top</span>
                         </div>
                       </button>
                     ));
@@ -1134,7 +1140,7 @@ export function AdminEvents() {
           <div className="shrink-0 flex items-center justify-between text-[11px] text-muted-foreground pt-4 px-1">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-green-500" />
-              <span>{moviebiteResults.length} eventos detectados</span>
+              <span>{moviebiteResults.length} eventos deportivos detectados</span>
             </div>
             <a
               href="https://app.moviebite.cc/live"
