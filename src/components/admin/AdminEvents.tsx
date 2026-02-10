@@ -1006,56 +1006,61 @@ export function AdminEvents() {
           }
         }}
       >
-        <DialogContent className="bg-card border-border max-w-3xl h-[80vh] flex flex-col">
-          <DialogHeader className="shrink-0">
-            <DialogTitle className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
-                <ExternalLink className="w-4 h-4 text-white" />
+        <DialogContent className="bg-card border-border max-w-3xl h-[80vh] flex flex-col p-6">
+          <DialogHeader className="shrink-0 mb-4">
+            <DialogTitle className="flex items-center gap-3 text-xl font-bold">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center shadow-lg">
+                <ExternalLink className="w-5 h-5 text-white" />
               </div>
               Moviebite — Partidos en Vivo
             </DialogTitle>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-2">
               Solo se muestran los partidos activos en moviebite.cc. Al copiar, se genera automáticamente el link de
               embedsports.top.
             </p>
           </DialogHeader>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 mb-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 value={moviebiteFilter}
                 onChange={(e) => setMoviebiteFilter(e.target.value)}
-                placeholder="Filtrar partidos..."
-                className="pl-10"
+                placeholder="Buscar partido activo (Lakers, Hawks, etc)..."
+                className="pl-10 h-11 bg-muted/30 border-border/50"
               />
             </div>
-            <Button size="sm" onClick={handleScrapeMoviebite} disabled={moviebiteLoading} variant="outline">
-              {moviebiteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            <Button
+              size="icon"
+              onClick={handleScrapeMoviebite}
+              disabled={moviebiteLoading}
+              variant="outline"
+              className="h-11 w-11"
+            >
+              {moviebiteLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
             </Button>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 min-h-0 overflow-hidden bg-muted/10 rounded-2xl border border-border/50">
             {moviebiteLoading ? (
-              <div className="flex flex-col items-center justify-center h-full gap-3">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">Buscando partidos activos...</p>
+              <div className="flex flex-col items-center justify-center h-full gap-4">
+                <Loader2 className="w-10 h-10 animate-spin text-orange-500" />
+                <p className="text-sm font-medium animate-pulse">Sincronizando eventos en vivo...</p>
               </div>
             ) : (
               <ScrollArea className="h-full">
-                <div className="space-y-1 pr-4">
+                <div className="p-4 space-y-3">
                   {(() => {
                     const filter = moviebiteFilter.toLowerCase();
 
-                    // FILTRAR SOLO PARTIDOS (matches) ignorando canales estáticos
-                    const matchesOnly = moviebiteResults
-                      .filter(
-                        (m) =>
-                          !m.url.includes("/channel/") &&
-                          !m.url.includes("/channels") &&
-                          m.url !== "https://app.moviebite.cc/live",
-                      )
-                      .map((m) => ({ ...m, type: "match" }));
+                    // FILTRAR SOLO PARTIDOS ACTIVOS ignorando canales estáticos
+                    const matchesOnly = moviebiteResults.filter(
+                      (m) =>
+                        !m.url.includes("/channel/") &&
+                        !m.url.includes("/channels") &&
+                        m.url !== "https://app.moviebite.cc/live" &&
+                        m.url !== "https://app.moviebite.cc/",
+                    );
 
                     const filteredItems = matchesOnly.filter(
                       (item) => !filter || item.name.toLowerCase().includes(filter),
@@ -1063,10 +1068,10 @@ export function AdminEvents() {
 
                     if (filteredItems.length === 0) {
                       return (
-                        <div className="text-center py-12 glass-panel rounded-xl border border-dashed border-border">
-                          <Radio className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-20" />
-                          <p className="text-sm font-medium">No se encontraron partidos ahora mismo.</p>
-                          <p className="text-xs text-muted-foreground">Intenta refrescar la búsqueda.</p>
+                        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                          <Trophy className="w-12 h-12 mb-4 opacity-10" />
+                          <p className="text-base font-medium">No hay partidos en vivo</p>
+                          <p className="text-xs text-center mt-1">Verifica que haya juegos activos en este momento.</p>
                         </div>
                       );
                     }
@@ -1077,7 +1082,7 @@ export function AdminEvents() {
                         onClick={() => {
                           let finalUrl = item.url;
 
-                          // Transformación automática al formato ADMIN ppv-
+                          // Transformación automática al formato ADMIN ppv-slug
                           if (item.url.includes("moviebite.cc")) {
                             const parts = item.url.split("/");
                             const slug = parts[parts.length - 1];
@@ -1085,30 +1090,38 @@ export function AdminEvents() {
                           }
 
                           navigator.clipboard.writeText(finalUrl);
-                          toast.success(`📋 Copiado para Admin: ${item.name}`);
+                          toast.success(`📋 Copiado: ${item.name}`, {
+                            description: "Link generado para URL 1 (Admin)",
+                          });
                         }}
-                        className="w-full flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-all group mb-2 text-left"
+                        className="w-full flex items-center gap-4 p-4 rounded-xl bg-card border border-border/50 hover:border-orange-500/50 hover:bg-orange-500/[0.02] transition-all group text-left shadow-sm mb-2"
                       >
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          <Trophy className="w-5 h-5 text-primary" />
+                        <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center shrink-0">
+                          <Trophy className="w-6 h-6 text-orange-600" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-bold truncate text-foreground">{item.name}</p>
-                            <Badge className="bg-red-500/20 text-red-500 border-red-500/30 text-[10px] animate-pulse">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-sm font-bold text-foreground truncate group-hover:text-orange-500 transition-colors">
+                              {item.name}
+                            </p>
+                            <Badge className="bg-red-500 text-white text-[9px] h-4 px-1.5 animate-pulse border-none">
                               LIVE
                             </Badge>
                           </div>
-                          <p className="text-[10px] text-muted-foreground truncate opacity-70">{item.url}</p>
+                          <p className="text-[11px] text-muted-foreground truncate font-mono">
+                            {item.url.split(".cc/")[1]}
+                          </p>
                         </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
+                        <div className="flex flex-col items-end gap-2 shrink-0">
                           <Badge
                             variant="outline"
-                            className="text-[10px] group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+                            className="text-[10px] py-0 h-6 bg-muted/50 group-hover:bg-orange-500 group-hover:text-white transition-all"
                           >
                             Copiar Admin
                           </Badge>
-                          <span className="text-[9px] text-primary/60 font-mono italic">embedsports.top</span>
+                          <span className="text-[9px] text-primary/60 font-mono tracking-tighter italic">
+                            embedsports.top
+                          </span>
                         </div>
                       </button>
                     ));
@@ -1118,15 +1131,18 @@ export function AdminEvents() {
             )}
           </div>
 
-          <div className="shrink-0 flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
-            <span>{moviebiteResults.filter((m) => !m.url.includes("/channel/")).length} partidos en vivo</span>
+          <div className="shrink-0 flex items-center justify-between text-[11px] text-muted-foreground pt-4 px-1">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <span>{moviebiteResults.length} eventos detectados</span>
+            </div>
             <a
               href="https://app.moviebite.cc/live"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-foreground transition-colors"
+              className="flex items-center gap-1 hover:text-orange-500 transition-colors font-semibold"
             >
-              moviebite.cc <ExternalLink className="w-3 h-3" />
+              Ver en moviebite.cc <ExternalLink className="w-3 h-3" />
             </a>
           </div>
         </DialogContent>
