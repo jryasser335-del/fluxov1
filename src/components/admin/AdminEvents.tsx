@@ -266,6 +266,10 @@ export function AdminEvents() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [autoAssigning, setAutoAssigning] = useState(false);
   const [moviebiteOpen, setMoviebiteOpen] = useState(false);
+  const [moviebiteLoading, setMoviebiteLoading] = useState(false);
+  const [moviebiteResults, setMoviebiteResults] = useState<{ name: string; url: string; source: string }[]>([]);
+  const [moviebiteChannels, setMoviebiteChannels] = useState<string[]>([]);
+  const [moviebiteFilter, setMoviebiteFilter] = useState("");
   
   // ESPN search state
   const [selectedLeague, setSelectedLeague] = useState<string>("");
@@ -314,6 +318,32 @@ export function AdminEvents() {
       toast.error("Error al auto-asignar links");
     }
     setAutoAssigning(false);
+  };
+
+  const handleScrapeMoviebite = async () => {
+    setMoviebiteLoading(true);
+    setMoviebiteResults([]);
+    setMoviebiteChannels([]);
+    try {
+      const { data, error } = await supabase.functions.invoke("scrape-moviebite");
+      if (error) throw error;
+      const result = data as { 
+        matches: { name: string; url: string; source: string }[]; 
+        allLinks: string[];
+        totalFound: number;
+      };
+      setMoviebiteResults(result.matches || []);
+      setMoviebiteChannels(result.allLinks || []);
+      if (result.totalFound === 0 && result.allLinks.length === 0) {
+        toast.info("No se encontraron links en moviebite");
+      } else {
+        toast.success(`🔍 ${result.matches.length} resultados, ${result.allLinks.length} links totales`);
+      }
+    } catch (error) {
+      console.error("Error scraping moviebite:", error);
+      toast.error("Error al scrapear moviebite");
+    }
+    setMoviebiteLoading(false);
   };
 
   const fetchEventLinks = async () => {
@@ -1000,27 +1030,109 @@ export function AdminEvents() {
         </div>
       </ScrollArea>
 
-      {/* Moviebite IFRAME Quicklink Dialog */}
-      <Dialog open={moviebiteOpen} onOpenChange={setMoviebiteOpen}>
-        <DialogContent className="bg-card border-border max-w-4xl h-[80vh] flex flex-col p-0">
-          <DialogHeader className="p-4 pb-2 shrink-0">
+      {/* Moviebite Quicklink Dialog */}
+      <Dialog open={moviebiteOpen} onOpenChange={(open) => {
+        setMoviebiteOpen(open);
+        if (open && moviebiteResults.length === 0 && !moviebiteLoading) {
+          handleScrapeMoviebite();
+        }
+      }}>
+        <DialogContent className="bg-card border-border max-w-3xl h-[80vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
                 <ExternalLink className="w-4 h-4 text-white" />
               </div>
-              IFRAME Quicklink — Moviebite
+              Moviebite — Links en Vivo
             </DialogTitle>
             <p className="text-xs text-muted-foreground mt-1">
-              Navega, encuentra el partido y copia el link del iframe para pegarlo en los campos de stream.
+              URLs de canales y partidos encontrados en moviebite.cc. Haz clic en un link para copiarlo.
             </p>
           </DialogHeader>
-          <div className="flex-1 min-h-0">
-            <iframe
-              src="https://app.moviebite.cc/"
-              className="w-full h-full border-0 rounded-b-lg"
-              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-              referrerPolicy="no-referrer"
-            />
+
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={moviebiteFilter}
+                onChange={(e) => setMoviebiteFilter(e.target.value)}
+                placeholder="Filtrar por nombre..."
+                className="pl-10"
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={handleScrapeMoviebite}
+              disabled={moviebiteLoading}
+              variant="outline"
+            >
+              {moviebiteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            </Button>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {moviebiteLoading ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Scrapeando moviebite.cc (6 páginas)...</p>
+              </div>
+            ) : (
+              <ScrollArea className="h-full">
+                <div className="space-y-1 pr-4">
+                  {/* Sport channels */}
+                  {(() => {
+                    const filter = moviebiteFilter.toLowerCase();
+                    const allItems = [
+                      ...moviebiteResults.filter(m => 
+                        !m.url.includes("/channel/") && 
+                        m.url !== "https://app.moviebite.cc/live" &&
+                        m.url !== "https://app.moviebite.cc/channels"
+                      ),
+                      ...moviebiteChannels
+                        .filter(l => l.includes("/channel/"))
+                        .map(l => {
+                          const name = decodeURIComponent(l.split("/channel/")[1] || "");
+                          return { name: `📺 ${name}`, url: l, source: "channels" };
+                        }),
+                    ].filter(item => !filter || item.name.toLowerCase().includes(filter) || item.url.toLowerCase().includes(filter));
+
+                    if (allItems.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No se encontraron resultados</p>
+                        </div>
+                      );
+                    }
+
+                    return allItems.map((item, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          navigator.clipboard.writeText(item.url);
+                          toast.success(`📋 Copiado: ${item.name}`);
+                        }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors text-left group"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{item.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{item.url}</p>
+                        </div>
+                        <Badge variant="outline" className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          Copiar
+                        </Badge>
+                      </button>
+                    ));
+                  })()}
+                </div>
+              </ScrollArea>
+            )}
+          </div>
+
+          <div className="shrink-0 flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border">
+            <span>{moviebiteResults.length + moviebiteChannels.filter(l => l.includes("/channel/")).length} links encontrados</span>
+            <a href="https://app.moviebite.cc/live" target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground transition-colors">
+              Abrir moviebite.cc <ExternalLink className="w-3 h-3" />
+            </a>
           </div>
         </DialogContent>
       </Dialog>
