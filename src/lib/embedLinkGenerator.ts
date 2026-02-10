@@ -24,13 +24,14 @@ function teamToSlug(team: string): string {
 
 /**
  * Generador principal con la lógica de dominios y parámetros solicitada
+ * AHORA: El orden es Home vs Away (ej: manchester-united-vs-west-ham-united)
  */
 export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
 
-  // Orden principal: ppv-away-vs-home
-  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
+  // Orden modificado según tu solicitud: ppv-home-vs-away
+  const matchSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
 
   return {
     // URL 1: Admin con Autoplay en embedsports.top
@@ -45,12 +46,14 @@ export function generateEmbedLinks(homeTeam: string, awayTeam: string): Generate
 }
 
 /**
- * Variante con orden inverso (Home vs Away)
+ * Variante con orden inverso (Away vs Home)
  */
 export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
-  const matchSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
+
+  // En la alternativa invertimos el orden: ppv-away-vs-home
+  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
 
   return {
     url1: `https://embedsports.top/embed/admin/${matchSlug}/1?autoplay=1`,
