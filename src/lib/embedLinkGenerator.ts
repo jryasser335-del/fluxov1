@@ -1,6 +1,8 @@
 /**
- * Generates embed links for sports events based on team names
- * Pattern: https://embedsports.top/embed/admin/ppv-{team1}-vs-{team2}/{source}
+ * Generates specific sports embed links
+ * URL 1: Admin (embedsports.top + autoplay)
+ * URL 2: Delta (embedsports.top)
+ * URL 3: Echo (embedsports.top)
  */
 
 export interface GeneratedLinks {
@@ -10,64 +12,57 @@ export interface GeneratedLinks {
 }
 
 /**
- * Converts a team name to URL-friendly slug
- * e.g., "Oklahoma City Thunder" -> "oklahoma-city-thunder"
+ * Convierte el nombre de un equipo a un slug amigable para URL
  */
-function teamToSlug(teamName: string): string {
-  return teamName
+function teamToSlug(team: string): string {
+  return team
     .toLowerCase()
     .trim()
-    .replace(/['']/g, '') // Remove apostrophes
-    .replace(/[^a-z0-9\s-]/g, '') // Remove special chars
-    .replace(/\s+/g, '-') // Spaces to hyphens
-    .replace(/-+/g, '-') // Multiple hyphens to single
-    .replace(/^-|-$/g, ''); // Trim hyphens from ends
+    .replace(/\s+/g, "-")
+    .replace(/[^\w\-]+/g, "");
 }
 
 /**
- * Generates embedsports.top links for a match
- * @param homeTeam Home team name
- * @param awayTeam Away team name  
- * @returns Object with url1, url2, url3
+ * Generador principal con la lógica de dominios y parámetros solicitada
  */
 export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
-  
-  // Pattern: ppv-{away}-vs-{home} (as seen in the example URLs)
+
+  // Orden principal: ppv-away-vs-home
   const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
-  
+
   return {
-    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
-    url2: `https://embedsports.top/embed/admin/${matchSlug}/2`,
-    url3: `https://embedsports.top/embed/admin/${matchSlug}/3`,
+    // URL 1: Admin con Autoplay en embedsports.top
+    url1: `https://embedsports.top/embed/admin/${matchSlug}/1?autoplay=1`,
+
+    // URL 2: Delta en embedsports.top (sin autoplay)
+    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
+
+    // URL 3: Echo en embedsports.top (sin autoplay)
+    url3: `https://embedsports.top/embed/echo/${matchSlug}/1`,
   };
 }
 
 /**
- * Generates alternative link variants (home-vs-away instead of away-vs-home)
+ * Variante con orden inverso (Home vs Away)
  */
 export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
-  
-  // Alternative pattern: ppv-{home}-vs-{away}
   const matchSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
-  
+
   return {
-    url1: `https://embedsports.top/embed/admin/${matchSlug}/1`,
-    url2: `https://embedsports.top/embed/admin/${matchSlug}/2`,
-    url3: `https://embedsports.top/embed/admin/${matchSlug}/3`,
+    url1: `https://embedsports.top/embed/admin/${matchSlug}/1?autoplay=1`,
+    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
+    url3: `https://embedsports.top/embed/echo/${matchSlug}/1`,
   };
 }
 
 /**
- * Generates all possible link variants for a match
+ * Exportación para Lovable
  */
-export function generateAllLinkVariants(homeTeam: string, awayTeam: string): {
-  primary: GeneratedLinks;
-  alternative: GeneratedLinks;
-} {
+export function generateAllLinkVariants(homeTeam: string, awayTeam: string) {
   return {
     primary: generateEmbedLinks(homeTeam, awayTeam),
     alternative: generateAlternativeLinks(homeTeam, awayTeam),
