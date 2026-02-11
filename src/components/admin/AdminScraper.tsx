@@ -1,10 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Search, Copy, Check, RefreshCw, Satellite, Zap, Globe, Filter } from "lucide-react";
+import {
+  Loader2, Search, Copy, Check, RefreshCw, Satellite,
+  Zap, Globe, Filter
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface ScrapedMatch {
@@ -47,22 +50,15 @@ export function AdminScraper() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
-  // Usamos un Ref para que el intervalo siempre conozca el estado real de 'loading'
-  // sin tener que reiniciar el efecto de React.
-  const loadingRef = useRef(loading);
   useEffect(() => {
-    loadingRef.current = loading;
-  }, [loading]);
+    fetchSavedMatches();
+  }, []);
 
   const fetchSavedMatches = async () => {
     setFetching(true);
-    const oneDayAgo = new Date();
-    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
-
     const { data, error } = await supabase
       .from("live_scraped_links" as any)
       .select("*")
-      .gt("scanned_at", oneDayAgo.toISOString())
       .order("category", { ascending: true });
 
     if (error) {
@@ -73,16 +69,8 @@ export function AdminScraper() {
     setFetching(false);
   };
 
-  const scanAll = useCallback(async () => {
-    // Verificamos tanto el estado como la referencia para evitar colisiones
-    if (loadingRef.current) {
-      console.log("Escaneo omitido: ya hay un proceso activo.");
-      return;
-    }
-
+  const scanAll = async () => {
     setLoading(true);
-    console.log("Iniciando proceso de escaneo en Supabase...");
-
     try {
       const { data, error } = await supabase.functions.invoke("scrape-live-matches");
 
@@ -97,46 +85,9 @@ export function AdminScraper() {
     } catch (err: any) {
       console.error("Scan error:", err);
       toast.error("Error al escanear: " + (err.message || "desconocido"));
-    } finally {
-      setLoading(false);
     }
-  }, []); // Quitamos 'loading' de las dependencias para que la función sea estable
-
-  useEffect(() => {
-    fetchSavedMatches();
-  }, []);
-
-  // --- LÓGICA DE ESCANEO AUTOMÁTICO REPARADA Y SIN SIMPLIFICAR ---
-  useEffect(() => {
-    console.log("Sistema de Auto-Scan activo. Intervalo: 3 min.");
-
-    const runAutoScan = () => {
-      // Usamos la referencia para leer el valor actual de loading sin reiniciar el efecto
-      if (!loadingRef.current) {
-        console.log("Temporizador: Ejecutando scanAll automático...");
-        scanAll();
-      }
-    };
-
-    const intervalId = setInterval(runAutoScan, 180000); // 180,000ms = 3 minutos
-
-    // Listener de visibilidad: Si el usuario vuelve a la pestaña, refrescamos los datos visuales
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        console.log("Pestaña activa detectada. Refrescando tabla...");
-        fetchSavedMatches();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    return () => {
-      console.log("Limpiando temporizador y listeners...");
-      clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, [scanAll]); // Solo depende de scanAll, que es estable gracias al useRef interno
-  // --------------------------------------------------------------
+    setLoading(false);
+  };
 
   const copyLink = async (link: string, matchId: string, server: string) => {
     await navigator.clipboard.writeText(link);
@@ -154,7 +105,8 @@ export function AdminScraper() {
       m.team_home?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.team_away?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory = filterCategory === "all" || m.category === filterCategory;
+    const matchesCategory =
+      filterCategory === "all" || m.category === filterCategory;
 
     return matchesSearch && matchesCategory;
   });
@@ -173,17 +125,13 @@ export function AdminScraper() {
                 <Satellite className="w-6 h-6 text-cyan-400" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-white">Escáner Universal</h2>
-                  <Badge
-                    variant="outline"
-                    className="animate-pulse bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px]"
-                  >
-                    AUTO-SCAN ACTIVO (3m)
-                  </Badge>
-                </div>
+                <h2 className="text-xl font-bold text-white">
+                  Escáner Universal
+                </h2>
                 <p className="text-sm text-white/50">
-                  {lastScan ? `Último escaneo: ${new Date(lastScan).toLocaleTimeString("es")}` : "Sin escaneos previos"}
+                  {lastScan
+                    ? `Último escaneo: ${new Date(lastScan).toLocaleTimeString("es")}`
+                    : "Sin escaneos previos"}
                 </p>
               </div>
             </div>
@@ -216,9 +164,14 @@ export function AdminScraper() {
           <p className="text-xs text-white/50">Total</p>
         </div>
         {["admin", "delta", "echo", "golf"].map((server) => {
-          const count = matches.filter((m) => m[`source_${server}` as keyof ScrapedMatch]).length;
+          const count = matches.filter(
+            (m) => m[`source_${server}` as keyof ScrapedMatch]
+          ).length;
           return (
-            <div key={server} className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
+            <div
+              key={server}
+              className="bg-white/5 border border-white/10 rounded-xl p-3 text-center"
+            >
               <p className="text-2xl font-bold text-white">{count}</p>
               <p className="text-xs text-white/50 uppercase">{server}</p>
             </div>
@@ -243,7 +196,9 @@ export function AdminScraper() {
             size="sm"
             onClick={() => setFilterCategory("all")}
             className={`border-white/10 ${
-              filterCategory === "all" ? "bg-white/20 text-white" : "bg-white/5 text-white/60"
+              filterCategory === "all"
+                ? "bg-white/20 text-white"
+                : "bg-white/5 text-white/60"
             }`}
           >
             <Globe className="w-3 h-3 mr-1" />
@@ -256,7 +211,9 @@ export function AdminScraper() {
               size="sm"
               onClick={() => setFilterCategory(cat!)}
               className={`border-white/10 ${
-                filterCategory === cat ? "bg-white/20 text-white" : "bg-white/5 text-white/60"
+                filterCategory === cat
+                  ? "bg-white/20 text-white"
+                  : "bg-white/5 text-white/60"
               }`}
             >
               {CATEGORY_EMOJIS[cat!] || "🎯"} {cat}
@@ -292,11 +249,17 @@ export function AdminScraper() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <Badge variant="outline" className="text-[10px] border-white/20 text-white/60">
-                          {CATEGORY_EMOJIS[match.category || "other"] || "🎯"} {match.category}
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] border-white/20 text-white/60"
+                        >
+                          {CATEGORY_EMOJIS[match.category || "other"] || "🎯"}{" "}
+                          {match.category}
                         </Badge>
                       </div>
-                      <h3 className="font-semibold text-white text-sm truncate">{match.match_title}</h3>
+                      <h3 className="font-semibold text-white text-sm truncate">
+                        {match.match_title}
+                      </h3>
                       {match.team_home && match.team_away && (
                         <p className="text-xs text-white/40 mt-0.5">
                           {match.team_home} vs {match.team_away}
@@ -307,9 +270,15 @@ export function AdminScraper() {
 
                   {/* Server buttons */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {(["admin", "delta", "echo", "golf"] as const).map((server) => {
-                      const link = match[`source_${server}` as keyof ScrapedMatch] as string | null;
-                      const isCopied = copiedId === `${match.match_id}-${server}`;
+                    {(
+                      ["admin", "delta", "echo", "golf"] as const
+                    ).map((server) => {
+                      const link =
+                        match[
+                          `source_${server}` as keyof ScrapedMatch
+                        ] as string | null;
+                      const isCopied =
+                        copiedId === `${match.match_id}-${server}`;
 
                       return (
                         <Button
@@ -317,12 +286,20 @@ export function AdminScraper() {
                           variant="outline"
                           size="sm"
                           disabled={!link}
-                          onClick={() => link && copyLink(link, match.match_id, server)}
+                          onClick={() =>
+                            link && copyLink(link, match.match_id, server)
+                          }
                           className={`text-xs font-mono ${
-                            link ? SERVER_COLORS[server] : "border-white/5 text-white/20 bg-white/[0.02]"
+                            link
+                              ? SERVER_COLORS[server]
+                              : "border-white/5 text-white/20 bg-white/[0.02]"
                           } ${isCopied ? "ring-2 ring-green-400/50" : ""}`}
                         >
-                          {isCopied ? <Check className="w-3 h-3 mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
+                          {isCopied ? (
+                            <Check className="w-3 h-3 mr-1" />
+                          ) : (
+                            <Copy className="w-3 h-3 mr-1" />
+                          )}
                           {server.toUpperCase()}
                         </Button>
                       );
