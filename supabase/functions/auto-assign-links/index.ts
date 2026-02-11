@@ -145,6 +145,7 @@ Deno.serve(async (req) => {
               stream_url_2: null,
               stream_url_3: null,
               is_live: false,
+              is_active: false,
             })
             .eq("id", event.id);
           if (!cleanError) cleaned++;
@@ -162,6 +163,7 @@ Deno.serve(async (req) => {
           stream_url_2: null,
           stream_url_3: null,
           is_live: false,
+          is_active: false,
         })
         .eq("id", event.id);
 
