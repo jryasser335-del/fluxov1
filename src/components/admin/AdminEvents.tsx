@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchESPNScoreboard, ESPNEvent } from "@/lib/api";
-import { generateAllLinkVariants } from "@/lib/embedLinkGenerator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -335,6 +334,11 @@ export function AdminEvents() {
     setEspnEvents([]);
     setIsScrapedLink(false);
 
+    // IMPORTANTE: Limpiamos los links viejos antes de buscar
+    setNewStreamUrl("");
+    setNewStreamUrl2("");
+    setNewStreamUrl3("");
+
     const comp = event.competitions[0];
     const home = comp.competitors.find((c) => c.homeAway === "home");
     const away = comp.competitors.find((c) => c.homeAway === "away");
@@ -344,75 +348,32 @@ export function AdminEvents() {
 
     if (homeName && awayName) {
       try {
-        // BÚSQUEDA PRIMARIA: Por ESPN_ID (más preciso)
-        const { data: scrapedById, error: errorById } = await supabase
+        // BÚSQUEDA AGRESIVA EN EL ESCANER: Extraemos la última palabra para máxima coincidencia
+        const cleanHome = homeName.split(" ").pop();
+        const cleanAway = awayName.split(" ").pop();
+
+        const { data: scraped } = await supabase
           .from("live_scraped_links" as any)
           .select("source_admin, source_delta, source_echo, match_title")
-          .eq("espn_id", event.id)
+          .or(`match_title.ilike.%${cleanHome}%,match_title.ilike.%${cleanAway}%`)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        if (scrapedById && (scrapedById as any).source_admin) {
-          const s = scrapedById as any;
+        if (scraped && (scraped as any).source_admin) {
+          const s = scraped as any;
           setNewStreamUrl(s.source_admin || "");
           setNewStreamUrl2(s.source_delta || "");
           setNewStreamUrl3(s.source_echo || "");
           setIsScrapedLink(true);
-          toast.success(`🛰️ Links exactos de Moviebite: ${s.match_title}`);
-          return; // IMPORTANTE: Cortamos aquí para que NO use el generador
+          toast.success(`🛰️ LINKS REALES DETECTADOS: ${s.match_title}`);
+        } else {
+          toast.warning("⚠️ No se hallaron links en el escáner. Debes ponerlos manual.");
         }
-
-        // BÚSQUEDA SECUNDARIA: Por nombres de equipos con múltiples patrones
-        const homeKeywords = homeName.split(" ").filter((w) => w.length > 3);
-        const awayKeywords = awayName.split(" ").filter((w) => w.length > 3);
-
-        const searchPatterns = [
-          // Patrón 1: Búsqueda exacta con "vs"
-          `%${homeName}%vs%${awayName}%`,
-          `%${awayName}%vs%${homeName}%`,
-          // Patrón 2: Última palabra de cada equipo (ej: "Lakers" de "LA Lakers")
-          `%${homeKeywords[homeKeywords.length - 1]}%vs%${awayKeywords[awayKeywords.length - 1]}%`,
-          `%${awayKeywords[awayKeywords.length - 1]}%vs%${homeKeywords[homeKeywords.length - 1]}%`,
-          // Patrón 3: Solo última palabra de cada equipo sin "vs" explícito
-          `%${homeKeywords[homeKeywords.length - 1]}%${awayKeywords[awayKeywords.length - 1]}%`,
-          `%${awayKeywords[awayKeywords.length - 1]}%${homeKeywords[homeKeywords.length - 1]}%`,
-        ];
-
-        for (const pattern of searchPatterns) {
-          const { data: scraped, error: scrapeError } = await supabase
-            .from("live_scraped_links" as any)
-            .select("source_admin, source_delta, source_echo, match_title")
-            .ilike("match_title", pattern)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (scraped && (scraped as any).source_admin) {
-            const s = scraped as any;
-            setNewStreamUrl(s.source_admin || "");
-            setNewStreamUrl2(s.source_delta || "");
-            setNewStreamUrl3(s.source_echo || "");
-            setIsScrapedLink(true);
-            toast.success(`🛰️ Links de Moviebite detectados: ${s.match_title}`);
-            return; // IMPORTANTE: Cortamos aquí para que NO use el generador
-          }
-        }
-
-        // Si llegamos aquí, no se encontró nada scrapeado
-        toast.warning("⚠️ No se encontraron links scrapeados para este partido");
       } catch (err) {
         console.error("Error fetching scraped links:", err);
-        toast.error("Error buscando en el Escáner de Moviebite");
+        toast.error("Error al conectar con la base de datos del escáner");
       }
-
-      // SOLO llegamos aquí si el escáner falló completamente
-      const links = generateAllLinkVariants(homeName, awayName);
-      setNewStreamUrl(links.primary.url1);
-      setNewStreamUrl2(links.primary.url2);
-      setNewStreamUrl3(links.primary.url3);
-      setIsScrapedLink(false);
-      toast.info("🔗 Usando links generados automáticamente desde embedsports.top");
     }
   };
 
@@ -462,7 +423,7 @@ export function AdminEvents() {
     } else {
       setEventLinks([data as EventLink, ...eventLinks]);
       resetDialog();
-      toast.success("✨ Link agregado correctamente");
+      toast.success("✨ Evento guardado con éxito");
     }
   };
 
@@ -489,7 +450,7 @@ export function AdminEvents() {
       toast.error("Error al guardar links");
     } else {
       setEventLinks(eventLinks.map((e) => (e.id === event.id ? { ...e, ...urls } : e)));
-      toast.success("Links guardados");
+      toast.success("Links actualizados");
     }
     setSaving(null);
   };
@@ -663,7 +624,7 @@ export function AdminEvents() {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Buscar por equipo, liga o evento... (ej: Lakers, NBA)"
+            placeholder="Buscar por equipo, liga o evento..."
             className="pl-10 bg-card/50 border-border/50"
           />
         </div>
@@ -721,7 +682,7 @@ export function AdminEvents() {
                   <Input
                     value={leagueSearch}
                     onChange={(e) => setLeagueSearch(e.target.value)}
-                    placeholder="Buscar liga... (ej: Champions, NBA, UFC)"
+                    placeholder="Buscar liga..."
                     className="pl-10"
                   />
                 </div>
@@ -760,14 +721,12 @@ export function AdminEvents() {
                       <Input
                         value={espnSearchQuery}
                         onChange={(e) => setEspnSearchQuery(e.target.value)}
-                        placeholder="Buscar por equipo... (ej: Lakers, Bulls)"
+                        placeholder="Buscar partido..."
                         className="pl-10"
                       />
                     </div>
 
-                    <p className="text-xs text-muted-foreground shrink-0">
-                      {filteredEspnEvents.length} de {espnEvents.length} evento(s)
-                    </p>
+                    <p className="text-xs text-muted-foreground shrink-0">{filteredEspnEvents.length} eventos hoy</p>
 
                     <div className="flex-1 min-h-0 overflow-y-auto max-h-[350px] space-y-2 pr-2">
                       {filteredEspnEvents.map((event) => {
@@ -806,12 +765,6 @@ export function AdminEvents() {
                           </div>
                         );
                       })}
-
-                      {filteredEspnEvents.length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <p>No se encontraron partidos con "{espnSearchQuery}"</p>
-                        </div>
-                      )}
                     </div>
                   </div>
                 ) : (
@@ -868,7 +821,6 @@ export function AdminEvents() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{getEventName(selectedEvent)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {ALL_LEAGUES.find((l) => l.key === selectedLeague)?.name} •{" "}
                       {new Date(selectedEvent.date).toLocaleString("es-ES")}
                     </p>
                   </div>
@@ -879,50 +831,22 @@ export function AdminEvents() {
 
                 <div
                   className={`flex items-center gap-2 p-3 rounded-lg border ${
-                    isScrapedLink ? "bg-purple-500/10 border-purple-500/30" : "bg-emerald-500/10 border-emerald-500/30"
+                    isScrapedLink ? "bg-purple-500/10 border-purple-500/30" : "bg-muted border-border"
                   }`}
                 >
                   {isScrapedLink ? (
                     <>
                       <Zap className="w-4 h-4 text-purple-400" />
                       <span className="text-sm text-purple-400 font-medium">
-                        Links reales aplicados desde el Escáner (Moviebite)
+                        🛰️ Links REALES detectados en Moviebite
                       </span>
                     </>
                   ) : (
                     <>
-                      <Wand2 className="w-4 h-4 text-emerald-400" />
-                      <span className="text-sm text-emerald-400">
-                        Links generados automáticamente desde embedsports.top
+                      <Circle className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">
+                        No se hallaron links automáticos. Ingrésalos manual.
                       </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="ml-auto h-7 text-xs"
-                        onClick={() => {
-                          const comp = selectedEvent.competitions[0];
-                          const home = comp.competitors.find((c) => c.homeAway === "home");
-                          const away = comp.competitors.find((c) => c.homeAway === "away");
-
-                          if (home?.team.displayName && away?.team.displayName) {
-                            const links = generateAllLinkVariants(home.team.displayName, away.team.displayName);
-                            if (newStreamUrl.includes(links.primary.url1.split("/").slice(-2, -1)[0])) {
-                              setNewStreamUrl(links.alternative.url1);
-                              setNewStreamUrl2(links.alternative.url2);
-                              setNewStreamUrl3(links.alternative.url3);
-                              toast.info("Cambiado a variante alternativa");
-                            } else {
-                              setNewStreamUrl(links.primary.url1);
-                              setNewStreamUrl2(links.primary.url2);
-                              setNewStreamUrl3(links.primary.url3);
-                              toast.info("Cambiado a variante primaria");
-                            }
-                          }
-                        }}
-                      >
-                        <RefreshCw className="w-3 h-3 mr-1" />
-                        Alternar orden
-                      </Button>
                     </>
                   )}
                 </div>
@@ -938,11 +862,11 @@ export function AdminEvents() {
                       Stream Principal *
                     </Label>
                     <Input
-                      placeholder="https://...m3u8"
+                      placeholder="https://..."
                       value={newStreamUrl}
                       onChange={(e) => {
                         setNewStreamUrl(e.target.value);
-                        setIsScrapedLink(false); // Si edita manualmente, ya no es "scraped puro"
+                        setIsScrapedLink(false);
                       }}
                     />
                   </div>
@@ -955,7 +879,7 @@ export function AdminEvents() {
                       Stream Alternativo 1
                     </Label>
                     <Input
-                      placeholder="https://...m3u8 (opcional)"
+                      placeholder="https://..."
                       value={newStreamUrl2}
                       onChange={(e) => setNewStreamUrl2(e.target.value)}
                     />
@@ -969,7 +893,7 @@ export function AdminEvents() {
                       Stream Alternativo 2
                     </Label>
                     <Input
-                      placeholder="https://...m3u8 (opcional)"
+                      placeholder="https://..."
                       value={newStreamUrl3}
                       onChange={(e) => setNewStreamUrl3(e.target.value)}
                     />
@@ -992,19 +916,7 @@ export function AdminEvents() {
 
       <ScrollArea className="h-[calc(100vh-400px)] min-h-[400px]">
         <div className="space-y-3 pr-4">
-          {filteredEvents.length === 0 ? (
-            <div className="text-center py-16 glass-panel rounded-2xl">
-              <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
-                <Calendar className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <p className="text-muted-foreground mb-2">No hay eventos que mostrar</p>
-              <p className="text-xs text-muted-foreground/60">
-                {searchQuery || filterStatus !== "all"
-                  ? "Intenta cambiar los filtros de búsqueda"
-                  : "Busca en ESPN y agrega un link de stream"}
-              </p>
-            </div>
-          ) : (
+          {filteredEvents.length > 0 ? (
             filteredEvents.map((event, index) => (
               <EventRow
                 key={event.id}
@@ -1017,6 +929,11 @@ export function AdminEvents() {
                 index={index}
               />
             ))
+          ) : (
+            <div className="text-center py-16 glass-panel rounded-2xl">
+              <Calendar className="w-8 h-8 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No hay eventos guardados</p>
+            </div>
           )}
         </div>
       </ScrollArea>
@@ -1062,11 +979,7 @@ function FilterButton({
   return (
     <button
       onClick={onClick}
-      className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${
-        active
-          ? "bg-primary/20 text-primary border border-primary/30"
-          : "bg-card/50 text-muted-foreground hover:bg-card border border-transparent"
-      }`}
+      className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${active ? "bg-primary/20 text-primary border border-primary/30" : "bg-card/50 text-muted-foreground hover:bg-card border border-transparent"}`}
     >
       {label}
       <span className={`px-1.5 py-0.5 rounded text-[10px] ${active ? "bg-primary/30" : "bg-muted"}`}>{count}</span>
@@ -1106,25 +1019,16 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
 
   return (
     <div
-      className={`glass-panel rounded-xl overflow-hidden transition-all duration-300 animate-fade-in ${
-        !event.is_active ? "opacity-50" : ""
-      }`}
+      className={`glass-panel rounded-xl overflow-hidden transition-all duration-300 animate-fade-in ${!event.is_active ? "opacity-50" : ""}`}
       style={{ animationDelay: `${index * 50}ms` }}
     >
       <div
-        className="flex items-center gap-3 p-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
+        className="flex items-center gap-3 p-4 cursor-pointer hover:bg-white/[0.02]"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div
-          className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-            event.is_live
-              ? "bg-red-500 animate-pulse shadow-lg shadow-red-500/50"
-              : hasLink
-                ? "bg-green-500 shadow-lg shadow-green-500/30"
-                : "bg-yellow-500 shadow-lg shadow-yellow-500/30"
-          }`}
+          className={`w-2.5 h-2.5 rounded-full shrink-0 ${event.is_live ? "bg-red-500 animate-pulse shadow-lg shadow-red-500/50" : hasLink ? "bg-green-500" : "bg-yellow-500"}`}
         />
-
         {event.thumbnail ? (
           <img src={event.thumbnail} alt="" className="w-10 h-10 object-contain shrink-0 rounded-lg bg-black/20 p-1" />
         ) : (
@@ -1132,7 +1036,6 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
             <Trophy className="w-5 h-5 text-muted-foreground" />
           </div>
         )}
-
         <div className="flex-1 min-w-0">
           <div className="font-medium truncate">{event.name}</div>
           <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
@@ -1152,26 +1055,20 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
             )}
           </div>
         </div>
-
         <div className="flex items-center gap-2 shrink-0">
           {hasLink ? (
-            <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30">
-              <Link2 className="w-3 h-3 mr-1" />
-              Link
-            </Badge>
+            <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Link</Badge>
           ) : (
-            <Badge variant="outline" className="border-yellow-500/30 text-yellow-400">
+            <Badge variant="outline" className="text-yellow-400">
               Sin Link
             </Badge>
           )}
-
           {event.is_live && (
             <Badge variant="destructive" className="animate-pulse">
               🔴 LIVE
             </Badge>
           )}
         </div>
-
         <ChevronDown
           className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
         />
@@ -1186,7 +1083,6 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
                 {event.is_live ? "🔴 EN VIVO" : "No en vivo"}
               </Label>
             </div>
-
             <div className="flex items-center gap-2">
               <Switch checked={event.is_active} onCheckedChange={onToggleActive} />
               <Label
@@ -1204,7 +1100,6 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
                 )}
               </Label>
             </div>
-
             <Button
               variant="ghost"
               size="sm"
@@ -1214,14 +1109,12 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
                 onDelete();
               }}
             >
-              <Trash2 className="w-4 h-4 mr-1" />
-              Eliminar
+              <Trash2 className="w-4 h-4 mr-1" /> Eliminar
             </Button>
           </div>
-
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-primary/20 text-primary text-xs flex items-center justify-center font-bold shrink-0">
+              <div className="w-6 h-6 rounded bg-primary/20 text-primary text-xs flex items-center justify-center font-bold">
                 1
               </div>
               <Input
@@ -1232,7 +1125,7 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               />
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold shrink-0">
+              <div className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold">
                 2
               </div>
               <Input
@@ -1243,7 +1136,7 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               />
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold shrink-0">
+              <div className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold">
                 3
               </div>
               <Input
@@ -1254,15 +1147,14 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               />
             </div>
           </div>
-
           <div className="flex justify-end">
             <Button
               onClick={handleSave}
               disabled={saving || !isModified}
               className={`${isModified ? "bg-gradient-to-r from-primary to-accent" : ""}`}
             >
-              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
-              Guardar Cambios
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />} Guardar
+              Cambios
             </Button>
           </div>
         </div>
