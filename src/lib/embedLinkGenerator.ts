@@ -1,8 +1,8 @@
 /**
- * Generates specific sports embed links for Dami TV
- * URL 1: Admin (autoplay)
- * URL 2: Admin (no autoplay)
- * URL 3: Echo
+ * Generates specific sports embed links
+ * URL 1: Admin (embedsports.top + autoplay)
+ * URL 2: Delta (embedsports.top)
+ * URL 3: Echo (embedsports.top)
  */
 
 export interface GeneratedLinks {
@@ -13,58 +13,35 @@ export interface GeneratedLinks {
 
 /**
  * Convierte el nombre de un equipo a un slug amigable para URL
- * Limpia acentos y caracteres especiales
  */
 function teamToSlug(team: string): string {
   return team
     .toLowerCase()
     .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, "-")
     .replace(/[^\w\-]+/g, "");
 }
 
 /**
- * Valida que la URL generada tenga un formato de link válido
- */
-function validateLink(url: string): string {
-  try {
-    new URL(url);
-    return url;
-  } catch (e) {
-    console.error("Link generado inválido:", url);
-    return "";
-  }
-}
-
-/**
- * Construye la URL con el formato exacto de Dami TV:
- * https://embed.damitv.pro/?source=...&id=...&streamNo=1&autoplay=...
- */
-function buildDamiUrl(source: "admin" | "echo", matchSlug: string, autoplay: boolean = false): string {
-  const baseUrl = "https://embed.damitv.pro/";
-  const params = new URLSearchParams({
-    source: source,
-    id: matchSlug,
-    streamNo: "1",
-    autoplay: autoplay ? "true" : "false",
-  });
-  return validateLink(`${baseUrl}?${params.toString()}`);
-}
-
-/**
- * Generador principal (Orden: Home vs Away)
+ * Generador principal con la lógica de dominios y parámetros solicitada
+ * AHORA: El orden es Home vs Away (ej: manchester-united-vs-west-ham-united)
  */
 export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
+
+  // Orden modificado según tu solicitud: ppv-home-vs-away
   const matchSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
 
   return {
-    url1: buildDamiUrl("admin", matchSlug, true),
-    url2: buildDamiUrl("admin", matchSlug, false),
-    url3: buildDamiUrl("echo", matchSlug, false),
+    // URL 1: Admin con Autoplay en embedsports.top
+    url1: `https://embedsports.top/embed/admin/${matchSlug}/1?autoplay=1`,
+
+    // URL 2: Delta en embedsports.top (sin autoplay)
+    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
+
+    // URL 3: Echo en embedsports.top (sin autoplay)
+    url3: `https://embedsports.top/embed/echo/${matchSlug}/1`,
   };
 }
 
@@ -74,18 +51,19 @@ export function generateEmbedLinks(homeTeam: string, awayTeam: string): Generate
 export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
   const homeSlug = teamToSlug(homeTeam);
   const awaySlug = teamToSlug(awayTeam);
+
+  // En la alternativa invertimos el orden: ppv-away-vs-home
   const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
 
   return {
-    url1: buildDamiUrl("admin", matchSlug, true),
-    url2: buildDamiUrl("admin", matchSlug, false),
-    url3: buildDamiUrl("echo", matchSlug, false),
+    url1: `https://embedsports.top/embed/admin/${matchSlug}/1?autoplay=1`,
+    url2: `https://embedsports.top/embed/delta/${matchSlug}/1`,
+    url3: `https://embedsports.top/embed/echo/${matchSlug}/1`,
   };
 }
 
 /**
- * EXPORTACIÓN REQUERIDA POR LOVABLE
- * Esto soluciona el error "does not provide an export named 'generateAllLinkVariants'"
+ * Exportación para Lovable
  */
 export function generateAllLinkVariants(homeTeam: string, awayTeam: string) {
   return {
