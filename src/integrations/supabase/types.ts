@@ -200,6 +200,30 @@ export type Database = {
         }
         Relationships: []
       }
+      partidos_en_vivo: {
+        Row: {
+          esta_activo: boolean | null
+          fecha_actualizacion: string | null
+          id: string
+          match_name: string | null
+          sources: Json | null
+        }
+        Insert: {
+          esta_activo?: boolean | null
+          fecha_actualizacion?: string | null
+          id?: string
+          match_name?: string | null
+          sources?: Json | null
+        }
+        Update: {
+          esta_activo?: boolean | null
+          fecha_actualizacion?: string | null
+          id?: string
+          match_name?: string | null
+          sources?: Json | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
