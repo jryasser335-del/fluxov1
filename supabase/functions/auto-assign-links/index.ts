@@ -25,30 +25,32 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get events starting within the next 30 minutes that don't have stream URLs yet
+    // Get ALL active events: upcoming (within 30 min) OR already started/live
     const now = new Date();
     const in30min = new Date(now.getTime() + 30 * 60 * 1000);
 
-    const { data: events, error: eventsError } = await supabase
+    // Events starting within 30 min
+    const { data: upcoming } = await supabase
       .from("events")
       .select("*")
       .eq("is_active", true)
       .gte("event_date", now.toISOString())
       .lte("event_date", in30min.toISOString());
 
-    if (eventsError) throw eventsError;
-
-    // Also get events that already started but have no links
-    const { data: liveNoLinks, error: liveError } = await supabase
+    // Events already started (event_date in the past) that are still active
+    const { data: started } = await supabase
       .from("events")
       .select("*")
       .eq("is_active", true)
-      .eq("is_live", true)
-      .is("stream_url", null);
+      .lte("event_date", now.toISOString());
 
-    if (liveError) throw liveError;
-
-    const allEvents = [...(events || []), ...(liveNoLinks || [])];
+    // Deduplicate by id
+    const seen = new Set<string>();
+    const allEvents = [...(upcoming || []), ...(started || [])].filter(e => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    });
 
     if (allEvents.length === 0) {
       return new Response(
@@ -73,9 +75,6 @@ Deno.serve(async (req) => {
     let assigned = 0;
 
     for (const event of allEvents) {
-      // Skip if already has a stream URL
-      if (event.stream_url) continue;
-
       const homeWords = normalize(event.team_home || "").split(/\s+/);
       const awayWords = normalize(event.team_away || "").split(/\s+/);
 
