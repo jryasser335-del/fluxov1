@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,17 +47,22 @@ export function AdminScraper() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
+  // Usamos un Ref para que el intervalo siempre conozca el estado real de 'loading'
+  // sin tener que reiniciar el efecto de React.
+  const loadingRef = useRef(loading);
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+
   const fetchSavedMatches = async () => {
     setFetching(true);
-
-    // FILTRO PARA LIMPIAR PANEL: Solo partidos de las últimas 24 horas
     const oneDayAgo = new Date();
     oneDayAgo.setHours(oneDayAgo.getHours() - 24);
 
     const { data, error } = await supabase
       .from("live_scraped_links" as any)
       .select("*")
-      .gt("scanned_at", oneDayAgo.toISOString()) // Quita automáticamente lo viejo de la vista
+      .gt("scanned_at", oneDayAgo.toISOString())
       .order("category", { ascending: true });
 
     if (error) {
@@ -69,7 +74,11 @@ export function AdminScraper() {
   };
 
   const scanAll = useCallback(async () => {
-    if (loading) return;
+    // Verificamos tanto el estado como la referencia para evitar colisiones
+    if (loadingRef.current) {
+      console.log("Escaneo omitido: ya hay un proceso activo.");
+      return;
+    }
 
     setLoading(true);
     console.log("Iniciando proceso de escaneo en Supabase...");
@@ -91,30 +100,43 @@ export function AdminScraper() {
     } finally {
       setLoading(false);
     }
-  }, [loading]);
+  }, []); // Quitamos 'loading' de las dependencias para que la función sea estable
 
   useEffect(() => {
     fetchSavedMatches();
   }, []);
 
-  // --- LÓGICA DE ESCANEO AUTOMÁTICO REPARADA ---
+  // --- LÓGICA DE ESCANEO AUTOMÁTICO REPARADA Y SIN SIMPLIFICAR ---
   useEffect(() => {
-    console.log("Sistema de Auto-Scan activo.");
+    console.log("Sistema de Auto-Scan activo. Intervalo: 3 min.");
 
-    const intervalId = setInterval(() => {
-      // Solo dispara si no hay un proceso activo
-      if (!loading) {
-        console.log("Temporizador: Disparando scanAll...");
+    const runAutoScan = () => {
+      // Usamos la referencia para leer el valor actual de loading sin reiniciar el efecto
+      if (!loadingRef.current) {
+        console.log("Temporizador: Ejecutando scanAll automático...");
         scanAll();
       }
-    }, 180000); // 3 minutos
+    };
+
+    const intervalId = setInterval(runAutoScan, 180000); // 180,000ms = 3 minutos
+
+    // Listener de visibilidad: Si el usuario vuelve a la pestaña, refrescamos los datos visuales
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        console.log("Pestaña activa detectada. Refrescando tabla...");
+        fetchSavedMatches();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
 
     return () => {
-      console.log("Limpiando temporizador de escaneo...");
+      console.log("Limpiando temporizador y listeners...");
       clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibility);
     };
-  }, [scanAll, loading]);
-  // ----------------------------------------------
+  }, [scanAll]); // Solo depende de scanAll, que es estable gracias al useRef interno
+  // --------------------------------------------------------------
 
   const copyLink = async (link: string, matchId: string, server: string) => {
     await navigator.clipboard.writeText(link);
