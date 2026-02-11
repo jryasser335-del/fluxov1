@@ -71,24 +71,34 @@ Deno.serve(async (req) => {
     const events = allEvents || [];
     let assigned = 0;
     let created = 0;
+    let cleaned = 0;
 
     // Track which scraped links were matched to existing events
     const matchedScrapedIds = new Set<string>();
+    // Track which events got matched to a scraped link
+    const matchedEventIds = new Set<string>();
 
     // 1. Update existing events with scraped links
     for (const event of events) {
       const homeWords = normalize(event.team_home || "").split(/\s+/);
       const awayWords = normalize(event.team_away || "").split(/\s+/);
+      const nameWords = normalize(event.name || "").split(/\s+/).filter((w: string) => w.length > 2);
 
-      if (homeWords[0] === "" || awayWords[0] === "") continue;
+      if (homeWords[0] === "" && nameWords.length === 0) continue;
 
       const match = scrapedLinks.find((s: any) => {
         const allText = `${normalize(s.match_title || "")} ${normalize(s.team_home || "")} ${normalize(s.team_away || "")}`;
-        return wordsMatch(homeWords, allText) && wordsMatch(awayWords, allText);
+        if (homeWords[0] !== "" && awayWords[0] !== "") {
+          return wordsMatch(homeWords, allText) && wordsMatch(awayWords, allText);
+        }
+        // Fallback: match by name words
+        const matched = nameWords.filter((w: string) => allText.includes(w)).length;
+        return matched >= 2;
       });
 
       if (match) {
         matchedScrapedIds.add(match.id);
+        matchedEventIds.add(event.id);
         const links = getLinks(match);
 
         if (links.length > 0) {
@@ -108,19 +118,37 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2. Create events for scraped links that have sources but no matching event
+    // 2. Clean links from events that are NO LONGER in the scraper (match ended)
+    for (const event of events) {
+      if (matchedEventIds.has(event.id)) continue;
+      // Only clean if the event has a stream_url that looks auto-assigned (embedsports)
+      if (!event.stream_url || !event.stream_url.includes("embedsports")) continue;
+
+      const { error: cleanError } = await supabase
+        .from("events")
+        .update({
+          stream_url: null,
+          stream_url_2: null,
+          stream_url_3: null,
+          is_live: false,
+        })
+        .eq("id", event.id);
+
+      if (!cleanError) {
+        cleaned++;
+      }
+    }
+
+    // 3. Create events for scraped links that have sources but no matching event
     for (const scraped of scrapedLinks) {
       if (matchedScrapedIds.has(scraped.id)) continue;
 
       const links = getLinks(scraped);
-      // Only create if there's at least one link
       if (links.length === 0) continue;
 
-      // Check if event already exists by match_title similarity
       const scrapedNorm = normalize(scraped.match_title || "");
       const alreadyExists = events.some((e: any) => {
         const eventNorm = normalize(e.name || "");
-        // Check word overlap
         const scrapedWords = scrapedNorm.split(/\s+/).filter((w: string) => w.length > 2);
         const matchCount = scrapedWords.filter((w: string) => eventNorm.includes(w)).length;
         return matchCount >= 2;
@@ -156,9 +184,10 @@ Deno.serve(async (req) => {
         success: true,
         assigned,
         created,
+        cleaned,
         checked: events.length,
         scraped: scrapedLinks.length,
-        message: `Updated ${assigned} events, created ${created} new events`,
+        message: `Updated ${assigned} events, created ${created} new, cleaned ${cleaned} finished`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
