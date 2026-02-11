@@ -330,36 +330,43 @@ export function AdminEvents() {
     setSelectedEvent(event);
     setEspnEvents([]);
     
-    // Try to find scraped links matching the teams
     const comp = event.competitions[0];
     const home = comp.competitors.find(c => c.homeAway === "home");
     const away = comp.competitors.find(c => c.homeAway === "away");
     
     if (home?.team.displayName && away?.team.displayName) {
-      const homeName = home.team.displayName.toLowerCase();
-      const awayName = away.team.displayName.toLowerCase();
+      // Normalize: remove accents, lowercase
+      const normalize = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      
+      const homeWords = normalize(home.team.displayName).split(/\s+/);
+      const awayWords = normalize(away.team.displayName).split(/\s+/);
       
       const { data: scrapedLinks } = await supabase
         .from("live_scraped_links")
         .select("*");
       
-      // Find best match from scraped data
+      // Flexible matching: check if any significant word from each team appears
       const match = (scrapedLinks || []).find((s: any) => {
-        const title = s.match_title?.toLowerCase() || "";
-        const sHome = s.team_home?.toLowerCase() || "";
-        const sAway = s.team_away?.toLowerCase() || "";
-        return (
-          (title.includes(homeName.split(" ").pop()!) && title.includes(awayName.split(" ").pop()!)) ||
-          (sHome.includes(homeName.split(" ").pop()!) && sAway.includes(awayName.split(" ").pop()!)) ||
-          (sAway.includes(homeName.split(" ").pop()!) && sHome.includes(awayName.split(" ").pop()!))
-        );
+        const title = normalize(s.match_title || "");
+        const sHome = normalize(s.team_home || "");
+        const sAway = normalize(s.team_away || "");
+        const allText = `${title} ${sHome} ${sAway}`;
+        
+        // Check if at least one word (>2 chars) from each team is found
+        const homeMatch = homeWords.some(w => w.length > 2 && allText.includes(w));
+        const awayMatch = awayWords.some(w => w.length > 2 && allText.includes(w));
+        return homeMatch && awayMatch;
       });
       
       if (match) {
-        setNewStreamUrl((match as any).source_admin || "");
-        setNewStreamUrl2((match as any).source_delta || "");
-        setNewStreamUrl3((match as any).source_echo || "");
-        toast.success("🛰️ Links reales del escáner asignados");
+        // Assign whatever links are available, prioritize: admin > delta > echo > golf
+        const m = match as any;
+        const availableLinks = [m.source_admin, m.source_delta, m.source_echo, m.source_golf].filter(Boolean);
+        
+        setNewStreamUrl(availableLinks[0] || "");
+        setNewStreamUrl2(availableLinks[1] || "");
+        setNewStreamUrl3(availableLinks[2] || "");
+        toast.success(`🛰️ ${availableLinks.length} link(s) del escáner asignados`);
       } else {
         setNewStreamUrl("");
         setNewStreamUrl2("");
