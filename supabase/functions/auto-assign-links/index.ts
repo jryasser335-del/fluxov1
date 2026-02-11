@@ -38,6 +38,20 @@ function wordsMatch(eventWords: string[], scrapedText: string): boolean {
   return eventWords.some((w: string) => w.length > 2 && scrapedText.includes(w));
 }
 
+function teamMatch(teamName: string, scrapedText: string): boolean {
+  const words = normalize(teamName).split(/\s+/).filter((w: string) => w.length > 3);
+  if (words.length === 0) return false;
+  const matched = words.filter((w: string) => scrapedText.includes(w)).length;
+  return matched >= 1 && matched >= Math.ceil(words.length * 0.5);
+}
+
+function isMatchEnded(eventDate: string): boolean {
+  const start = new Date(eventDate).getTime();
+  const now = Date.now();
+  const hoursElapsed = (now - start) / (1000 * 60 * 60);
+  return hoursElapsed > 3;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -118,10 +132,27 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2. Clean links from events that are NO LONGER in the scraper (match ended)
+    // 2. Clean links from events that ended (3+ hours since start) OR no longer in scraper
     for (const event of events) {
-      if (matchedEventIds.has(event.id)) continue;
-      // Only clean if the event has a stream_url that looks auto-assigned (embedsports)
+      // Skip if still matched to a live scrape
+      if (matchedEventIds.has(event.id)) {
+        // Even if matched, check if ended by time
+        if (event.event_date && isMatchEnded(event.event_date)) {
+          const { error: cleanError } = await supabase
+            .from("events")
+            .update({
+              stream_url: null,
+              stream_url_2: null,
+              stream_url_3: null,
+              is_live: false,
+            })
+            .eq("id", event.id);
+          if (!cleanError) cleaned++;
+          continue;
+        }
+        continue;
+      }
+      // Not in scraper anymore - clean if auto-assigned
       if (!event.stream_url || !event.stream_url.includes("embedsports")) continue;
 
       const { error: cleanError } = await supabase
@@ -146,12 +177,23 @@ Deno.serve(async (req) => {
       const links = getLinks(scraped);
       if (links.length === 0) continue;
 
-      const scrapedNorm = normalize(scraped.match_title || "");
+      const scrapedText = normalize(scraped.match_title || "");
+      const scrapedHome = normalize(scraped.team_home || "");
+      const scrapedAway = normalize(scraped.team_away || "");
+      
       const alreadyExists = events.some((e: any) => {
+        // Use team-based matching (stricter, avoids false positives with short words)
+        if (e.team_home && e.team_away && scrapedHome && scrapedAway) {
+          const eHome = normalize(e.team_home);
+          const eAway = normalize(e.team_away);
+          return teamMatch(e.team_home, `${scrapedHome} ${scrapedAway} ${scrapedText}`) 
+              && teamMatch(e.team_away, `${scrapedHome} ${scrapedAway} ${scrapedText}`);
+        }
+        // Fallback: require 3+ word overlap with words > 3 chars
         const eventNorm = normalize(e.name || "");
-        const scrapedWords = scrapedNorm.split(/\s+/).filter((w: string) => w.length > 2);
+        const scrapedWords = scrapedText.split(/\s+/).filter((w: string) => w.length > 3);
         const matchCount = scrapedWords.filter((w: string) => eventNorm.includes(w)).length;
-        return matchCount >= 2;
+        return matchCount >= 3;
       });
 
       if (alreadyExists) continue;
