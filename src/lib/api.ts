@@ -79,11 +79,46 @@ export interface ESPNResponse {
   }[];
 }
 
+// Map league keys to ESPN API sport paths
+const ESPN_SPORT_MAP: Record<string, string> = {
+  // Basketball
+  nba: "basketball/nba",
+  wnba: "basketball/wnba",
+  ncaab: "basketball/mens-college-basketball",
+  euroleague: "basketball/mens-olympic-basketball",
+  // Football
+  nfl: "football/nfl",
+  ncaaf: "football/college-football",
+  xfl: "football/xfl",
+  // Hockey
+  nhl: "hockey/nhl",
+  // Baseball
+  mlb: "baseball/mlb",
+  // MMA / Boxing
+  ufc: "mma/ufc",
+  bellator: "mma/bellator",
+  pfl: "mma/pfl",
+  one: "mma/one-championship",
+  boxing: "boxing/boxing",
+  // Tennis
+  atp: "tennis/atp",
+  wta: "tennis/wta",
+  // Motorsports
+  f1: "racing/f1",
+  motogp: "racing/motogp",
+  nascar: "racing/nascar",
+  indycar: "racing/indycar",
+  // Golf
+  pga: "golf/pga",
+  lpga: "golf/lpga",
+};
+
 export async function fetchESPNScoreboard(leagueKey: string): Promise<ESPNResponse> {
   const today = new Date();
   const date = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
   
-  const sport = leagueKey === "nba" ? "basketball/nba" : `soccer/${leagueKey}`;
+  // Check if it's a known sport, otherwise assume soccer
+  const sport = ESPN_SPORT_MAP[leagueKey] || `soccer/${leagueKey}`;
   const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard?dates=${date}`;
   
   const res = await fetch(url);

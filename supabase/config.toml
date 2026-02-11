@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.scrape-live-matches]
 verify_jwt = false
+
+[functions.auto-assign-links]
+verify_jwt = false
