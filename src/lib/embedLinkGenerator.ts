@@ -1,12 +1,20 @@
 /**
- * Estructura de links para Dami TV
+ * Generates specific sports embed links for Dami TV
+ * URL 1: Admin (autoplay)
+ * URL 2: Admin (no autoplay)
+ * URL 3: Echo
  */
-export interface DamiLinks {
-  url1: string; // Admin + Autoplay
-  url2: string; // Admin
-  url3: string; // Echo
+
+export interface GeneratedLinks {
+  url1: string;
+  url2: string;
+  url3: string;
 }
 
+/**
+ * Convierte el nombre de un equipo a un slug amigable para URL
+ * Limpia acentos y caracteres especiales
+ */
 function teamToSlug(team: string): string {
   return team
     .toLowerCase()
@@ -18,7 +26,21 @@ function teamToSlug(team: string): string {
 }
 
 /**
- * Genera la URL con el formato exacto de Dami TV
+ * Valida que la URL generada tenga un formato de link válido
+ */
+function validateLink(url: string): string {
+  try {
+    new URL(url);
+    return url;
+  } catch (e) {
+    console.error("Link generado inválido:", url);
+    return "";
+  }
+}
+
+/**
+ * Construye la URL con el formato exacto de Dami TV:
+ * https://embed.damitv.pro/?source=...&id=...&streamNo=1&autoplay=...
  */
 function buildDamiUrl(source: "admin" | "echo", matchSlug: string, autoplay: boolean = false): string {
   const baseUrl = "https://embed.damitv.pro/";
@@ -28,30 +50,46 @@ function buildDamiUrl(source: "admin" | "echo", matchSlug: string, autoplay: boo
     streamNo: "1",
     autoplay: autoplay ? "true" : "false",
   });
-  return `${baseUrl}?${params.toString()}`;
+  return validateLink(`${baseUrl}?${params.toString()}`);
 }
 
 /**
- * Función principal: Genera ambos órdenes (Home-vs-Away y Away-vs-Home)
- * para que siempre tengas el link que sí funciona.
+ * Generador principal (Orden: Home vs Away)
  */
-export function generateDamiLinks(homeTeam: string, awayTeam: string) {
-  const home = teamToSlug(homeTeam);
-  const away = teamToSlug(awayTeam);
-
-  const slugPrimary = `ppv-${home}-vs-${away}`;
-  const slugAlternative = `ppv-${away}-vs-${home}`;
-
-  const createSet = (slug: string): DamiLinks => ({
-    url1: buildDamiUrl("admin", slug, true),
-    url2: buildDamiUrl("admin", slug, false),
-    url3: buildDamiUrl("echo", slug, false),
-  });
+export function generateEmbedLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
+  const homeSlug = teamToSlug(homeTeam);
+  const awaySlug = teamToSlug(awayTeam);
+  const matchSlug = `ppv-${homeSlug}-vs-${awaySlug}`;
 
   return {
-    // Te entrega ambos para que si el primario (NY-vs-IND) falla,
-    // el sistema use automáticamente el alternativo (IND-vs-NY).
-    optionA: createSet(slugPrimary),
-    optionB: createSet(slugAlternative),
+    url1: buildDamiUrl("admin", matchSlug, true),
+    url2: buildDamiUrl("admin", matchSlug, false),
+    url3: buildDamiUrl("echo", matchSlug, false),
+  };
+}
+
+/**
+ * Variante con orden inverso (Away vs Home)
+ */
+export function generateAlternativeLinks(homeTeam: string, awayTeam: string): GeneratedLinks {
+  const homeSlug = teamToSlug(homeTeam);
+  const awaySlug = teamToSlug(awayTeam);
+  const matchSlug = `ppv-${awaySlug}-vs-${homeSlug}`;
+
+  return {
+    url1: buildDamiUrl("admin", matchSlug, true),
+    url2: buildDamiUrl("admin", matchSlug, false),
+    url3: buildDamiUrl("echo", matchSlug, false),
+  };
+}
+
+/**
+ * EXPORTACIÓN REQUERIDA POR LOVABLE
+ * Esto soluciona el error "does not provide an export named 'generateAllLinkVariants'"
+ */
+export function generateAllLinkVariants(homeTeam: string, awayTeam: string) {
+  return {
+    primary: generateEmbedLinks(homeTeam, awayTeam),
+    alternative: generateAlternativeLinks(homeTeam, awayTeam),
   };
 }
