@@ -4,10 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Loader2, Search, Copy, Check, RefreshCw, Satellite,
-  Zap, Globe, Filter
-} from "lucide-react";
+import { Loader2, Search, Copy, Check, RefreshCw, Satellite, Zap, Globe, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface ScrapedMatch {
@@ -54,6 +51,19 @@ export function AdminScraper() {
     fetchSavedMatches();
   }, []);
 
+  // --- NUEVA LÓGICA DE ESCANEO AUTOMÁTICO ---
+  useEffect(() => {
+    // Definimos el intervalo de 3 minutos (3 * 60 * 1000 ms)
+    const intervalId = setInterval(() => {
+      console.log("Iniciando escaneo automático programado (cada 3 min)...");
+      scanAll();
+    }, 180000);
+
+    // Limpiamos el intervalo cuando el componente se desmonte para evitar fugas de memoria
+    return () => clearInterval(intervalId);
+  }, []);
+  // ------------------------------------------
+
   const fetchSavedMatches = async () => {
     setFetching(true);
     const { data, error } = await supabase
@@ -70,6 +80,9 @@ export function AdminScraper() {
   };
 
   const scanAll = async () => {
+    // Si ya está cargando, evitamos disparar otro escaneo simultáneo
+    if (loading) return;
+
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("scrape-live-matches");
@@ -105,8 +118,7 @@ export function AdminScraper() {
       m.team_home?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.team_away?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory =
-      filterCategory === "all" || m.category === filterCategory;
+    const matchesCategory = filterCategory === "all" || m.category === filterCategory;
 
     return matchesSearch && matchesCategory;
   });
@@ -125,13 +137,17 @@ export function AdminScraper() {
                 <Satellite className="w-6 h-6 text-cyan-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">
-                  Escáner Universal
-                </h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-white">Escáner Universal</h2>
+                  <Badge
+                    variant="outline"
+                    className="animate-pulse bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px]"
+                  >
+                    AUTO-SCAN ACTIVO (3m)
+                  </Badge>
+                </div>
                 <p className="text-sm text-white/50">
-                  {lastScan
-                    ? `Último escaneo: ${new Date(lastScan).toLocaleTimeString("es")}`
-                    : "Sin escaneos previos"}
+                  {lastScan ? `Último escaneo: ${new Date(lastScan).toLocaleTimeString("es")}` : "Sin escaneos previos"}
                 </p>
               </div>
             </div>
@@ -164,14 +180,9 @@ export function AdminScraper() {
           <p className="text-xs text-white/50">Total</p>
         </div>
         {["admin", "delta", "echo", "golf"].map((server) => {
-          const count = matches.filter(
-            (m) => m[`source_${server}` as keyof ScrapedMatch]
-          ).length;
+          const count = matches.filter((m) => m[`source_${server}` as keyof ScrapedMatch]).length;
           return (
-            <div
-              key={server}
-              className="bg-white/5 border border-white/10 rounded-xl p-3 text-center"
-            >
+            <div key={server} className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
               <p className="text-2xl font-bold text-white">{count}</p>
               <p className="text-xs text-white/50 uppercase">{server}</p>
             </div>
@@ -196,9 +207,7 @@ export function AdminScraper() {
             size="sm"
             onClick={() => setFilterCategory("all")}
             className={`border-white/10 ${
-              filterCategory === "all"
-                ? "bg-white/20 text-white"
-                : "bg-white/5 text-white/60"
+              filterCategory === "all" ? "bg-white/20 text-white" : "bg-white/5 text-white/60"
             }`}
           >
             <Globe className="w-3 h-3 mr-1" />
@@ -211,9 +220,7 @@ export function AdminScraper() {
               size="sm"
               onClick={() => setFilterCategory(cat!)}
               className={`border-white/10 ${
-                filterCategory === cat
-                  ? "bg-white/20 text-white"
-                  : "bg-white/5 text-white/60"
+                filterCategory === cat ? "bg-white/20 text-white" : "bg-white/5 text-white/60"
               }`}
             >
               {CATEGORY_EMOJIS[cat!] || "🎯"} {cat}
@@ -249,17 +256,11 @@ export function AdminScraper() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] border-white/20 text-white/60"
-                        >
-                          {CATEGORY_EMOJIS[match.category || "other"] || "🎯"}{" "}
-                          {match.category}
+                        <Badge variant="outline" className="text-[10px] border-white/20 text-white/60">
+                          {CATEGORY_EMOJIS[match.category || "other"] || "🎯"} {match.category}
                         </Badge>
                       </div>
-                      <h3 className="font-semibold text-white text-sm truncate">
-                        {match.match_title}
-                      </h3>
+                      <h3 className="font-semibold text-white text-sm truncate">{match.match_title}</h3>
                       {match.team_home && match.team_away && (
                         <p className="text-xs text-white/40 mt-0.5">
                           {match.team_home} vs {match.team_away}
@@ -270,15 +271,9 @@ export function AdminScraper() {
 
                   {/* Server buttons */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {(
-                      ["admin", "delta", "echo", "golf"] as const
-                    ).map((server) => {
-                      const link =
-                        match[
-                          `source_${server}` as keyof ScrapedMatch
-                        ] as string | null;
-                      const isCopied =
-                        copiedId === `${match.match_id}-${server}`;
+                    {(["admin", "delta", "echo", "golf"] as const).map((server) => {
+                      const link = match[`source_${server}` as keyof ScrapedMatch] as string | null;
+                      const isCopied = copiedId === `${match.match_id}-${server}`;
 
                       return (
                         <Button
@@ -286,20 +281,12 @@ export function AdminScraper() {
                           variant="outline"
                           size="sm"
                           disabled={!link}
-                          onClick={() =>
-                            link && copyLink(link, match.match_id, server)
-                          }
+                          onClick={() => link && copyLink(link, match.match_id, server)}
                           className={`text-xs font-mono ${
-                            link
-                              ? SERVER_COLORS[server]
-                              : "border-white/5 text-white/20 bg-white/[0.02]"
+                            link ? SERVER_COLORS[server] : "border-white/5 text-white/20 bg-white/[0.02]"
                           } ${isCopied ? "ring-2 ring-green-400/50" : ""}`}
                         >
-                          {isCopied ? (
-                            <Check className="w-3 h-3 mr-1" />
-                          ) : (
-                            <Copy className="w-3 h-3 mr-1" />
-                          )}
+                          {isCopied ? <Check className="w-3 h-3 mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
                           {server.toUpperCase()}
                         </Button>
                       );
