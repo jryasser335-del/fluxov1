@@ -344,38 +344,75 @@ export function AdminEvents() {
 
     if (homeName && awayName) {
       try {
-        // Limpiamos los nombres para una búsqueda más efectiva (case-insensitive y comodines)
-        const cleanHome = homeName.split(" ").pop(); // Usamos la última palabra (ej: "Lakers" de "LA Lakers")
-        const cleanAway = awayName.split(" ").pop();
-
-        const { data: scraped, error: scrapeError } = await supabase
+        // BÚSQUEDA PRIMARIA: Por ESPN_ID (más preciso)
+        const { data: scrapedById, error: errorById } = await supabase
           .from("live_scraped_links" as any)
           .select("source_admin, source_delta, source_echo, match_title")
-          .or(`match_title.ilike.%${cleanHome}%,match_title.ilike.%${cleanAway}%`)
+          .eq("espn_id", event.id)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
 
-        if (scraped && (scraped as any).source_admin) {
-          const s = scraped as any;
+        if (scrapedById && (scrapedById as any).source_admin) {
+          const s = scrapedById as any;
           setNewStreamUrl(s.source_admin || "");
           setNewStreamUrl2(s.source_delta || "");
           setNewStreamUrl3(s.source_echo || "");
           setIsScrapedLink(true);
-          toast.success(`🛰️ Detectado en Escáner: ${s.match_title}`);
+          toast.success(`🛰️ Links exactos de Moviebite: ${s.match_title}`);
           return; // IMPORTANTE: Cortamos aquí para que NO use el generador
         }
+
+        // BÚSQUEDA SECUNDARIA: Por nombres de equipos con múltiples patrones
+        const homeKeywords = homeName.split(" ").filter((w) => w.length > 3);
+        const awayKeywords = awayName.split(" ").filter((w) => w.length > 3);
+
+        const searchPatterns = [
+          // Patrón 1: Búsqueda exacta con "vs"
+          `%${homeName}%vs%${awayName}%`,
+          `%${awayName}%vs%${homeName}%`,
+          // Patrón 2: Última palabra de cada equipo (ej: "Lakers" de "LA Lakers")
+          `%${homeKeywords[homeKeywords.length - 1]}%vs%${awayKeywords[awayKeywords.length - 1]}%`,
+          `%${awayKeywords[awayKeywords.length - 1]}%vs%${homeKeywords[homeKeywords.length - 1]}%`,
+          // Patrón 3: Solo última palabra de cada equipo sin "vs" explícito
+          `%${homeKeywords[homeKeywords.length - 1]}%${awayKeywords[awayKeywords.length - 1]}%`,
+          `%${awayKeywords[awayKeywords.length - 1]}%${homeKeywords[homeKeywords.length - 1]}%`,
+        ];
+
+        for (const pattern of searchPatterns) {
+          const { data: scraped, error: scrapeError } = await supabase
+            .from("live_scraped_links" as any)
+            .select("source_admin, source_delta, source_echo, match_title")
+            .ilike("match_title", pattern)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (scraped && (scraped as any).source_admin) {
+            const s = scraped as any;
+            setNewStreamUrl(s.source_admin || "");
+            setNewStreamUrl2(s.source_delta || "");
+            setNewStreamUrl3(s.source_echo || "");
+            setIsScrapedLink(true);
+            toast.success(`🛰️ Links de Moviebite detectados: ${s.match_title}`);
+            return; // IMPORTANTE: Cortamos aquí para que NO use el generador
+          }
+        }
+
+        // Si llegamos aquí, no se encontró nada scrapeado
+        toast.warning("⚠️ No se encontraron links scrapeados para este partido");
       } catch (err) {
         console.error("Error fetching scraped links:", err);
+        toast.error("Error buscando en el Escáner de Moviebite");
       }
 
-      // SOLO llegamos aquí si el escáner falló
+      // SOLO llegamos aquí si el escáner falló completamente
       const links = generateAllLinkVariants(homeName, awayName);
       setNewStreamUrl(links.primary.url1);
       setNewStreamUrl2(links.primary.url2);
       setNewStreamUrl3(links.primary.url3);
       setIsScrapedLink(false);
-      toast.info("🔗 Usando links generados automáticamente");
+      toast.info("🔗 Usando links generados automáticamente desde embedsports.top");
     }
   };
 
