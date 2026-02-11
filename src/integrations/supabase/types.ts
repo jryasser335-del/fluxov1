@@ -155,6 +155,51 @@ export type Database = {
         }
         Relationships: []
       }
+      live_scraped_links: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          match_id: string
+          match_title: string
+          scanned_at: string
+          source_admin: string | null
+          source_delta: string | null
+          source_echo: string | null
+          source_golf: string | null
+          team_away: string | null
+          team_home: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          match_id: string
+          match_title: string
+          scanned_at?: string
+          source_admin?: string | null
+          source_delta?: string | null
+          source_echo?: string | null
+          source_golf?: string | null
+          team_away?: string | null
+          team_home?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          match_id?: string
+          match_title?: string
+          scanned_at?: string
+          source_admin?: string | null
+          source_delta?: string | null
+          source_echo?: string | null
+          source_golf?: string | null
+          team_away?: string | null
+          team_home?: string | null
+        }
+        Relationships: []
+      }
       media_links: {
         Row: {
           created_at: string
