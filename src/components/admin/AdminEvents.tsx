@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchESPNScoreboard, ESPNEvent } from "@/lib/api";
+import { generateAllLinkVariants } from "@/lib/embedLinkGenerator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -334,7 +335,7 @@ export function AdminEvents() {
     setEspnEvents([]);
     setIsScrapedLink(false);
 
-    // IMPORTANTE: Limpiamos los links viejos antes de buscar
+    // 1. Limpieza de campos inicial
     setNewStreamUrl("");
     setNewStreamUrl2("");
     setNewStreamUrl3("");
@@ -348,14 +349,19 @@ export function AdminEvents() {
 
     if (homeName && awayName) {
       try {
-        // BÚSQUEDA AGRESIVA EN EL ESCANER: Extraemos la última palabra para máxima coincidencia
-        const cleanHome = homeName.split(" ").pop();
-        const cleanAway = awayName.split(" ").pop();
+        // 2. BÚSQUEDA AGRESIVA POR PALABRAS CLAVE (Última palabra de cada equipo)
+        const homeWords = homeName.split(" ");
+        const awayWords = awayName.split(" ");
+        const homeKey = homeWords[homeWords.length - 1]; // Ej: "Lakers"
+        const awayKey = awayWords[awayWords.length - 1]; // Ej: "Pacers"
 
-        const { data: scraped } = await supabase
+        // Buscamos en live_scraped_links ignorando mayúsculas/minúsculas
+        const { data: scraped, error: scrapeError } = await supabase
           .from("live_scraped_links" as any)
           .select("source_admin, source_delta, source_echo, match_title")
-          .or(`match_title.ilike.%${cleanHome}%,match_title.ilike.%${cleanAway}%`)
+          .or(
+            `match_title.ilike.%${homeKey}%${awayKey}%,match_title.ilike.%${awayKey}%${homeKey}%,match_title.ilike.%${homeKey}%,match_title.ilike.%${awayKey}%`,
+          )
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -367,13 +373,15 @@ export function AdminEvents() {
           setNewStreamUrl3(s.source_echo || "");
           setIsScrapedLink(true);
           toast.success(`🛰️ LINKS REALES DETECTADOS: ${s.match_title}`);
-        } else {
-          toast.warning("⚠️ No se hallaron links en el escáner. Debes ponerlos manual.");
+          return; // Detener aquí si se encontraron links reales
         }
       } catch (err) {
         console.error("Error fetching scraped links:", err);
-        toast.error("Error al conectar con la base de datos del escáner");
       }
+
+      // 3. SOLO SI NO HAY SCRAPED, se borra el generador y se deja vacío
+      // Si el usuario quiere forzar el generador, puede usar el botón manual
+      toast.warning("⚠️ No se hallaron links en el escáner. Ponlos manual.");
     }
   };
 
