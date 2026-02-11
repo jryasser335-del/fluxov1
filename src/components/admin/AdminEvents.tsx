@@ -9,23 +9,32 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Plus, Save, Trash2, Loader2, X, 
-  RefreshCw, Trophy, Search, Calendar,
-  Zap, Globe, Filter, ChevronDown, ChevronRight,
-  Circle, Radio, Eye, EyeOff, Link2, Sparkles, Clock, Wand2
+import {
+  Plus,
+  Save,
+  Trash2,
+  Loader2,
+  X,
+  RefreshCw,
+  Trophy,
+  Search,
+  Calendar,
+  Zap,
+  Globe,
+  Filter,
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  Radio,
+  Eye,
+  EyeOff,
+  Link2,
+  Sparkles,
+  Clock,
+  Wand2,
 } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface EventLink {
   id: string;
@@ -59,7 +68,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "wnba", name: "WNBA", sport: "Basketball", flag: "🇺🇸" },
       { key: "ncaab", name: "NCAA Basketball", sport: "Basketball", flag: "🇺🇸" },
       { key: "euroleague", name: "EuroLeague", sport: "Basketball", flag: "🇪🇺" },
-    ]
+    ],
   },
   {
     name: "🏈 Football Americano",
@@ -68,7 +77,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "nfl", name: "NFL", sport: "Football", flag: "🇺🇸" },
       { key: "ncaaf", name: "NCAA Football", sport: "Football", flag: "🇺🇸" },
       { key: "xfl", name: "XFL", sport: "Football", flag: "🇺🇸" },
-    ]
+    ],
   },
   {
     name: "🏒 Hockey",
@@ -80,7 +89,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "ahl", name: "AHL", sport: "Hockey", flag: "🇺🇸" },
       { key: "liiga", name: "Liiga (Finlandia)", sport: "Hockey", flag: "🇫🇮" },
       { key: "del", name: "DEL (Alemania)", sport: "Hockey", flag: "🇩🇪" },
-    ]
+    ],
   },
   {
     name: "⚾ Baseball",
@@ -89,7 +98,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "mlb", name: "MLB", sport: "Baseball", flag: "🇺🇸" },
       { key: "npb", name: "NPB (Japón)", sport: "Baseball", flag: "🇯🇵" },
       { key: "kbo", name: "KBO (Corea)", sport: "Baseball", flag: "🇰🇷" },
-    ]
+    ],
   },
   {
     name: "⚽ Ligas Top Europeas",
@@ -105,7 +114,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "sco.1", name: "Scottish Premiership", sport: "Soccer", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿" },
       { key: "bel.1", name: "Pro League (Bélgica)", sport: "Soccer", flag: "🇧🇪" },
       { key: "tur.1", name: "Süper Lig (Turquía)", sport: "Soccer", flag: "🇹🇷" },
-    ]
+    ],
   },
   {
     name: "🏆 Competiciones UEFA",
@@ -117,7 +126,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "uefa.nations", name: "UEFA Nations League", sport: "Soccer", flag: "🇪🇺" },
       { key: "uefa.euro", name: "UEFA Euro", sport: "Soccer", flag: "🇪🇺" },
       { key: "uefa.super_cup", name: "Supercopa de Europa", sport: "Soccer", flag: "🇪🇺" },
-    ]
+    ],
   },
   {
     name: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Copas Inglaterra",
@@ -128,7 +137,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "eng.community_shield", name: "Community Shield", sport: "Soccer", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
       { key: "eng.2", name: "Championship", sport: "Soccer", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
       { key: "eng.3", name: "League One", sport: "Soccer", flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
-    ]
+    ],
   },
   {
     name: "🇪🇸 Copas España",
@@ -137,7 +146,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "esp.copa_del_rey", name: "Copa del Rey", sport: "Soccer", flag: "🇪🇸" },
       { key: "esp.super_cup", name: "Supercopa de España", sport: "Soccer", flag: "🇪🇸" },
       { key: "esp.2", name: "LaLiga 2", sport: "Soccer", flag: "🇪🇸" },
-    ]
+    ],
   },
   {
     name: "🇩🇪 Copas Alemania",
@@ -146,7 +155,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "ger.dfb_pokal", name: "DFB-Pokal", sport: "Soccer", flag: "🇩🇪" },
       { key: "ger.super_cup", name: "DFL-Supercup", sport: "Soccer", flag: "🇩🇪" },
       { key: "ger.2", name: "2. Bundesliga", sport: "Soccer", flag: "🇩🇪" },
-    ]
+    ],
   },
   {
     name: "🇮🇹 Copas Italia",
@@ -155,7 +164,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "ita.coppa_italia", name: "Coppa Italia", sport: "Soccer", flag: "🇮🇹" },
       { key: "ita.super_cup", name: "Supercoppa Italiana", sport: "Soccer", flag: "🇮🇹" },
       { key: "ita.2", name: "Serie B", sport: "Soccer", flag: "🇮🇹" },
-    ]
+    ],
   },
   {
     name: "🇫🇷 Copas Francia",
@@ -164,7 +173,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "fra.coupe_de_france", name: "Coupe de France", sport: "Soccer", flag: "🇫🇷" },
       { key: "fra.coupe_de_la_ligue", name: "Coupe de la Ligue", sport: "Soccer", flag: "🇫🇷" },
       { key: "fra.2", name: "Ligue 2", sport: "Soccer", flag: "🇫🇷" },
-    ]
+    ],
   },
   {
     name: "🌎 Américas",
@@ -185,7 +194,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "conmebol.copa_america", name: "Copa América", sport: "Soccer", flag: "🌎" },
       { key: "concacaf.champions", name: "Concacaf Champions Cup", sport: "Soccer", flag: "🌎" },
       { key: "concacaf.nations", name: "Concacaf Nations League", sport: "Soccer", flag: "🌎" },
-    ]
+    ],
   },
   {
     name: "🌍 Internacionales",
@@ -196,7 +205,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "fifa.club_world_cup", name: "FIFA Club World Cup", sport: "Soccer", flag: "🌍" },
       { key: "afc.asian_cup", name: "AFC Asian Cup", sport: "Soccer", flag: "🌏" },
       { key: "caf.afcon", name: "Africa Cup of Nations", sport: "Soccer", flag: "🌍" },
-    ]
+    ],
   },
   {
     name: "🌏 Ligas Asia",
@@ -208,7 +217,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "sau.1", name: "Saudi Pro League", sport: "Soccer", flag: "🇸🇦" },
       { key: "aus.1", name: "A-League (Australia)", sport: "Soccer", flag: "🇦🇺" },
       { key: "ind.1", name: "Indian Super League", sport: "Soccer", flag: "🇮🇳" },
-    ]
+    ],
   },
   {
     name: "🥊 Boxing & MMA",
@@ -219,7 +228,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "bellator", name: "Bellator MMA", sport: "MMA", flag: "🇺🇸" },
       { key: "pfl", name: "PFL", sport: "MMA", flag: "🇺🇸" },
       { key: "one", name: "ONE Championship", sport: "MMA", flag: "🌏" },
-    ]
+    ],
   },
   {
     name: "🎾 Tenis",
@@ -229,7 +238,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "wta", name: "WTA Tour", sport: "Tennis", flag: "🎾" },
       { key: "grand.slam", name: "Grand Slam", sport: "Tennis", flag: "🏆" },
       { key: "davis.cup", name: "Copa Davis", sport: "Tennis", flag: "🏆" },
-    ]
+    ],
   },
   {
     name: "🏎️ Motorsports",
@@ -241,7 +250,7 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "indycar", name: "IndyCar", sport: "Motorsports", flag: "🇺🇸" },
       { key: "wrc", name: "WRC Rally", sport: "Motorsports", flag: "🚗" },
       { key: "formula.e", name: "Formula E", sport: "Motorsports", flag: "⚡" },
-    ]
+    ],
   },
   {
     name: "⛳ Golf",
@@ -251,20 +260,18 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
       { key: "lpga", name: "LPGA Tour", sport: "Golf", flag: "🇺🇸" },
       { key: "european.tour", name: "DP World Tour", sport: "Golf", flag: "🇪🇺" },
       { key: "liv", name: "LIV Golf", sport: "Golf", flag: "🌍" },
-    ]
+    ],
   },
 ];
 
-// Flat list for quick lookup
-const ALL_LEAGUES = LEAGUE_CATEGORIES.flatMap(cat => cat.leagues);
+const ALL_LEAGUES = LEAGUE_CATEGORIES.flatMap((cat) => cat.leagues);
 
 export function AdminEvents() {
   const [eventLinks, setEventLinks] = useState<EventLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
-  // ESPN search state
+
   const [selectedLeague, setSelectedLeague] = useState<string>("");
   const [espnEvents, setEspnEvents] = useState<ESPNEvent[]>([]);
   const [searching, setSearching] = useState(false);
@@ -273,8 +280,8 @@ export function AdminEvents() {
   const [newStreamUrl2, setNewStreamUrl2] = useState("");
   const [newStreamUrl3, setNewStreamUrl3] = useState("");
   const [espnSearchQuery, setEspnSearchQuery] = useState("");
-  
-  // Filters
+  const [isScrapedLink, setIsScrapedLink] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "live" | "with-link" | "without-link">("all");
   const [leagueSearch, setLeagueSearch] = useState("");
@@ -282,7 +289,6 @@ export function AdminEvents() {
 
   useEffect(() => {
     fetchEventLinks();
-    // Sync event status on load
     syncEventStatus();
   }, []);
 
@@ -295,10 +301,7 @@ export function AdminEvents() {
   };
 
   const fetchEventLinks = async () => {
-    const { data, error } = await supabase
-      .from("events")
-      .select("*")
-      .order("event_date", { ascending: true });
+    const { data, error } = await supabase.from("events").select("*").order("event_date", { ascending: true });
 
     if (error) {
       toast.error("Error al cargar eventos");
@@ -330,49 +333,56 @@ export function AdminEvents() {
   const selectEvent = async (event: ESPNEvent) => {
     setSelectedEvent(event);
     setEspnEvents([]);
-    
+    setIsScrapedLink(false);
+
     const comp = event.competitions[0];
-    const home = comp.competitors.find(c => c.homeAway === "home");
-    const away = comp.competitors.find(c => c.homeAway === "away");
-    
-    // Try to find scraped links first
+    const home = comp.competitors.find((c) => c.homeAway === "home");
+    const away = comp.competitors.find((c) => c.homeAway === "away");
+
     const homeName = home?.team.displayName || "";
     const awayName = away?.team.displayName || "";
-    
+
     if (homeName && awayName) {
       try {
-        const { data: scraped } = await supabase
+        // Limpiamos los nombres para una búsqueda más efectiva (case-insensitive y comodines)
+        const cleanHome = homeName.split(" ").pop(); // Usamos la última palabra (ej: "Lakers" de "LA Lakers")
+        const cleanAway = awayName.split(" ").pop();
+
+        const { data: scraped, error: scrapeError } = await supabase
           .from("live_scraped_links" as any)
-          .select("source_admin, source_delta, source_echo")
-          .or(`match_title.ilike.%${homeName}%,match_title.ilike.%${awayName}%`)
+          .select("source_admin, source_delta, source_echo, match_title")
+          .or(`match_title.ilike.%${cleanHome}%,match_title.ilike.%${cleanAway}%`)
+          .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle();
-        
+
         if (scraped && (scraped as any).source_admin) {
           const s = scraped as any;
           setNewStreamUrl(s.source_admin || "");
           setNewStreamUrl2(s.source_delta || "");
           setNewStreamUrl3(s.source_echo || "");
-          toast.success("🛰️ Links reales del escáner aplicados");
-          return;
+          setIsScrapedLink(true);
+          toast.success(`🛰️ Detectado en Escáner: ${s.match_title}`);
+          return; // IMPORTANTE: Cortamos aquí para que NO use el generador
         }
       } catch (err) {
         console.error("Error fetching scraped links:", err);
       }
-      
-      // Fallback to generated links
+
+      // SOLO llegamos aquí si el escáner falló
       const links = generateAllLinkVariants(homeName, awayName);
       setNewStreamUrl(links.primary.url1);
       setNewStreamUrl2(links.primary.url2);
       setNewStreamUrl3(links.primary.url3);
-      toast.success("🔗 Links generados automáticamente (sin datos del escáner)");
+      setIsScrapedLink(false);
+      toast.info("🔗 Usando links generados automáticamente");
     }
   };
 
   const getEventName = (event: ESPNEvent) => {
     const comp = event.competitions[0];
-    const home = comp.competitors.find(c => c.homeAway === "home");
-    const away = comp.competitors.find(c => c.homeAway === "away");
+    const home = comp.competitors.find((c) => c.homeAway === "home");
+    const away = comp.competitors.find((c) => c.homeAway === "away");
     return `${home?.team.displayName || "TBD"} vs ${away?.team.displayName || "TBD"}`;
   };
 
@@ -383,9 +393,9 @@ export function AdminEvents() {
     }
 
     const comp = selectedEvent.competitions[0];
-    const home = comp.competitors.find(c => c.homeAway === "home");
-    const away = comp.competitors.find(c => c.homeAway === "away");
-    const league = ALL_LEAGUES.find(l => l.key === selectedLeague);
+    const home = comp.competitors.find((c) => c.homeAway === "home");
+    const away = comp.competitors.find((c) => c.homeAway === "away");
+    const league = ALL_LEAGUES.find((l) => l.key === selectedLeague);
 
     const { data, error } = await supabase
       .from("events")
@@ -427,48 +437,43 @@ export function AdminEvents() {
     setLeagueSearch("");
     setEspnEvents([]);
     setEspnSearchQuery("");
+    setIsScrapedLink(false);
     setIsDialogOpen(false);
   };
 
-  const updateStreamUrls = async (event: EventLink, urls: { stream_url?: string; stream_url_2?: string; stream_url_3?: string }) => {
+  const updateStreamUrls = async (
+    event: EventLink,
+    urls: { stream_url?: string; stream_url_2?: string; stream_url_3?: string },
+  ) => {
     setSaving(event.id);
-    const { error } = await supabase
-      .from("events")
-      .update(urls)
-      .eq("id", event.id);
+    const { error } = await supabase.from("events").update(urls).eq("id", event.id);
 
     if (error) {
       toast.error("Error al guardar links");
     } else {
-      setEventLinks(eventLinks.map(e => e.id === event.id ? { ...e, ...urls } : e));
+      setEventLinks(eventLinks.map((e) => (e.id === event.id ? { ...e, ...urls } : e)));
       toast.success("Links guardados");
     }
     setSaving(null);
   };
 
   const toggleLive = async (event: EventLink, is_live: boolean) => {
-    const { error } = await supabase
-      .from("events")
-      .update({ is_live })
-      .eq("id", event.id);
+    const { error } = await supabase.from("events").update({ is_live }).eq("id", event.id);
 
     if (error) {
       toast.error("Error al cambiar estado");
     } else {
-      setEventLinks(eventLinks.map(e => e.id === event.id ? { ...e, is_live } : e));
+      setEventLinks(eventLinks.map((e) => (e.id === event.id ? { ...e, is_live } : e)));
     }
   };
 
   const toggleActive = async (event: EventLink, is_active: boolean) => {
-    const { error } = await supabase
-      .from("events")
-      .update({ is_active })
-      .eq("id", event.id);
+    const { error } = await supabase.from("events").update({ is_active }).eq("id", event.id);
 
     if (error) {
       toast.error("Error al cambiar estado");
     } else {
-      setEventLinks(eventLinks.map(e => e.id === event.id ? { ...e, is_active } : e));
+      setEventLinks(eventLinks.map((e) => (e.id === event.id ? { ...e, is_active } : e)));
     }
   };
 
@@ -478,27 +483,24 @@ export function AdminEvents() {
     if (error) {
       toast.error("Error al eliminar");
     } else {
-      setEventLinks(eventLinks.filter(e => e.id !== id));
+      setEventLinks(eventLinks.filter((e) => e.id !== id));
       toast.success("Evento eliminado");
     }
   };
 
-  // Stats
   const stats = useMemo(() => {
     const total = eventLinks.length;
-    const live = eventLinks.filter(e => e.is_live).length;
-    const withLink = eventLinks.filter(e => e.stream_url).length;
-    const withoutLink = eventLinks.filter(e => !e.stream_url).length;
+    const live = eventLinks.filter((e) => e.is_live).length;
+    const withLink = eventLinks.filter((e) => e.stream_url).length;
+    const withoutLink = eventLinks.filter((e) => !e.stream_url).length;
     return { total, live, withLink, withoutLink };
   }, [eventLinks]);
 
-  // Filtered events - improved search by team names
   const filteredEvents = useMemo(() => {
-    return eventLinks.filter(event => {
-      // Search filter - improved to search by team names
+    return eventLinks.filter((event) => {
       if (searchQuery) {
         const query = searchQuery.toLowerCase().trim();
-        const matchesSearch = 
+        const matchesSearch =
           event.name.toLowerCase().includes(query) ||
           event.league?.toLowerCase().includes(query) ||
           event.team_home?.toLowerCase().includes(query) ||
@@ -506,37 +508,31 @@ export function AdminEvents() {
           event.sport?.toLowerCase().includes(query);
         if (!matchesSearch) return false;
       }
-      
-      // Status filter
+
       if (filterStatus === "live" && !event.is_live) return false;
       if (filterStatus === "with-link" && !event.stream_url) return false;
       if (filterStatus === "without-link" && event.stream_url) return false;
-      
+
       return true;
     });
   }, [eventLinks, searchQuery, filterStatus]);
 
-  // Filtered leagues for dialog
   const filteredCategories = useMemo(() => {
     if (!leagueSearch) return LEAGUE_CATEGORIES;
     const query = leagueSearch.toLowerCase();
-    return LEAGUE_CATEGORIES.map(cat => ({
+    return LEAGUE_CATEGORIES.map((cat) => ({
       ...cat,
-      leagues: cat.leagues.filter(l => 
-        l.name.toLowerCase().includes(query) || 
-        l.key.toLowerCase().includes(query)
-      )
-    })).filter(cat => cat.leagues.length > 0);
+      leagues: cat.leagues.filter((l) => l.name.toLowerCase().includes(query) || l.key.toLowerCase().includes(query)),
+    })).filter((cat) => cat.leagues.length > 0);
   }, [leagueSearch]);
 
-  // Filter ESPN events by team name
   const filteredEspnEvents = useMemo(() => {
     if (!espnSearchQuery.trim()) return espnEvents;
     const query = espnSearchQuery.toLowerCase().trim();
-    return espnEvents.filter(event => {
+    return espnEvents.filter((event) => {
       const comp = event.competitions[0];
-      const home = comp.competitors.find(c => c.homeAway === "home");
-      const away = comp.competitors.find(c => c.homeAway === "away");
+      const home = comp.competitors.find((c) => c.homeAway === "home");
+      const away = comp.competitors.find((c) => c.homeAway === "away");
       return (
         home?.team.displayName?.toLowerCase().includes(query) ||
         home?.team.shortDisplayName?.toLowerCase().includes(query) ||
@@ -545,12 +541,9 @@ export function AdminEvents() {
       );
     });
   }, [espnEvents, espnSearchQuery]);
+
   const toggleCategory = (catName: string) => {
-    setOpenCategories(prev => 
-      prev.includes(catName) 
-        ? prev.filter(c => c !== catName)
-        : [...prev, catName]
-    );
+    setOpenCategories((prev) => (prev.includes(catName) ? prev.filter((c) => c !== catName) : [...prev, catName]));
   };
 
   if (loading) {
@@ -558,8 +551,10 @@ export function AdminEvents() {
       <div className="flex items-center justify-center py-12">
         <div className="flex flex-col items-center gap-4">
           <div className="relative">
-            <div className="w-12 h-12 rounded-full border-2 border-primary/30 animate-spin" 
-                 style={{ borderTopColor: 'hsl(var(--primary))' }} />
+            <div
+              className="w-12 h-12 rounded-full border-2 border-primary/30 animate-spin"
+              style={{ borderTopColor: "hsl(var(--primary))" }}
+            />
             <Sparkles className="w-5 h-5 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
           </div>
           <p className="text-sm text-muted-foreground">Cargando eventos...</p>
@@ -570,11 +565,10 @@ export function AdminEvents() {
 
   return (
     <div className="space-y-6">
-      {/* Premium Header */}
       <div className="relative overflow-hidden rounded-2xl glass-panel p-6">
         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-accent/10" />
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
-        
+
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-2xl font-display font-bold tracking-wide flex items-center gap-3">
@@ -588,7 +582,7 @@ export function AdminEvents() {
             </p>
           </div>
 
-          <Button 
+          <Button
             onClick={() => setIsDialogOpen(true)}
             className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/25"
           >
@@ -597,7 +591,6 @@ export function AdminEvents() {
           </Button>
         </div>
 
-        {/* Stats Row */}
         <div className="relative grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
           <StatCard
             label="Total Eventos"
@@ -627,7 +620,6 @@ export function AdminEvents() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -638,7 +630,7 @@ export function AdminEvents() {
             className="pl-10 bg-card/50 border-border/50"
           />
         </div>
-        
+
         <div className="flex gap-2">
           <FilterButton
             active={filterStatus === "all"}
@@ -667,11 +659,13 @@ export function AdminEvents() {
         </div>
       </div>
 
-      {/* Add Link Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => {
-        if (!open) resetDialog();
-        setIsDialogOpen(open);
-      }}>
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) resetDialog();
+          setIsDialogOpen(open);
+        }}
+      >
         <DialogContent className="bg-card border-border max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-3">
@@ -681,11 +675,10 @@ export function AdminEvents() {
               Agregar Nuevo Evento
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="flex-1 min-h-0 overflow-hidden">
             {!selectedEvent ? (
               <div className="space-y-4 h-full flex flex-col">
-                {/* League Search */}
                 <div className="relative shrink-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
@@ -696,27 +689,21 @@ export function AdminEvents() {
                   />
                 </div>
 
-                {/* Selected League Indicator */}
                 {selectedLeague && (
                   <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/30 shrink-0">
                     <Trophy className="w-4 h-4 text-primary" />
                     <span className="text-sm font-medium">
-                      {ALL_LEAGUES.find(l => l.key === selectedLeague)?.name}
+                      {ALL_LEAGUES.find((l) => l.key === selectedLeague)?.name}
                     </span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-6 w-6 ml-auto"
                       onClick={() => setSelectedLeague("")}
                     >
                       <X className="w-3 h-3" />
                     </Button>
-                    <Button 
-                      size="sm"
-                      onClick={searchESPN}
-                      disabled={searching}
-                      className="h-7"
-                    >
+                    <Button size="sm" onClick={searchESPN} disabled={searching} className="h-7">
                       {searching ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
@@ -729,10 +716,8 @@ export function AdminEvents() {
                   </div>
                 )}
 
-                {/* ESPN Results */}
                 {espnEvents.length > 0 ? (
                   <div className="flex flex-col flex-1 min-h-0 space-y-3">
-                    {/* Search within results */}
                     <div className="relative shrink-0">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
@@ -742,19 +727,18 @@ export function AdminEvents() {
                         className="pl-10"
                       />
                     </div>
-                    
+
                     <p className="text-xs text-muted-foreground shrink-0">
                       {filteredEspnEvents.length} de {espnEvents.length} evento(s)
                     </p>
-                    
-                    {/* Scrollable results */}
+
                     <div className="flex-1 min-h-0 overflow-y-auto max-h-[350px] space-y-2 pr-2">
                       {filteredEspnEvents.map((event) => {
                         const comp = event.competitions[0];
-                        const home = comp.competitors.find(c => c.homeAway === "home");
-                        const away = comp.competitors.find(c => c.homeAway === "away");
+                        const home = comp.competitors.find((c) => c.homeAway === "home");
+                        const away = comp.competitors.find((c) => c.homeAway === "away");
                         const isLive = comp.status.type.state === "in";
-                        
+
                         return (
                           <div
                             key={event.id}
@@ -785,7 +769,7 @@ export function AdminEvents() {
                           </div>
                         );
                       })}
-                      
+
                       {filteredEspnEvents.length === 0 && (
                         <div className="text-center py-8 text-muted-foreground">
                           <p>No se encontraron partidos con "{espnSearchQuery}"</p>
@@ -794,7 +778,6 @@ export function AdminEvents() {
                     </div>
                   </div>
                 ) : (
-                  /* Categories List */
                   <ScrollArea className="flex-1 -mx-2 px-2">
                     <div className="space-y-2 pb-4">
                       {filteredCategories.map((category) => (
@@ -805,7 +788,9 @@ export function AdminEvents() {
                         >
                           <CollapsibleTrigger className="flex items-center gap-3 w-full p-3 rounded-xl glass-panel hover:bg-white/5 transition-all">
                             <span className="text-lg">{category.icon}</span>
-                            <span className="font-medium flex-1 text-left">{category.name.replace(/^[^\s]+\s/, '')}</span>
+                            <span className="font-medium flex-1 text-left">
+                              {category.name.replace(/^[^\s]+\s/, "")}
+                            </span>
                             <Badge variant="secondary" className="mr-2">
                               {category.leagues.length}
                             </Badge>
@@ -823,8 +808,8 @@ export function AdminEvents() {
                                   onClick={() => setSelectedLeague(league.key)}
                                   className={`flex items-center gap-2 p-2.5 rounded-lg text-left text-sm transition-all ${
                                     selectedLeague === league.key
-                                      ? 'bg-primary/20 border border-primary/50 text-primary'
-                                      : 'hover:bg-white/5 border border-transparent'
+                                      ? "bg-primary/20 border border-primary/50 text-primary"
+                                      : "hover:bg-white/5 border border-transparent"
                                   }`}
                                 >
                                   <span>{league.flag}</span>
@@ -840,77 +825,96 @@ export function AdminEvents() {
                 )}
               </div>
             ) : (
-              /* Selected Event Form */
               <div className="space-y-4">
                 <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
                   <Trophy className="w-6 h-6 text-primary shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold truncate">{getEventName(selectedEvent)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {ALL_LEAGUES.find(l => l.key === selectedLeague)?.name} • {new Date(selectedEvent.date).toLocaleString("es-ES")}
+                      {ALL_LEAGUES.find((l) => l.key === selectedLeague)?.name} •{" "}
+                      {new Date(selectedEvent.date).toLocaleString("es-ES")}
                     </p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSelectedEvent(null)}
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => setSelectedEvent(null)}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
 
-                {/* Auto-generated links info */}
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-                  <Wand2 className="w-4 h-4 text-emerald-400" />
-                  <span className="text-sm text-emerald-400">Links generados automáticamente desde embedsports.top</span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="ml-auto h-7 text-xs"
-                    onClick={() => {
-                      // Toggle between primary and alternative variants
-                      const comp = selectedEvent.competitions[0];
-                      const home = comp.competitors.find(c => c.homeAway === "home");
-                      const away = comp.competitors.find(c => c.homeAway === "away");
-                      
-                      if (home?.team.displayName && away?.team.displayName) {
-                        const links = generateAllLinkVariants(home.team.displayName, away.team.displayName);
-                        // Check which variant is currently being used and switch
-                        if (newStreamUrl.includes(links.primary.url1.split('/').slice(-2, -1)[0])) {
-                          setNewStreamUrl(links.alternative.url1);
-                          setNewStreamUrl2(links.alternative.url2);
-                          setNewStreamUrl3(links.alternative.url3);
-                          toast.info("Cambiado a variante alternativa (home-vs-away)");
-                        } else {
-                          setNewStreamUrl(links.primary.url1);
-                          setNewStreamUrl2(links.primary.url2);
-                          setNewStreamUrl3(links.primary.url3);
-                          toast.info("Cambiado a variante primaria (away-vs-home)");
-                        }
-                      }
-                    }}
-                  >
-                    <RefreshCw className="w-3 h-3 mr-1" />
-                    Alternar orden
-                  </Button>
+                <div
+                  className={`flex items-center gap-2 p-3 rounded-lg border ${
+                    isScrapedLink ? "bg-purple-500/10 border-purple-500/30" : "bg-emerald-500/10 border-emerald-500/30"
+                  }`}
+                >
+                  {isScrapedLink ? (
+                    <>
+                      <Zap className="w-4 h-4 text-purple-400" />
+                      <span className="text-sm text-purple-400 font-medium">
+                        Links reales aplicados desde el Escáner (Moviebite)
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="w-4 h-4 text-emerald-400" />
+                      <span className="text-sm text-emerald-400">
+                        Links generados automáticamente desde embedsports.top
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="ml-auto h-7 text-xs"
+                        onClick={() => {
+                          const comp = selectedEvent.competitions[0];
+                          const home = comp.competitors.find((c) => c.homeAway === "home");
+                          const away = comp.competitors.find((c) => c.homeAway === "away");
+
+                          if (home?.team.displayName && away?.team.displayName) {
+                            const links = generateAllLinkVariants(home.team.displayName, away.team.displayName);
+                            if (newStreamUrl.includes(links.primary.url1.split("/").slice(-2, -1)[0])) {
+                              setNewStreamUrl(links.alternative.url1);
+                              setNewStreamUrl2(links.alternative.url2);
+                              setNewStreamUrl3(links.alternative.url3);
+                              toast.info("Cambiado a variante alternativa");
+                            } else {
+                              setNewStreamUrl(links.primary.url1);
+                              setNewStreamUrl2(links.primary.url2);
+                              setNewStreamUrl3(links.primary.url3);
+                              toast.info("Cambiado a variante primaria");
+                            }
+                          }
+                        }}
+                      >
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Alternar orden
+                      </Button>
+                    </>
+                  )}
                 </div>
 
                 <div className="space-y-3">
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded bg-primary/20 text-primary text-xs flex items-center justify-center font-bold">1</span>
+                      <span
+                        className={`w-5 h-5 rounded text-xs flex items-center justify-center font-bold ${isScrapedLink ? "bg-purple-500/20 text-purple-400" : "bg-primary/20 text-primary"}`}
+                      >
+                        1
+                      </span>
                       Stream Principal *
                     </Label>
                     <Input
                       placeholder="https://...m3u8"
                       value={newStreamUrl}
-                      onChange={(e) => setNewStreamUrl(e.target.value)}
+                      onChange={(e) => {
+                        setNewStreamUrl(e.target.value);
+                        setIsScrapedLink(false); // Si edita manualmente, ya no es "scraped puro"
+                      }}
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold">2</span>
+                      <span className="w-5 h-5 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold">
+                        2
+                      </span>
                       Stream Alternativo 1
                     </Label>
                     <Input
@@ -922,7 +926,9 @@ export function AdminEvents() {
 
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
-                      <span className="w-5 h-5 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold">3</span>
+                      <span className="w-5 h-5 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold">
+                        3
+                      </span>
                       Stream Alternativo 2
                     </Label>
                     <Input
@@ -933,9 +939,9 @@ export function AdminEvents() {
                   </div>
                 </div>
 
-                <Button 
-                  onClick={addEventLink} 
-                  className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90"
+                <Button
+                  onClick={addEventLink}
+                  className={`w-full hover:opacity-90 ${isScrapedLink ? "bg-gradient-to-r from-purple-600 to-indigo-600" : "bg-gradient-to-r from-primary to-accent"}`}
                   disabled={!newStreamUrl}
                 >
                   <Zap className="w-4 h-4 mr-2" />
@@ -947,7 +953,6 @@ export function AdminEvents() {
         </DialogContent>
       </Dialog>
 
-      {/* Event Links List - with scroll area */}
       <ScrollArea className="h-[calc(100vh-400px)] min-h-[400px]">
         <div className="space-y-3 pr-4">
           {filteredEvents.length === 0 ? (
@@ -957,7 +962,7 @@ export function AdminEvents() {
               </div>
               <p className="text-muted-foreground mb-2">No hay eventos que mostrar</p>
               <p className="text-xs text-muted-foreground/60">
-                {searchQuery || filterStatus !== "all" 
+                {searchQuery || filterStatus !== "all"
                   ? "Intenta cambiar los filtros de búsqueda"
                   : "Busca en ESPN y agrega un link de stream"}
               </p>
@@ -982,24 +987,23 @@ export function AdminEvents() {
   );
 }
 
-// Stat Card Component
-function StatCard({ 
-  label, 
-  value, 
-  icon, 
+function StatCard({
+  label,
+  value,
+  icon,
   color,
-  pulse 
-}: { 
-  label: string; 
-  value: number; 
-  icon: React.ReactNode; 
+  pulse,
+}: {
+  label: string;
+  value: number;
+  icon: React.ReactNode;
   color: string;
   pulse?: boolean;
 }) {
   return (
     <div className="glass-panel rounded-xl p-4">
       <div className="flex items-center gap-2 mb-2">
-        <div className={`${color} ${pulse ? 'animate-pulse' : ''}`}>{icon}</div>
+        <div className={`${color} ${pulse ? "animate-pulse" : ""}`}>{icon}</div>
         <span className="text-xs text-muted-foreground">{label}</span>
       </div>
       <p className={`text-2xl font-bold font-tech ${color}`}>{value}</p>
@@ -1007,38 +1011,32 @@ function StatCard({
   );
 }
 
-// Filter Button Component
-function FilterButton({ 
-  active, 
-  onClick, 
-  label, 
-  count 
-}: { 
-  active: boolean; 
-  onClick: () => void; 
-  label: string; 
+function FilterButton({
+  active,
+  onClick,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
   count: number;
 }) {
   return (
     <button
       onClick={onClick}
       className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${
-        active 
-          ? 'bg-primary/20 text-primary border border-primary/30' 
-          : 'bg-card/50 text-muted-foreground hover:bg-card border border-transparent'
+        active
+          ? "bg-primary/20 text-primary border border-primary/30"
+          : "bg-card/50 text-muted-foreground hover:bg-card border border-transparent"
       }`}
     >
       {label}
-      <span className={`px-1.5 py-0.5 rounded text-[10px] ${
-        active ? 'bg-primary/30' : 'bg-muted'
-      }`}>
-        {count}
-      </span>
+      <span className={`px-1.5 py-0.5 rounded text-[10px] ${active ? "bg-primary/30" : "bg-muted"}`}>{count}</span>
     </button>
   );
 }
 
-// Event Row Component
 interface EventRowProps {
   event: EventLink;
   saving: boolean;
@@ -1055,8 +1053,8 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
   const [streamUrl3, setStreamUrl3] = useState(event.stream_url_3 || "");
   const [isExpanded, setIsExpanded] = useState(false);
   const hasLink = Boolean(event.stream_url);
-  
-  const isModified = 
+
+  const isModified =
     streamUrl !== (event.stream_url || "") ||
     streamUrl2 !== (event.stream_url_2 || "") ||
     streamUrl3 !== (event.stream_url_3 || "");
@@ -1070,27 +1068,26 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
   };
 
   return (
-    <div 
+    <div
       className={`glass-panel rounded-xl overflow-hidden transition-all duration-300 animate-fade-in ${
-        !event.is_active ? 'opacity-50' : ''
+        !event.is_active ? "opacity-50" : ""
       }`}
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Header Row */}
-      <div 
+      <div
         className="flex items-center gap-3 p-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        {/* Status indicator */}
-        <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-          event.is_live 
-            ? 'bg-red-500 animate-pulse shadow-lg shadow-red-500/50' 
-            : hasLink 
-              ? 'bg-green-500 shadow-lg shadow-green-500/30' 
-              : 'bg-yellow-500 shadow-lg shadow-yellow-500/30'
-        }`} />
-        
-        {/* Thumbnail */}
+        <div
+          className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+            event.is_live
+              ? "bg-red-500 animate-pulse shadow-lg shadow-red-500/50"
+              : hasLink
+                ? "bg-green-500 shadow-lg shadow-green-500/30"
+                : "bg-yellow-500 shadow-lg shadow-yellow-500/30"
+          }`}
+        />
+
         {event.thumbnail ? (
           <img src={event.thumbnail} alt="" className="w-10 h-10 object-contain shrink-0 rounded-lg bg-black/20 p-1" />
         ) : (
@@ -1098,8 +1095,7 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
             <Trophy className="w-5 h-5 text-muted-foreground" />
           </div>
         )}
-        
-        {/* Event info */}
+
         <div className="flex-1 min-w-0">
           <div className="font-medium truncate">{event.name}</div>
           <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
@@ -1109,7 +1105,7 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
                 day: "2-digit",
                 month: "short",
                 hour: "2-digit",
-                minute: "2-digit"
+                minute: "2-digit",
               })}
             </span>
             {event.league && (
@@ -1120,7 +1116,6 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
           </div>
         </div>
 
-        {/* Status badges */}
         <div className="flex items-center gap-2 shrink-0">
           {hasLink ? (
             <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30">
@@ -1132,7 +1127,7 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               Sin Link
             </Badge>
           )}
-          
+
           {event.is_live && (
             <Badge variant="destructive" className="animate-pulse">
               🔴 LIVE
@@ -1140,35 +1135,35 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
           )}
         </div>
 
-        {/* Expand icon */}
-        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
+        />
       </div>
 
-      {/* Expanded Content */}
       {isExpanded && (
         <div className="px-4 pb-4 pt-2 border-t border-border/50 space-y-4 animate-fade-in">
-          {/* Controls Row */}
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
-              <Switch
-                checked={event.is_live}
-                onCheckedChange={onToggleLive}
-              />
+              <Switch checked={event.is_live} onCheckedChange={onToggleLive} />
               <Label className="text-sm cursor-pointer" onClick={() => onToggleLive(!event.is_live)}>
                 {event.is_live ? "🔴 EN VIVO" : "No en vivo"}
               </Label>
             </div>
 
             <div className="flex items-center gap-2">
-              <Switch
-                checked={event.is_active}
-                onCheckedChange={onToggleActive}
-              />
-              <Label className="text-sm cursor-pointer flex items-center gap-1" onClick={() => onToggleActive(!event.is_active)}>
+              <Switch checked={event.is_active} onCheckedChange={onToggleActive} />
+              <Label
+                className="text-sm cursor-pointer flex items-center gap-1"
+                onClick={() => onToggleActive(!event.is_active)}
+              >
                 {event.is_active ? (
-                  <><Eye className="w-3 h-3" /> Visible</>
+                  <>
+                    <Eye className="w-3 h-3" /> Visible
+                  </>
                 ) : (
-                  <><EyeOff className="w-3 h-3" /> Oculto</>
+                  <>
+                    <EyeOff className="w-3 h-3" /> Oculto
+                  </>
                 )}
               </Label>
             </div>
@@ -1187,10 +1182,11 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
             </Button>
           </div>
 
-          {/* Stream URLs */}
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-primary/20 text-primary text-xs flex items-center justify-center font-bold shrink-0">1</div>
+              <div className="w-6 h-6 rounded bg-primary/20 text-primary text-xs flex items-center justify-center font-bold shrink-0">
+                1
+              </div>
               <Input
                 value={streamUrl}
                 onChange={(e) => setStreamUrl(e.target.value)}
@@ -1199,7 +1195,9 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               />
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold shrink-0">2</div>
+              <div className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold shrink-0">
+                2
+              </div>
               <Input
                 value={streamUrl2}
                 onChange={(e) => setStreamUrl2(e.target.value)}
@@ -1208,7 +1206,9 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               />
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold shrink-0">3</div>
+              <div className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold shrink-0">
+                3
+              </div>
               <Input
                 value={streamUrl3}
                 onChange={(e) => setStreamUrl3(e.target.value)}
@@ -1218,18 +1218,13 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
             </div>
           </div>
 
-          {/* Save Button */}
           <div className="flex justify-end">
             <Button
               onClick={handleSave}
               disabled={saving || !isModified}
-              className={`${isModified ? 'bg-gradient-to-r from-primary to-accent' : ''}`}
+              className={`${isModified ? "bg-gradient-to-r from-primary to-accent" : ""}`}
             >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Save className="w-4 h-4 mr-2" />
-              )}
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
               Guardar Cambios
             </Button>
           </div>
