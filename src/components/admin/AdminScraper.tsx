@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -47,28 +47,17 @@ export function AdminScraper() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
-  useEffect(() => {
-    fetchSavedMatches();
-  }, []);
-
-  // --- NUEVA LÓGICA DE ESCANEO AUTOMÁTICO ---
-  useEffect(() => {
-    // Definimos el intervalo de 3 minutos (3 * 60 * 1000 ms)
-    const intervalId = setInterval(() => {
-      console.log("Iniciando escaneo automático programado (cada 3 min)...");
-      scanAll();
-    }, 180000);
-
-    // Limpiamos el intervalo cuando el componente se desmonte para evitar fugas de memoria
-    return () => clearInterval(intervalId);
-  }, []);
-  // ------------------------------------------
-
   const fetchSavedMatches = async () => {
     setFetching(true);
+
+    // FILTRO PARA LIMPIAR PANEL: Solo partidos de las últimas 24 horas
+    const oneDayAgo = new Date();
+    oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+
     const { data, error } = await supabase
       .from("live_scraped_links" as any)
       .select("*")
+      .gt("scanned_at", oneDayAgo.toISOString()) // Quita automáticamente lo viejo de la vista
       .order("category", { ascending: true });
 
     if (error) {
@@ -79,11 +68,12 @@ export function AdminScraper() {
     setFetching(false);
   };
 
-  const scanAll = async () => {
-    // Si ya está cargando, evitamos disparar otro escaneo simultáneo
+  const scanAll = useCallback(async () => {
     if (loading) return;
 
     setLoading(true);
+    console.log("Iniciando proceso de escaneo en Supabase...");
+
     try {
       const { data, error } = await supabase.functions.invoke("scrape-live-matches");
 
@@ -98,9 +88,33 @@ export function AdminScraper() {
     } catch (err: any) {
       console.error("Scan error:", err);
       toast.error("Error al escanear: " + (err.message || "desconocido"));
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
+  }, [loading]);
+
+  useEffect(() => {
+    fetchSavedMatches();
+  }, []);
+
+  // --- LÓGICA DE ESCANEO AUTOMÁTICO REPARADA ---
+  useEffect(() => {
+    console.log("Sistema de Auto-Scan activo.");
+
+    const intervalId = setInterval(() => {
+      // Solo dispara si no hay un proceso activo
+      if (!loading) {
+        console.log("Temporizador: Disparando scanAll...");
+        scanAll();
+      }
+    }, 180000); // 3 minutos
+
+    return () => {
+      console.log("Limpiando temporizador de escaneo...");
+      clearInterval(intervalId);
+    };
+  }, [scanAll, loading]);
+  // ----------------------------------------------
 
   const copyLink = async (link: string, matchId: string, server: string) => {
     await navigator.clipboard.writeText(link);
