@@ -327,22 +327,45 @@ export function AdminEvents() {
     setSearching(false);
   };
 
-  const selectEvent = (event: ESPNEvent) => {
+  const selectEvent = async (event: ESPNEvent) => {
     setSelectedEvent(event);
     setEspnEvents([]);
     
-    // Auto-generate embed links based on team names
     const comp = event.competitions[0];
     const home = comp.competitors.find(c => c.homeAway === "home");
     const away = comp.competitors.find(c => c.homeAway === "away");
     
-    if (home?.team.displayName && away?.team.displayName) {
-      const links = generateAllLinkVariants(home.team.displayName, away.team.displayName);
-      // Use primary variant (away-vs-home pattern)
+    // Try to find scraped links first
+    const homeName = home?.team.displayName || "";
+    const awayName = away?.team.displayName || "";
+    
+    if (homeName && awayName) {
+      try {
+        const { data: scraped } = await supabase
+          .from("live_scraped_links" as any)
+          .select("source_admin, source_delta, source_echo")
+          .or(`match_title.ilike.%${homeName}%,match_title.ilike.%${awayName}%`)
+          .limit(1)
+          .maybeSingle();
+        
+        if (scraped && (scraped as any).source_admin) {
+          const s = scraped as any;
+          setNewStreamUrl(s.source_admin || "");
+          setNewStreamUrl2(s.source_delta || "");
+          setNewStreamUrl3(s.source_echo || "");
+          toast.success("🛰️ Links reales del escáner aplicados");
+          return;
+        }
+      } catch (err) {
+        console.error("Error fetching scraped links:", err);
+      }
+      
+      // Fallback to generated links
+      const links = generateAllLinkVariants(homeName, awayName);
       setNewStreamUrl(links.primary.url1);
       setNewStreamUrl2(links.primary.url2);
       setNewStreamUrl3(links.primary.url3);
-      toast.success("🔗 Links generados automáticamente");
+      toast.success("🔗 Links generados automáticamente (sin datos del escáner)");
     }
   };
 
