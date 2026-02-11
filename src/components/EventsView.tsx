@@ -19,8 +19,11 @@ const EVENT_FILTERS = [
   { value: "nolink", label: "Sin link" },
 ];
 
-interface EventLink {
-  espn_id: string;
+interface DbEvent {
+  espn_id: string | null;
+  name: string;
+  team_home: string | null;
+  team_away: string | null;
   stream_url: string | null;
   stream_url_2: string | null;
   stream_url_3: string | null;
@@ -35,7 +38,7 @@ export function EventsView() {
   const [events, setEvents] = useState<ESPNEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [leagueInfo, setLeagueInfo] = useState({ name: "", sub: "" });
-  const [eventLinks, setEventLinks] = useState<Map<string, { url1: string; url2?: string; url3?: string }>>(new Map());
+  const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("fluxoFavEvents");
     return new Set(saved ? JSON.parse(saved) : []);
@@ -44,24 +47,62 @@ export function EventsView() {
   const fetchEventLinks = useCallback(async () => {
     const { data, error } = await supabase
       .from("events")
-      .select("espn_id, stream_url, stream_url_2, stream_url_3, is_active")
-      .eq("is_active", true)
-      .not("espn_id", "is", null);
+      .select("espn_id, name, team_home, team_away, stream_url, stream_url_2, stream_url_3, is_active")
+      .eq("is_active", true);
 
     if (!error && data) {
-      const linksMap = new Map<string, { url1: string; url2?: string; url3?: string }>();
-      data.forEach((event: EventLink) => {
-        if (event.espn_id && event.stream_url) {
-          linksMap.set(event.espn_id, {
-            url1: event.stream_url,
-            url2: event.stream_url_2 || undefined,
-            url3: event.stream_url_3 || undefined,
-          });
-        }
-      });
-      setEventLinks(linksMap);
+      const dbEvents = data.filter((e: any) => e.stream_url);
+      setDbEvents(dbEvents);
     }
   }, []);
+
+  // Build eventLinks map matching ESPN events to DB events by espn_id or team name
+  const eventLinks = useMemo(() => {
+    const linksMap = new Map<string, { url1: string; url2?: string; url3?: string }>();
+    if (dbEvents.length === 0 || events.length === 0) return linksMap;
+
+    const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+    for (const espnEvent of events) {
+      const byId = dbEvents.find(d => d.espn_id && d.espn_id === espnEvent.id);
+      if (byId && byId.stream_url) {
+        linksMap.set(espnEvent.id, {
+          url1: byId.stream_url,
+          url2: byId.stream_url_2 || undefined,
+          url3: byId.stream_url_3 || undefined,
+        });
+        continue;
+      }
+
+      const comp = espnEvent.competitions?.[0];
+      const competitors = comp?.competitors || [];
+      const espnHome = competitors.find(c => c.homeAway === "home");
+      const espnAway = competitors.find(c => c.homeAway === "away");
+      if (!espnHome?.team?.displayName && !espnAway?.team?.displayName) continue;
+
+      const homeName = norm(espnHome?.team?.displayName || "");
+      const awayName = norm(espnAway?.team?.displayName || "");
+      const homeShort = norm(espnHome?.team?.shortDisplayName || "");
+      const awayShort = norm(espnAway?.team?.shortDisplayName || "");
+
+      const match = dbEvents.find(d => {
+        if (!d.stream_url) return false;
+        const dAll = norm(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""}`);
+        const homeMatch = [homeName, homeShort].some(n => n.length > 2 && dAll.includes(n));
+        const awayMatch = [awayName, awayShort].some(n => n.length > 2 && dAll.includes(n));
+        return homeMatch && awayMatch;
+      });
+
+      if (match && match.stream_url) {
+        linksMap.set(espnEvent.id, {
+          url1: match.stream_url,
+          url2: match.stream_url_2 || undefined,
+          url3: match.stream_url_3 || undefined,
+        });
+      }
+    }
+    return linksMap;
+  }, [dbEvents, events]);
 
   const loadEvents = useCallback(async () => {
     setLoading(true);
