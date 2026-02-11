@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LogOut, Loader2, Tv, Trophy, Users, ArrowLeft, Sparkles, Shield, Zap } from "lucide-react";
+import { LogOut, Loader2, Tv, Trophy, Users, ArrowLeft, Sparkles, Shield, Zap, Satellite } from "lucide-react";
 import { AdminChannels } from "@/components/admin/AdminChannels";
 import { AdminEvents } from "@/components/admin/AdminEvents";
 import { AdminUsers } from "@/components/admin/AdminUsers";
+import { AdminScraper } from "@/components/admin/AdminScraper";
 
 export default function Admin() {
   const { user, isAdmin, isLoading, signOut } = useAuth();
@@ -96,7 +97,7 @@ export default function Admin() {
 
         {/* Premium Tabs */}
         <Tabs defaultValue="events" className="space-y-6">
-          <TabsList className="relative inline-flex w-full max-w-lg bg-black/40 border border-white/10 p-1.5 rounded-2xl backdrop-blur-sm">
+          <TabsList className="relative inline-flex w-full max-w-2xl bg-black/40 border border-white/10 p-1.5 rounded-2xl backdrop-blur-sm">
             <TabsTrigger 
               value="events" 
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-purple-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-primary/25 transition-all duration-300"
@@ -110,6 +111,13 @@ export default function Admin() {
             >
               <Tv className="w-4 h-4" />
               <span className="font-medium">Canales</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="scraper" 
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-cyan-500 data-[state=active]:to-blue-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-cyan-500/25 transition-all duration-300"
+            >
+              <Satellite className="w-4 h-4" />
+              <span className="font-medium">Escáner</span>
             </TabsTrigger>
             <TabsTrigger 
               value="users" 
@@ -126,6 +134,10 @@ export default function Admin() {
 
           <TabsContent value="channels" className="mt-6">
             <AdminChannels />
+          </TabsContent>
+
+          <TabsContent value="scraper" className="mt-6">
+            <AdminScraper />
           </TabsContent>
 
           <TabsContent value="users" className="mt-6">
