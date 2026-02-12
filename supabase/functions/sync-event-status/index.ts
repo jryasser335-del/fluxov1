@@ -13,19 +13,6 @@ interface Event {
   is_active: boolean;
 }
 
-async function getEspnStatus(espnId: string): Promise<{ completed: boolean } | null> {
-  try {
-    const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event=${espnId}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const state = data?.header?.competitions?.[0]?.status?.type?.state;
-    const completed = state === "post"; // STATUS_FINAL or STATUS_POSTPONED
-    return { completed };
-  } catch {
-    return null;
-  }
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -43,34 +30,23 @@ Deno.serve(async (req) => {
       .select("id, espn_id, event_date, is_live, is_active")
       .eq("is_active", true);
 
-    if (fetchError) throw fetchError;
+    if (fetchError) {
+      throw fetchError;
+    }
 
     const updates: { id: string; is_live: boolean }[] = [];
-    const deactivations: string[] = [];
-    const linkCleanups: string[] = [];
+    const deletions: string[] = [];
 
     for (const event of events as Event[]) {
       const eventDate = new Date(event.event_date);
       const timeDiff = now.getTime() - eventDate.getTime();
       const hoursDiff = timeDiff / (1000 * 60 * 60);
 
-      // Check ESPN API for real-time status if espn_id exists
-      if (event.espn_id) {
-        const espnStatus = await getEspnStatus(event.espn_id);
-        if (espnStatus?.completed) {
-          // Partido terminado → limpiar links y desactivar
-          linkCleanups.push(event.id);
-          deactivations.push(event.id);
-          continue;
-        }
-      }
-
       const shouldBeLive = timeDiff >= 0 && hoursDiff <= 3;
-      const shouldDeactivate = hoursDiff > 4;
+      const shouldDelete = hoursDiff > 4;
 
-      if (shouldDeactivate) {
-        deactivations.push(event.id);
-        linkCleanups.push(event.id); // También limpiar links por fallback
+      if (shouldDelete) {
+        deletions.push(event.id);
       } else if (shouldBeLive !== event.is_live) {
         updates.push({ id: event.id, is_live: shouldBeLive });
       }
@@ -81,8 +57,8 @@ Deno.serve(async (req) => {
       await supabase.from("events").update({ is_live: update.is_live }).eq("id", update.id);
     }
 
-    // Clean links from finished events
-    if (linkCleanups.length > 0) {
+    // DELETE finished events (clear links first, then delete)
+    if (deletions.length > 0) {
       await supabase
         .from("events")
         .update({
@@ -90,24 +66,24 @@ Deno.serve(async (req) => {
           stream_url_2: null,
           stream_url_3: null,
           is_live: false,
+          is_active: false,
         })
-        .in("id", linkCleanups);
-    }
+        .in("id", deletions);
 
-    // Deactivate finished events
-    if (deactivations.length > 0) {
-      await supabase.from("events").update({ is_active: false }).in("id", deactivations);
+      await supabase.from("events").delete().in("id", deletions);
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         updated: updates.length,
-        deactivated: deactivations.length,
-        linksCleared: linkCleanups.length,
-        message: `Updated ${updates.length}, deactivated ${deactivations.length}, cleared links from ${linkCleanups.length} events`,
+        deleted: deletions.length,
+        message: `Updated ${updates.length} events, deleted ${deletions.length} finished events`,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
