@@ -4,10 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Loader2, Search, Copy, Check, RefreshCw, Satellite,
-  Zap, Globe, Timer, Play, Pause
-} from "lucide-react";
+import { Loader2, Search, Copy, Check, RefreshCw, Satellite, Zap, Globe, Timer, Play, Pause } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface ScrapedMatch {
@@ -36,7 +33,7 @@ const CATEGORY_EMOJIS: Record<string, string> = {
   football: "⚽",
 };
 
-const SCAN_INTERVAL = 120; // 2 minutes in seconds
+const SCAN_INTERVAL = 300; // 5 minutes in seconds
 
 export function AdminScraper() {
   const [matches, setMatches] = useState<ScrapedMatch[]>([]);
@@ -50,10 +47,63 @@ export function AdminScraper() {
   const [scanCount, setScanCount] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoStartedRef = useRef(false);
+
+  const runFullCycle = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Step 1: Scrape
+      const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("scrape-live-matches");
+      if (scrapeError) throw scrapeError;
+
+      if (scrapeData?.success) {
+        // Step 2: Auto-assign (only assigns to events starting in <=15 min)
+        const { data: assignData } = await supabase.functions.invoke("auto-assign-links");
+
+        const msg = `🛰️ Escaneo #${scanCount + 1}: ${scrapeData.count} partidos | ${assignData?.assigned || 0} asignados, ${assignData?.created || 0} creados, ${assignData?.cleaned || 0} limpiados, ${assignData?.removed || 0} eliminados`;
+        toast.success(msg);
+        setScanCount((prev) => prev + 1);
+        await fetchSavedMatches();
+      } else {
+        toast.error(scrapeData?.error || "Error en el escaneo");
+      }
+    } catch (err: any) {
+      console.error("Scan error:", err);
+      toast.error("Error al escanear: " + (err.message || "desconocido"));
+    }
+    setLoading(false);
+    setCountdown(SCAN_INTERVAL);
+  }, [scanCount]);
+
+  const startAutoScan = useCallback(() => {
+    setAutoScan(true);
+    runFullCycle();
+
+    intervalRef.current = setInterval(() => {
+      runFullCycle();
+    }, SCAN_INTERVAL * 1000);
+
+    countdownRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) return SCAN_INTERVAL;
+        return prev - 1;
+      });
+    }, 1000);
+  }, [runFullCycle]);
 
   useEffect(() => {
     fetchSavedMatches();
+
+    // Auto-start scanning on mount
+    const autoStartTimeout = setTimeout(() => {
+      if (!autoStartedRef.current) {
+        autoStartedRef.current = true;
+        startAutoScan();
+      }
+    }, 2000);
+
     return () => {
+      clearTimeout(autoStartTimeout);
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
@@ -74,32 +124,6 @@ export function AdminScraper() {
     setFetching(false);
   };
 
-  const runFullCycle = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Step 1: Scrape
-      const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("scrape-live-matches");
-      if (scrapeError) throw scrapeError;
-
-      if (scrapeData?.success) {
-        // Step 2: Auto-assign
-        const { data: assignData } = await supabase.functions.invoke("auto-assign-links");
-        
-        const msg = `🛰️ Escaneo #${scanCount + 1}: ${scrapeData.count} partidos | ${assignData?.assigned || 0} asignados, ${assignData?.created || 0} creados, ${assignData?.cleaned || 0} limpiados`;
-        toast.success(msg);
-        setScanCount(prev => prev + 1);
-        await fetchSavedMatches();
-      } else {
-        toast.error(scrapeData?.error || "Error en el escaneo");
-      }
-    } catch (err: any) {
-      console.error("Scan error:", err);
-      toast.error("Error al escanear: " + (err.message || "desconocido"));
-    }
-    setLoading(false);
-    setCountdown(SCAN_INTERVAL);
-  }, [scanCount]);
-
   const toggleAutoScan = () => {
     if (autoScan) {
       // Stop
@@ -110,20 +134,8 @@ export function AdminScraper() {
       setAutoScan(false);
       setCountdown(SCAN_INTERVAL);
     } else {
-      // Start - run immediately then every 2 min
-      setAutoScan(true);
-      runFullCycle();
-      
-      intervalRef.current = setInterval(() => {
-        runFullCycle();
-      }, SCAN_INTERVAL * 1000);
-
-      countdownRef.current = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) return SCAN_INTERVAL;
-          return prev - 1;
-        });
-      }, 1000);
+      // Start
+      startAutoScan();
     }
   };
 
@@ -143,8 +155,7 @@ export function AdminScraper() {
       m.team_home?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       m.team_away?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory =
-      filterCategory === "all" || m.category === filterCategory;
+    const matchesCategory = filterCategory === "all" || m.category === filterCategory;
 
     return matchesSearch && matchesCategory;
   });
@@ -164,13 +175,9 @@ export function AdminScraper() {
                 <Satellite className="w-6 h-6 text-cyan-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">
-                  Escáner Universal
-                </h2>
+                <h2 className="text-xl font-bold text-white">Escáner Universal</h2>
                 <p className="text-sm text-white/50">
-                  {lastScan
-                    ? `Último escaneo: ${new Date(lastScan).toLocaleTimeString("es")}`
-                    : "Sin escaneos previos"}
+                  {lastScan ? `Último escaneo: ${new Date(lastScan).toLocaleTimeString("es")}` : "Sin escaneos previos"}
                   {scanCount > 0 && ` • ${scanCount} escaneos realizados`}
                 </p>
               </div>
@@ -195,7 +202,7 @@ export function AdminScraper() {
                 ) : (
                   <>
                     <Play className="w-4 h-4 mr-2" />
-                    Auto (2min)
+                    Auto (5min)
                   </>
                 )}
               </Button>
@@ -249,14 +256,9 @@ export function AdminScraper() {
           <p className="text-xs text-white/50">Total</p>
         </div>
         {["admin", "delta", "echo", "golf"].map((server) => {
-          const count = matches.filter(
-            (m) => m[`source_${server}` as keyof ScrapedMatch]
-          ).length;
+          const count = matches.filter((m) => m[`source_${server}` as keyof ScrapedMatch]).length;
           return (
-            <div
-              key={server}
-              className="bg-white/5 border border-white/10 rounded-xl p-3 text-center"
-            >
+            <div key={server} className="bg-white/5 border border-white/10 rounded-xl p-3 text-center">
               <p className="text-2xl font-bold text-white">{count}</p>
               <p className="text-xs text-white/50 uppercase">{server}</p>
             </div>
@@ -281,9 +283,7 @@ export function AdminScraper() {
             size="sm"
             onClick={() => setFilterCategory("all")}
             className={`border-white/10 ${
-              filterCategory === "all"
-                ? "bg-white/20 text-white"
-                : "bg-white/5 text-white/60"
+              filterCategory === "all" ? "bg-white/20 text-white" : "bg-white/5 text-white/60"
             }`}
           >
             <Globe className="w-3 h-3 mr-1" />
@@ -296,9 +296,7 @@ export function AdminScraper() {
               size="sm"
               onClick={() => setFilterCategory(cat!)}
               className={`border-white/10 ${
-                filterCategory === cat
-                  ? "bg-white/20 text-white"
-                  : "bg-white/5 text-white/60"
+                filterCategory === cat ? "bg-white/20 text-white" : "bg-white/5 text-white/60"
               }`}
             >
               {CATEGORY_EMOJIS[cat!] || "🎯"} {cat}
@@ -316,9 +314,7 @@ export function AdminScraper() {
         <div className="text-center py-12 text-white/40">
           <Satellite className="w-10 h-10 mx-auto mb-3 opacity-50" />
           <p>
-            {matches.length === 0
-              ? 'Presiona "Escanear" para comenzar'
-              : "No se encontraron partidos con ese filtro"}
+            {matches.length === 0 ? 'Presiona "Escanear" para comenzar' : "No se encontraron partidos con ese filtro"}
           </p>
         </div>
       ) : (
@@ -333,17 +329,11 @@ export function AdminScraper() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] border-white/20 text-white/60"
-                        >
-                          {CATEGORY_EMOJIS[match.category || "other"] || "🎯"}{" "}
-                          {match.category}
+                        <Badge variant="outline" className="text-[10px] border-white/20 text-white/60">
+                          {CATEGORY_EMOJIS[match.category || "other"] || "🎯"} {match.category}
                         </Badge>
                       </div>
-                      <h3 className="font-semibold text-white text-sm truncate">
-                        {match.match_title}
-                      </h3>
+                      <h3 className="font-semibold text-white text-sm truncate">{match.match_title}</h3>
                       {match.team_home && match.team_away && (
                         <p className="text-xs text-white/40 mt-0.5">
                           {match.team_home} vs {match.team_away}
@@ -365,16 +355,10 @@ export function AdminScraper() {
                           disabled={!link}
                           onClick={() => link && copyLink(link, match.match_id, server)}
                           className={`text-xs font-mono ${
-                            link
-                              ? SERVER_COLORS[server]
-                              : "border-white/5 text-white/20 bg-white/[0.02]"
+                            link ? SERVER_COLORS[server] : "border-white/5 text-white/20 bg-white/[0.02]"
                           } ${isCopied ? "ring-2 ring-green-400/50" : ""}`}
                         >
-                          {isCopied ? (
-                            <Check className="w-3 h-3 mr-1" />
-                          ) : (
-                            <Copy className="w-3 h-3 mr-1" />
-                          )}
+                          {isCopied ? <Check className="w-3 h-3 mr-1" /> : <Copy className="w-3 h-3 mr-1" />}
                           {server.toUpperCase()}
                         </Button>
                       );
