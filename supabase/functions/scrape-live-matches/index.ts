@@ -12,6 +12,17 @@ function buildLink(source: string, id: string): string {
   return `${EMBED_BASE}/${source}/${id}/1?autoplay=1`;
 }
 
+// Map API source names to our internal source names and embed path
+const SOURCE_MAP: Record<string, { field: string; embedName: string }> = {
+  vola: { field: "source_admin", embedName: "admin" },
+  main: { field: "source_admin", embedName: "admin" },
+  admin: { field: "source_admin", embedName: "admin" },
+  delta: { field: "source_delta", embedName: "delta" },
+  echo: { field: "source_echo", embedName: "echo" },
+  mv: { field: "source_golf", embedName: "golf" },
+  golf: { field: "source_golf", embedName: "golf" },
+};
+
 interface MatchSource {
   source: string;
   id: string;
@@ -34,11 +45,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Check if this is a cron call (no auth header) or admin call
     const authHeader = req.headers.get("Authorization");
-    
+
     if (authHeader) {
-      // Manual call - verify admin
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -63,47 +72,68 @@ Deno.serve(async (req) => {
         );
       }
     }
-    // If no auth header, allow cron execution (called by pg_cron internally)
 
-    // Fetch live matches from API
-    const response = await fetch("https://streamed.pk/api/matches/live", {
-      headers: { "User-Agent": "Mozilla/5.0" },
-    });
+    // Try schedule endpoints in order
+    let matches: MatchData[] = [];
+    const urls = [
+      "https://sportsbite.top/api/matches/all",
+      "https://app.moviebite.cc/api/schedule",
+    ];
 
-    if (!response.ok) {
-      throw new Error(`API returned ${response.status}`);
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          headers: { "User-Agent": "Mozilla/5.0" },
+        });
+        if (response.ok) {
+          matches = await response.json();
+          console.log(`Fetched ${matches.length} matches from ${url}`);
+          break;
+        }
+      } catch (e) {
+        console.error(`Failed to fetch from ${url}:`, e.message);
+      }
     }
 
-    const matches: MatchData[] = await response.json();
+    if (matches.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Could not fetch schedule from any endpoint" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // Process matches
+    // Process matches with source mapping
     const records = matches.map((match) => {
-      const adminSource = match.sources.find((s) => s.source === "admin");
-      const deltaSource = match.sources.find((s) => s.source === "delta");
-      const echoSource = match.sources.find((s) => s.source === "echo");
-      const golfSource = match.sources.find((s) => s.source === "golf");
-
-      return {
+      const record: Record<string, string | null> = {
         match_id: match.id,
         match_title: match.title,
         category: match.category || null,
         team_home: match.teams?.home?.name || null,
         team_away: match.teams?.away?.name || null,
-        source_admin: adminSource ? buildLink("admin", adminSource.id) : null,
-        source_delta: deltaSource ? buildLink("delta", deltaSource.id) : null,
-        source_echo: echoSource ? buildLink("echo", echoSource.id) : null,
-        source_golf: golfSource ? buildLink("golf", golfSource.id) : null,
+        source_admin: null,
+        source_delta: null,
+        source_echo: null,
+        source_golf: null,
         scanned_at: new Date().toISOString(),
       };
+
+      for (const src of match.sources) {
+        const mapping = SOURCE_MAP[src.source];
+        if (mapping) {
+          record[mapping.field] = buildLink(mapping.embedName, src.id);
+        }
+      }
+
+      return record;
     });
 
-    // Use service role to upsert (bypasses RLS)
+    // Use service role to upsert
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Clear old records and insert new ones
+    // Clear all old records and insert fresh schedule
     await adminClient.from("live_scraped_links").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
     if (records.length > 0) {
