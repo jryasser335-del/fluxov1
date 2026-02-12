@@ -275,7 +275,7 @@ export function AdminEvents() {
   const [cleaningFinished, setCleaningFinished] = useState(false);
 
   // ESPN search state
-  const [selectedLeague, setSelectedLeague] = useState("");
+  const [selectedLeague, setSelectedLeague] = useState<string>("");
   const [espnEvents, setEspnEvents] = useState<ESPNEvent[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<ESPNEvent | null>(null);
@@ -291,47 +291,9 @@ export function AdminEvents() {
   const [openCategories, setOpenCategories] = useState<string[]>(["🏀 Basketball", "⚽ Ligas Top Europeas"]);
 
   useEffect(() => {
-    // Auto-limpiar eventos de días anteriores, luego cargar
-    deleteOldEvents().then(() => {
-      fetchEventLinks();
-      syncEventStatus();
-    });
+    fetchEventLinks();
+    syncEventStatus();
   }, []);
-
-  // 🧹 AUTO-LIMPIEZA: Elimina eventos de días anteriores (aunque tengan link)
-  const deleteOldEvents = async () => {
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayISO = today.toISOString();
-
-      const { data: oldEvents, error: fetchError } = await supabase
-        .from("events")
-        .select("id, name, event_date")
-        .lt("event_date", todayISO);
-
-      if (fetchError) {
-        console.error("Error buscando eventos antiguos:", fetchError);
-        return;
-      }
-
-      if (!oldEvents || oldEvents.length === 0) {
-        return;
-      }
-
-      const ids = oldEvents.map((e) => e.id);
-      const { error } = await supabase.from("events").delete().in("id", ids);
-
-      if (error) {
-        console.error("Error eliminando eventos antiguos:", error);
-      } else {
-        console.log(`🧹 Auto-limpieza: ${ids.length} evento(s) de días anteriores eliminados`);
-        toast.success(`🧹 ${ids.length} evento(s) de días anteriores eliminados automáticamente`);
-      }
-    } catch (error) {
-      console.error("Error en auto-limpieza:", error);
-    }
-  };
 
   const syncEventStatus = async () => {
     try {
@@ -529,34 +491,21 @@ export function AdminEvents() {
     }
   };
 
-  // 🗑️ LIMPIAR TODOS LOS FINALIZADOS (eventos de días anteriores + inactivos)
+  // 🗑️ LIMPIAR TODOS LOS FINALIZADOS
   const cleanAllFinished = async () => {
     setCleaningFinished(true);
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayISO = today.toISOString();
-
-      // 1. Eliminar eventos de días anteriores (aunque tengan link)
-      const { data: oldEvents, error: err1 } = await supabase
-        .from("events")
-        .delete()
-        .lt("event_date", todayISO)
-        .select("id");
+      // 1. Delete all inactive events
+      const { error: err1 } = await supabase.from("events").delete().eq("is_active", false);
 
       if (err1) throw err1;
 
-      // 2. Eliminar eventos inactivos de hoy
-      const { data: inactiveEvents, error: err2 } = await supabase
-        .from("events")
-        .delete()
-        .eq("is_active", false)
-        .select("id");
+      // 2. Delete events with no links and not live
+      const { error: err2 } = await supabase.from("events").delete().eq("is_live", false).is("stream_url", null);
 
       if (err2) throw err2;
 
-      const totalDeleted = (oldEvents?.length || 0) + (inactiveEvents?.length || 0);
-      toast.success(`🗑️ ${totalDeleted} evento(s) eliminados`);
+      toast.success("🗑️ Eventos finalizados eliminados");
       fetchEventLinks();
     } catch (error) {
       toast.error("Error al limpiar eventos");
@@ -629,13 +578,16 @@ export function AdminEvents() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
+      <div className="flex items-center justify-center py-12">
+        <div className="flex flex-col items-center gap-4">
           <div className="relative">
-            <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-            <div className="absolute inset-0 h-12 w-12 animate-ping opacity-20 bg-primary rounded-full mx-auto" />
+            <div
+              className="w-12 h-12 rounded-full border-2 border-primary/30 animate-spin"
+              style={{ borderTopColor: "hsl(var(--primary))" }}
+            />
+            <Sparkles className="w-5 h-5 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
           </div>
-          <p className="text-muted-foreground animate-pulse">Cargando eventos...</p>
+          <p className="text-sm text-muted-foreground">Cargando eventos...</p>
         </div>
       </div>
     );
@@ -644,38 +596,34 @@ export function AdminEvents() {
   return (
     <div className="space-y-6">
       {/* Premium Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-card to-card border border-border/50 p-6">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5" />
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+      <div className="relative overflow-hidden rounded-2xl glass-panel p-6">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-accent/10" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
 
-        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 backdrop-blur-sm">
-                <Trophy className="h-6 w-6 text-primary" />
+            <h2 className="text-2xl font-display font-bold tracking-wide flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <Trophy className="w-5 h-5 text-white" />
               </div>
               Gestión de Eventos
             </h2>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Administra links de streaming para partidos y eventos deportivos
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={cleanAllFinished}
-              disabled={cleaningFinished}
-              className="border-destructive/50 text-destructive hover:bg-destructive/10"
-            >
-              {cleaningFinished ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          <div className="flex items-center gap-2">
+            <Button onClick={cleanAllFinished} variant="destructive" className="gap-2" disabled={cleaningFinished}>
+              {cleaningFinished ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
               Limpiar Finalizados
             </Button>
+
             <Button
               onClick={() => setIsDialogOpen(true)}
               className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/25"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="w-4 h-4 mr-2" />
               Agregar Evento
             </Button>
           </div>
@@ -686,26 +634,26 @@ export function AdminEvents() {
           <StatCard
             label="Total Eventos"
             value={stats.total}
-            icon={<Calendar className="h-4 w-4" />}
+            icon={<Calendar className="w-4 h-4" />}
             color="text-foreground"
           />
           <StatCard
             label="En Vivo"
             value={stats.live}
-            icon={<Radio className="h-4 w-4" />}
+            icon={<Radio className="w-4 h-4" />}
             color="text-red-400"
             pulse={stats.live > 0}
           />
           <StatCard
             label="Con Link"
             value={stats.withLink}
-            icon={<Link2 className="h-4 w-4" />}
+            icon={<Link2 className="w-4 h-4" />}
             color="text-green-400"
           />
           <StatCard
             label="Sin Link"
             value={stats.withoutLink}
-            icon={<Circle className="h-4 w-4" />}
+            icon={<Circle className="w-4 h-4" />}
             color="text-yellow-400"
           />
         </div>
@@ -714,7 +662,7 @@ export function AdminEvents() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -723,7 +671,7 @@ export function AdminEvents() {
           />
         </div>
 
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-2">
           <FilterButton
             active={filterStatus === "all"}
             onClick={() => setFilterStatus("all")}
@@ -759,22 +707,22 @@ export function AdminEvents() {
           setIsDialogOpen(open);
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20">
-                <Sparkles className="h-4 w-4 text-primary" />
+        <DialogContent className="bg-card border-border max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <Plus className="w-4 h-4 text-white" />
               </div>
               Agregar Nuevo Evento
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto space-y-4">
+          <div className="flex-1 min-h-0 overflow-hidden">
             {!selectedEvent ? (
-              <div className="space-y-4">
+              <div className="space-y-4 h-full flex flex-col">
                 {/* League Search */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <div className="relative shrink-0">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     value={leagueSearch}
                     onChange={(e) => setLeagueSearch(e.target.value)}
@@ -785,9 +733,9 @@ export function AdminEvents() {
 
                 {/* Selected League Indicator */}
                 {selectedLeague && (
-                  <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20">
-                    <Trophy className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium text-primary">
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/30 shrink-0">
+                    <Trophy className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium">
                       {ALL_LEAGUES.find((l) => l.key === selectedLeague)?.name}
                     </span>
                     <Button
@@ -796,14 +744,14 @@ export function AdminEvents() {
                       className="h-6 w-6 ml-auto"
                       onClick={() => setSelectedLeague("")}
                     >
-                      <X className="h-3 w-3" />
+                      <X className="w-3 h-3" />
                     </Button>
-                    <Button size="sm" onClick={searchESPN} disabled={searching}>
+                    <Button size="sm" onClick={searchESPN} disabled={searching} className="h-7">
                       {searching ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <>
-                          <Search className="h-4 w-4" />
+                          <Search className="w-3 h-3 mr-1" />
                           Buscar en ESPN
                         </>
                       )}
@@ -813,9 +761,9 @@ export function AdminEvents() {
 
                 {/* ESPN Results */}
                 {espnEvents.length > 0 ? (
-                  <div className="space-y-3">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <div className="flex flex-col flex-1 min-h-0 space-y-3">
+                    <div className="relative shrink-0">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         value={espnSearchQuery}
                         onChange={(e) => setEspnSearchQuery(e.target.value)}
@@ -824,11 +772,11 @@ export function AdminEvents() {
                       />
                     </div>
 
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground shrink-0">
                       {filteredEspnEvents.length} de {espnEvents.length} evento(s)
                     </p>
 
-                    <ScrollArea className="h-[300px]">
+                    <div className="flex-1 min-h-0 overflow-y-auto max-h-[350px] space-y-2 pr-2">
                       {filteredEspnEvents.map((event) => {
                         const comp = event.competitions[0];
                         const home = comp.competitors.find((c) => c.homeAway === "home");
@@ -841,20 +789,24 @@ export function AdminEvents() {
                             onClick={() => selectEvent(event)}
                             className="flex items-center gap-3 p-3 rounded-xl glass-panel hover:bg-white/5 cursor-pointer transition-all hover:scale-[1.01]"
                           >
-                            <div className="flex items-center gap-3 flex-1">
-                              {home?.team.logo && <img src={home.team.logo} alt="" className="w-8 h-8 rounded-full" />}
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              {home?.team.logo && (
+                                <img src={home.team.logo} alt="" className="w-10 h-10 object-contain" />
+                              )}
                               <div className="flex-1 min-w-0">
-                                <p className="font-medium text-sm truncate">
+                                <p className="font-medium truncate">
                                   {home?.team.shortDisplayName || "TBD"} vs {away?.team.shortDisplayName || "TBD"}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   {new Date(event.date).toLocaleString("es-ES")}
                                 </p>
                               </div>
-                              {away?.team.logo && <img src={away.team.logo} alt="" className="w-8 h-8 rounded-full" />}
+                              {away?.team.logo && (
+                                <img src={away.team.logo} alt="" className="w-10 h-10 object-contain" />
+                              )}
                             </div>
                             {isLive && (
-                              <Badge variant="destructive" className="animate-pulse text-xs">
+                              <Badge variant="destructive" className="animate-pulse">
                                 🔴 LIVE
                               </Badge>
                             )}
@@ -867,44 +819,46 @@ export function AdminEvents() {
                           <p>No se encontraron partidos con "{espnSearchQuery}"</p>
                         </div>
                       )}
-                    </ScrollArea>
+                    </div>
                   </div>
                 ) : (
                   /* Categories List */
-                  <ScrollArea className="h-[400px]">
-                    <div className="space-y-1">
+                  <ScrollArea className="flex-1 -mx-2 px-2">
+                    <div className="space-y-2 pb-4">
                       {filteredCategories.map((category) => (
                         <Collapsible
                           key={category.name}
                           open={openCategories.includes(category.name)}
                           onOpenChange={() => toggleCategory(category.name)}
                         >
-                          <CollapsibleTrigger className="flex items-center gap-2 w-full p-2.5 rounded-lg hover:bg-white/5 transition-all text-left">
-                            {category.icon}
-                            <span className="flex-1 font-medium text-sm">{category.name.replace(/^[^\s]+\s/, "")}</span>
-                            <Badge variant="secondary" className="text-xs">
+                          <CollapsibleTrigger className="flex items-center gap-3 w-full p-3 rounded-xl glass-panel hover:bg-white/5 transition-all">
+                            <span className="text-lg">{category.icon}</span>
+                            <span className="font-medium flex-1 text-left">
+                              {category.name.replace(/^[^\s]+\s/, "")}
+                            </span>
+                            <Badge variant="secondary" className="mr-2">
                               {category.leagues.length}
                             </Badge>
                             {openCategories.includes(category.name) ? (
-                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                              <ChevronDown className="w-4 h-4 text-muted-foreground" />
                             ) : (
-                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                              <ChevronRight className="w-4 h-4 text-muted-foreground" />
                             )}
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <div className="ml-6 space-y-0.5 pb-2">
+                            <div className="grid grid-cols-2 gap-2 pt-2 pl-4">
                               {category.leagues.map((league) => (
                                 <button
                                   key={league.key}
                                   onClick={() => setSelectedLeague(league.key)}
-                                  className={`flex items-center gap-2 p-2.5 rounded-lg text-left text-sm transition-all w-full ${
+                                  className={`flex items-center gap-2 p-2.5 rounded-lg text-left text-sm transition-all ${
                                     selectedLeague === league.key
                                       ? "bg-primary/20 border border-primary/50 text-primary"
                                       : "hover:bg-white/5 border border-transparent"
                                   }`}
                                 >
-                                  {league.flag}
-                                  {league.name}
+                                  <span>{league.flag}</span>
+                                  <span className="truncate">{league.name}</span>
                                 </button>
                               ))}
                             </div>
@@ -918,55 +872,77 @@ export function AdminEvents() {
             ) : (
               /* Selected Event Form */
               <div className="space-y-4">
-                <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
-                  <Zap className="h-5 w-5 text-primary" />
-                  <div className="flex-1">
-                    <p className="font-semibold">{getEventName(selectedEvent)}</p>
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
+                  <Trophy className="w-6 h-6 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{getEventName(selectedEvent)}</p>
                     <p className="text-xs text-muted-foreground">
                       {ALL_LEAGUES.find((l) => l.key === selectedLeague)?.name} •{" "}
                       {new Date(selectedEvent.date).toLocaleString("es-ES")}
                     </p>
                   </div>
                   <Button variant="ghost" size="icon" onClick={() => setSelectedEvent(null)}>
-                    <X className="h-4 w-4" />
+                    <X className="w-4 h-4" />
                   </Button>
                 </div>
 
-                <div className="flex items-center gap-2 text-sm">
-                  <Satellite className="h-4 w-4 text-primary" />
-                  <span className="text-muted-foreground">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/30">
+                  <Satellite className="w-4 h-4 text-primary" />
+                  <span className="text-sm text-primary">
                     {newStreamUrl ? "Links reales del escáner asignados" : "Sin links escaneados — ingresa manualmente"}
                   </span>
                 </div>
 
                 <div className="space-y-3">
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <Label className="flex items-center gap-2">
-                      <span className="bg-primary/20 text-primary text-xs font-bold px-1.5 py-0.5 rounded">1</span>
+                      <span className="w-5 h-5 rounded bg-primary/20 text-primary text-xs flex items-center justify-center font-bold">
+                        1
+                      </span>
                       Stream Principal *
                     </Label>
-                    <Input value={newStreamUrl} onChange={(e) => setNewStreamUrl(e.target.value)} />
+                    <Input
+                      placeholder="https://...m3u8"
+                      value={newStreamUrl}
+                      onChange={(e) => setNewStreamUrl(e.target.value)}
+                    />
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <Label className="flex items-center gap-2">
-                      <span className="bg-muted text-muted-foreground text-xs font-bold px-1.5 py-0.5 rounded">2</span>
+                      <span className="w-5 h-5 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold">
+                        2
+                      </span>
                       Stream Alternativo 1
                     </Label>
-                    <Input value={newStreamUrl2} onChange={(e) => setNewStreamUrl2(e.target.value)} />
+                    <Input
+                      placeholder="https://...m3u8 (opcional)"
+                      value={newStreamUrl2}
+                      onChange={(e) => setNewStreamUrl2(e.target.value)}
+                    />
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <Label className="flex items-center gap-2">
-                      <span className="bg-muted text-muted-foreground text-xs font-bold px-1.5 py-0.5 rounded">3</span>
+                      <span className="w-5 h-5 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold">
+                        3
+                      </span>
                       Stream Alternativo 2
                     </Label>
-                    <Input value={newStreamUrl3} onChange={(e) => setNewStreamUrl3(e.target.value)} />
+                    <Input
+                      placeholder="https://...m3u8 (opcional)"
+                      value={newStreamUrl3}
+                      onChange={(e) => setNewStreamUrl3(e.target.value)}
+                    />
                   </div>
                 </div>
 
-                <Button onClick={addEventLink} className="w-full bg-gradient-to-r from-primary to-accent">
-                  <Plus className="h-4 w-4" />
+                <Button
+                  onClick={addEventLink}
+                  className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90"
+                  disabled={!newStreamUrl}
+                >
+                  <Zap className="w-4 h-4 mr-2" />
                   Agregar Evento
                 </Button>
               </div>
@@ -976,15 +952,15 @@ export function AdminEvents() {
       </Dialog>
 
       {/* Event Links List */}
-      <ScrollArea className="h-[600px]">
-        <div className="space-y-2">
+      <ScrollArea className="h-[calc(100vh-400px)] min-h-[400px]">
+        <div className="space-y-3 pr-4">
           {filteredEvents.length === 0 ? (
-            <div className="text-center py-16">
-              <div className="p-4 rounded-full bg-muted/50 w-fit mx-auto mb-4">
-                <Search className="h-8 w-8 text-muted-foreground" />
+            <div className="text-center py-16 glass-panel rounded-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-8 h-8 text-muted-foreground" />
               </div>
-              <p className="text-lg font-medium">No hay eventos que mostrar</p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-muted-foreground mb-2">No hay eventos que mostrar</p>
+              <p className="text-xs text-muted-foreground/60">
                 {searchQuery || filterStatus !== "all"
                   ? "Intenta cambiar los filtros de búsqueda"
                   : "Busca en ESPN y agrega un link de stream"}
@@ -1025,12 +1001,12 @@ function StatCard({
   pulse?: boolean;
 }) {
   return (
-    <div className="rounded-xl bg-card/50 border border-border/50 p-4 backdrop-blur-sm">
-      <div className="flex items-center gap-2 text-muted-foreground mb-2">
-        <span className={color}>{icon}</span>
-        {label}
+    <div className="glass-panel rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <div className={`${color} ${pulse ? "animate-pulse" : ""}`}>{icon}</div>
+        <span className="text-xs text-muted-foreground">{label}</span>
       </div>
-      <p className={`text-2xl font-bold ${color} ${pulse ? "animate-pulse" : ""}`}>{value}</p>
+      <p className={`text-2xl font-bold font-tech ${color}`}>{value}</p>
     </div>
   );
 }
@@ -1048,12 +1024,17 @@ function FilterButton({
   count: number;
 }) {
   return (
-    <Button variant={active ? "default" : "outline"} size="sm" onClick={onClick} className="gap-1.5">
+    <button
+      onClick={onClick}
+      className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${
+        active
+          ? "bg-primary/20 text-primary border border-primary/30"
+          : "bg-card/50 text-muted-foreground hover:bg-card border border-transparent"
+      }`}
+    >
       {label}
-      <Badge variant={active ? "secondary" : "outline"} className="text-xs px-1.5">
-        {count}
-      </Badge>
-    </Button>
+      <span className={`px-1.5 py-0.5 rounded text-[10px] ${active ? "bg-primary/30" : "bg-muted"}`}>{count}</span>
+    </button>
   );
 }
 
@@ -1089,26 +1070,40 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
   };
 
   return (
-    <div className="rounded-xl border border-border/50 bg-card/30 backdrop-blur-sm overflow-hidden transition-all hover:border-border">
+    <div
+      className={`glass-panel rounded-xl overflow-hidden transition-all duration-300 animate-fade-in ${
+        !event.is_active ? "opacity-50" : ""
+      }`}
+      style={{ animationDelay: `${index * 50}ms` }}
+    >
       {/* Header Row */}
-      <div className="flex items-center gap-3 p-3 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+      <div
+        className="flex items-center gap-3 p-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
         <div
-          className={`w-1.5 h-12 rounded-full ${event.is_live ? "bg-red-500 animate-pulse" : event.is_active ? "bg-green-500" : "bg-muted"}`}
+          className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+            event.is_live
+              ? "bg-red-500 animate-pulse shadow-lg shadow-red-500/50"
+              : hasLink
+                ? "bg-green-500 shadow-lg shadow-green-500/30"
+                : "bg-yellow-500 shadow-lg shadow-yellow-500/30"
+          }`}
         />
 
         {event.thumbnail ? (
-          <img src={event.thumbnail} alt="" className="w-10 h-10 rounded-lg object-cover" />
+          <img src={event.thumbnail} alt="" className="w-10 h-10 object-contain shrink-0 rounded-lg bg-black/20 p-1" />
         ) : (
-          <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center">
-            <Trophy className="h-5 w-5 text-muted-foreground" />
+          <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
+            <Trophy className="w-5 h-5 text-muted-foreground" />
           </div>
         )}
 
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{event.name}</p>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="font-medium truncate">{event.name}</div>
+          <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
             <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
+              <Clock className="w-3 h-3" />
               {new Date(event.event_date).toLocaleString("es-ES", {
                 day: "2-digit",
                 month: "short",
@@ -1117,88 +1112,85 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               })}
             </span>
             {event.league && (
-              <Badge variant="secondary" className="text-xs px-1.5 py-0">
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                 {event.league}
               </Badge>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2 shrink-0">
           {hasLink ? (
-            <Badge variant="default" className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-              <Link2 className="h-3 w-3 mr-1" />
+            <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30">
+              <Link2 className="w-3 h-3 mr-1" />
               Link
             </Badge>
           ) : (
-            <Badge variant="outline" className="text-yellow-400 border-yellow-500/30 text-xs">
+            <Badge variant="outline" className="border-yellow-500/30 text-yellow-400">
               Sin Link
             </Badge>
           )}
 
           {event.is_live && (
-            <Badge variant="destructive" className="animate-pulse text-xs">
+            <Badge variant="destructive" className="animate-pulse">
               🔴 LIVE
             </Badge>
           )}
         </div>
 
         <ChevronDown
-          className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
+          className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
         />
       </div>
 
       {/* Expanded Content */}
       {isExpanded && (
-        <div className="border-t border-border/50 p-4 space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
+        <div className="px-4 pb-4 pt-2 border-t border-border/50 space-y-4 animate-fade-in">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
-              <Label className="text-xs">Live</Label>
-              <Button
-                variant={event.is_live ? "destructive" : "outline"}
-                size="sm"
-                onClick={() => onToggleLive(!event.is_live)}
-              >
+              <Switch checked={event.is_live} onCheckedChange={onToggleLive} />
+              <Label className="text-sm cursor-pointer" onClick={() => onToggleLive(!event.is_live)}>
                 {event.is_live ? "🔴 EN VIVO" : "No en vivo"}
-              </Button>
+              </Label>
             </div>
 
             <div className="flex items-center gap-2">
-              <Label className="text-xs">Visible</Label>
-              <Button
-                variant={event.is_active ? "default" : "outline"}
-                size="sm"
+              <Switch checked={event.is_active} onCheckedChange={onToggleActive} />
+              <Label
+                className="text-sm cursor-pointer flex items-center gap-1"
                 onClick={() => onToggleActive(!event.is_active)}
               >
                 {event.is_active ? (
                   <>
-                    <Eye className="h-3 w-3" /> Visible
+                    <Eye className="w-3 h-3" /> Visible
                   </>
                 ) : (
                   <>
-                    <EyeOff className="h-3 w-3" /> Oculto
+                    <EyeOff className="w-3 h-3" /> Oculto
                   </>
                 )}
-              </Button>
+              </Label>
             </div>
 
             <Button
-              variant="destructive"
+              variant="ghost"
               size="sm"
-              className="ml-auto"
+              className="text-destructive hover:bg-destructive/20 ml-auto"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
               }}
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="w-4 h-4 mr-1" />
               Eliminar
             </Button>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="bg-primary/20 text-primary text-xs font-bold px-1.5 py-0.5 rounded">1</span>
+              <div className="w-6 h-6 rounded bg-primary/20 text-primary text-xs flex items-center justify-center font-bold shrink-0">
+                1
+              </div>
               <Input
                 value={streamUrl}
                 onChange={(e) => setStreamUrl(e.target.value)}
@@ -1207,7 +1199,9 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="bg-muted text-muted-foreground text-xs font-bold px-1.5 py-0.5 rounded">2</span>
+              <div className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold shrink-0">
+                2
+              </div>
               <Input
                 value={streamUrl2}
                 onChange={(e) => setStreamUrl2(e.target.value)}
@@ -1216,7 +1210,9 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="bg-muted text-muted-foreground text-xs font-bold px-1.5 py-0.5 rounded">3</span>
+              <div className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold shrink-0">
+                3
+              </div>
               <Input
                 value={streamUrl3}
                 onChange={(e) => setStreamUrl3(e.target.value)}
@@ -1226,10 +1222,16 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
             </div>
           </div>
 
-          <Button onClick={handleSave} disabled={!isModified || saving} className="w-full">
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Guardar Cambios
-          </Button>
+          <div className="flex justify-end">
+            <Button
+              onClick={handleSave}
+              disabled={saving || !isModified}
+              className={`${isModified ? "bg-gradient-to-r from-primary to-accent" : ""}`}
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+              Guardar Cambios
+            </Button>
+          </div>
         </div>
       )}
     </div>
