@@ -6,181 +6,218 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const MOVIEBITE_BASE = "https://app.moviebite.cc";
 const EMBED_BASE = "https://embedsports.top/embed";
 
-function buildLink(source: string, id: string): string {
-  return `${EMBED_BASE}/${source}/${id}/1?autoplay=1`;
+// Mapeo de nombres de servidor de MovieBite a nuestras columnas
+const SERVER_MAPPING: Record<string, string> = {
+  'vola': 'admin',
+  'main': 'admin',
+  'admin': 'admin',
+  'delta': 'delta',
+  'echo': 'echo',
+  'mv': 'golf',
+  'golf': 'golf',
+};
+
+function buildLink(serverName: string, sourceId: string): string {
+  return `${EMBED_BASE}/${serverName}/${sourceId}/1?autoplay=1`;
 }
 
-interface MatchSource {
-  source: string;
-  id: string;
+interface MovieBiteSource {
+  name: string;
+  embed?: string;
+  id?: string;
 }
 
-interface MatchData {
+interface MovieBiteEvent {
   id: string;
-  title: string;
-  category: string;
+  title?: string;
+  name?: string;
+  category?: string;
+  sport?: string;
+  league?: string;
+  time?: string;
+  scheduled?: string;
   teams?: {
     home?: { name: string };
     away?: { name: string };
   };
-  sources: MatchSource[];
 }
 
-// Función para obtener partidos desde MovieBite usando su API real
-async function fetchMovieBiteAPI(): Promise<MatchData[]> {
-  const matches: MatchData[] = [];
-  
+interface ProcessedMatch {
+  match_id: string;
+  match_title: string;
+  category: string | null;
+  team_home: string | null;
+  team_away: string | null;
+  source_admin: string | null;
+  source_delta: string | null;
+  source_echo: string | null;
+  source_golf: string | null;
+  scanned_at: string;
+}
+
+async function fetchMovieBiteSchedule(): Promise<MovieBiteEvent[]> {
   try {
-    console.log("Fetching from MovieBite API...");
+    console.log(`Fetching schedule from ${MOVIEBITE_BASE}/api/schedule`);
     
-    // Esta es la API real que usa MovieBite internamente
-    const response = await fetch("https://sportsbite.top/api/matches/all", {
+    const response = await fetch(`${MOVIEBITE_BASE}/api/schedule`, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept": "application/json",
-        "Origin": "https://app.moviebite.cc",
-        "Referer": "https://app.moviebite.cc/",
+        "Referer": `${MOVIEBITE_BASE}/schedule`,
       },
     });
 
     if (!response.ok) {
-      console.log(`MovieBite API returned ${response.status}`);
-      return matches;
+      throw new Error(`Schedule API returned ${response.status}`);
     }
 
     const data = await response.json();
     
-    // Procesar los datos
+    // Extraer eventos de diferentes formatos posibles
+    let events: MovieBiteEvent[] = [];
     if (Array.isArray(data)) {
-      for (const match of data) {
-        const sources: MatchSource[] = [];
-        
-        // Extraer sources del formato de MovieBite
-        if (match.sources && Array.isArray(match.sources)) {
-          for (const src of match.sources) {
-            if (src.source && src.id) {
-              sources.push({
-                source: src.source.toLowerCase(),
-                id: src.id,
-              });
-            }
-          }
-        }
-        
-        // Si el match tiene los sources directamente
-        if (match.admin) sources.push({ source: "admin", id: match.admin });
-        if (match.delta) sources.push({ source: "delta", id: match.delta });
-        if (match.echo) sources.push({ source: "echo", id: match.echo });
-        if (match.golf) sources.push({ source: "golf", id: match.golf });
-        
-        if (sources.length > 0) {
-          matches.push({
-            id: match.id || match._id || `mb_${Date.now()}_${Math.random()}`,
-            title: match.title || match.name || "Unknown",
-            category: match.category || match.sport || "unknown",
-            teams: match.teams,
-            sources: sources,
-          });
-        }
-      }
+      events = data;
+    } else if (data.events && Array.isArray(data.events)) {
+      events = data.events;
+    } else if (data.data && Array.isArray(data.data)) {
+      events = data.data;
     }
     
-    console.log(`MovieBite API returned ${matches.length} matches`);
+    console.log(`✓ Found ${events.length} events in schedule`);
+    return events;
     
   } catch (error) {
-    console.error("Error fetching MovieBite API:", error);
+    console.error("Error fetching schedule:", error);
+    throw error;
   }
-  
-  return matches;
 }
 
-// Función alternativa: scraping directo de schedule
-async function fetchMovieBiteSchedule(): Promise<MatchData[]> {
-  const matches: MatchData[] = [];
+async function fetchMatchSources(matchId: string): Promise<Record<string, string>> {
+  const sources: Record<string, string> = {
+    admin: '',
+    delta: '',
+    echo: '',
+    golf: '',
+  };
   
   try {
-    console.log("Trying MovieBite schedule scraping...");
+    console.log(`  Fetching sources for match ${matchId}`);
     
-    // Intentar múltiples endpoints
-    const endpoints = [
-      "https://app.moviebite.cc/api/schedule",
-      "https://app.moviebite.cc/api/events",
-      "https://sportsbite.top/api/schedule",
-      "https://sportsbite.top/api/events",
-    ];
-    
-    for (const endpoint of endpoints) {
-      try {
-        console.log(`Trying endpoint: ${endpoint}`);
-        
-        const response = await fetch(endpoint, {
-          headers: {
-            "User-Agent": "Mozilla/5.0",
-            "Accept": "application/json",
-          },
-        });
+    const response = await fetch(`${MOVIEBITE_BASE}/api/stream/${matchId}`, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "application/json",
+        "Referer": `${MOVIEBITE_BASE}/stream/${matchId}`,
+      },
+    });
 
-        if (response.ok) {
-          const data = await response.json();
-          console.log(`Endpoint ${endpoint} returned data`);
-          
-          let events: any[] = [];
-          if (Array.isArray(data)) {
-            events = data;
-          } else if (data.events) {
-            events = data.events;
-          } else if (data.data) {
-            events = data.data;
-          }
-          
-          console.log(`Found ${events.length} events`);
-          
-          for (const event of events) {
-            const sources: MatchSource[] = [];
-            
-            // Extraer sources de diferentes formatos posibles
-            if (event.sources) {
-              for (const src of event.sources) {
-                if (src.source && src.id) {
-                  sources.push({ source: src.source, id: src.id });
-                }
-              }
-            }
-            
-            if (event.admin) sources.push({ source: "admin", id: event.admin });
-            if (event.delta) sources.push({ source: "delta", id: event.delta });
-            if (event.echo) sources.push({ source: "echo", id: event.echo });
-            if (event.golf) sources.push({ source: "golf", id: event.golf });
-            
-            if (sources.length > 0) {
-              matches.push({
-                id: event.id || `mb_${matches.length}`,
-                title: event.title || event.name || "Unknown",
-                category: event.category || event.sport || "unknown",
-                teams: event.teams,
-                sources: sources,
-              });
-            }
-          }
-          
-          if (matches.length > 0) {
-            console.log(`Successfully got ${matches.length} matches from ${endpoint}`);
-            break; // Si encontramos matches, salimos del loop
+    if (!response.ok) {
+      console.log(`  ⚠ Stream API returned ${response.status} for match ${matchId}`);
+      return sources;
+    }
+
+    const data = await response.json();
+    
+    // Procesar sources de diferentes formatos posibles
+    let sourcesArray: MovieBiteSource[] = [];
+    
+    if (data.sources && Array.isArray(data.sources)) {
+      sourcesArray = data.sources;
+    } else if (data.streams && Array.isArray(data.streams)) {
+      sourcesArray = data.streams;
+    }
+    
+    console.log(`  Found ${sourcesArray.length} sources for match ${matchId}`);
+    
+    for (const source of sourcesArray) {
+      const sourceName = (source.name || '').toLowerCase();
+      
+      // Verificar si este nombre está en nuestro mapeo
+      if (SERVER_MAPPING[sourceName]) {
+        const mappedColumn = SERVER_MAPPING[sourceName];
+        
+        // Extraer el ID de la fuente
+        let sourceId = source.id;
+        
+        // Si no hay ID directo, intentar extraerlo del embed
+        if (!sourceId && source.embed) {
+          const embedMatch = source.embed.match(/\/([^\/]+)\/([^\/]+)/);
+          if (embedMatch) {
+            sourceId = embedMatch[2];
           }
         }
-      } catch (endpointError) {
-        console.log(`Endpoint ${endpoint} failed, trying next...`);
-        continue;
+        
+        if (sourceId) {
+          // Construir el link usando el nombre del servidor original (no el mapeado)
+          const link = buildLink(sourceName, sourceId);
+          sources[mappedColumn] = link;
+          console.log(`    ✓ ${sourceName} → ${mappedColumn}: ${sourceId}`);
+        }
       }
     }
     
   } catch (error) {
-    console.error("Error in schedule scraping:", error);
+    console.error(`  ✗ Error fetching sources for match ${matchId}:`, error);
   }
   
-  return matches;
+  return sources;
+}
+
+async function processAllMatches(): Promise<ProcessedMatch[]> {
+  const processedMatches: ProcessedMatch[] = [];
+  
+  try {
+    // Paso 1: Obtener todos los eventos del schedule
+    const events = await fetchMovieBiteSchedule();
+    
+    console.log(`\nProcessing ${events.length} events...\n`);
+    
+    // Paso 2: Para cada evento, obtener sus fuentes
+    for (let i = 0; i < events.length; i++) {
+      const event = events[i];
+      
+      try {
+        const matchId = event.id;
+        const matchTitle = event.title || event.name || "Unknown Match";
+        
+        console.log(`[${i + 1}/${events.length}] ${matchTitle}`);
+        
+        // Obtener las fuentes de este partido
+        const sources = await fetchMatchSources(matchId);
+        
+        // Crear el registro procesado
+        const processedMatch: ProcessedMatch = {
+          match_id: matchId,
+          match_title: matchTitle,
+          category: event.category || event.sport || event.league || null,
+          team_home: event.teams?.home?.name || null,
+          team_away: event.teams?.away?.name || null,
+          source_admin: sources.admin || null,
+          source_delta: sources.delta || null,
+          source_echo: sources.echo || null,
+          source_golf: sources.golf || null,
+          scanned_at: new Date().toISOString(),
+        };
+        
+        processedMatches.push(processedMatch);
+        
+        // Pequeña pausa para no saturar el servidor
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+      } catch (eventError) {
+        console.error(`✗ Error processing event ${i + 1}:`, eventError);
+      }
+    }
+    
+  } catch (error) {
+    console.error("Error in processAllMatches:", error);
+    throw error;
+  }
+  
+  return processedMatches;
 }
 
 Deno.serve(async (req) => {
@@ -194,13 +231,18 @@ Deno.serve(async (req) => {
 
     if (authHeader) {
       // Manual call - verify admin
-      const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-        global: { headers: { Authorization: authHeader } },
-      });
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        {
+          global: { headers: { Authorization: authHeader } },
+        }
+      );
 
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      
       if (!user) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
@@ -208,7 +250,10 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { data: roleData } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
+      const { data: roleData } = await supabase.rpc("has_role", {
+        _user_id: user.id,
+        _role: "admin",
+      });
 
       if (!roleData) {
         return new Response(JSON.stringify({ error: "Forbidden" }), {
@@ -217,102 +262,44 @@ Deno.serve(async (req) => {
         });
       }
     }
+    // If no auth header, allow cron execution
 
-    console.log("=== Starting scraper ===");
+    console.log("=== MOVIEBITE SCRAPER STARTED ===");
+    console.log(`Time: ${new Date().toISOString()}`);
     
-    let allMatches: MatchData[] = [];
+    // Procesar todos los partidos de MovieBite
+    const records = await processAllMatches();
     
-    // 1. Streamed.pk API
-    try {
-      console.log("Fetching from streamed.pk...");
-      const response = await fetch("https://streamed.pk/api/matches/all", {
-        headers: { "User-Agent": "Mozilla/5.0" },
-      });
-
-      if (response.ok) {
-        const apiMatches: MatchData[] = await response.json();
-        console.log(`✓ Streamed.pk: ${apiMatches.length} matches`);
-        allMatches = [...apiMatches];
-      }
-    } catch (error) {
-      console.error("✗ Streamed.pk failed:", error);
-    }
+    // Contar sources por tipo
+    const adminCount = records.filter(r => r.source_admin).length;
+    const deltaCount = records.filter(r => r.source_delta).length;
+    const echoCount = records.filter(r => r.source_echo).length;
+    const golfCount = records.filter(r => r.source_golf).length;
     
-    // 2. MovieBite API (método principal)
-    try {
-      const movieBiteMatches = await fetchMovieBiteAPI();
-      console.log(`✓ MovieBite API: ${movieBiteMatches.length} matches`);
-      allMatches = [...allMatches, ...movieBiteMatches];
-    } catch (error) {
-      console.error("✗ MovieBite API failed:", error);
-    }
+    console.log(`\n=== SCRAPING SUMMARY ===`);
+    console.log(`Total matches: ${records.length}`);
+    console.log(`Admin sources: ${adminCount}`);
+    console.log(`Delta sources: ${deltaCount}`);
+    console.log(`Echo sources: ${echoCount}`);
+    console.log(`Golf sources: ${golfCount}`);
     
-    // 3. MovieBite Schedule (backup)
-    if (allMatches.filter(m => m.sources.some(s => s.source === 'admin')).length === 0) {
-      console.log("No admin sources found, trying schedule scraping...");
-      try {
-        const scheduleMatches = await fetchMovieBiteSchedule();
-        console.log(`✓ MovieBite Schedule: ${scheduleMatches.length} matches`);
-        allMatches = [...allMatches, ...scheduleMatches];
-      } catch (error) {
-        console.error("✗ MovieBite Schedule failed:", error);
-      }
-    }
-
-    // Deduplicación y merge de sources
-    const uniqueMatches = new Map<string, MatchData>();
-    for (const match of allMatches) {
-      const key = `${match.title}_${match.teams?.home?.name}_${match.teams?.away?.name}`.toLowerCase().trim();
-      
-      if (!uniqueMatches.has(key)) {
-        uniqueMatches.set(key, match);
-      } else {
-        const existing = uniqueMatches.get(key)!;
-        for (const newSource of match.sources) {
-          if (!existing.sources.some(s => s.source === newSource.source && s.id === newSource.id)) {
-            existing.sources.push(newSource);
-          }
-        }
-      }
-    }
-
-    const finalMatches = Array.from(uniqueMatches.values());
-    
-    console.log(`=== Summary ===`);
-    console.log(`Total matches: ${finalMatches.length}`);
-    console.log(`Admin sources: ${finalMatches.filter(m => m.sources.some(s => s.source === 'admin')).length}`);
-    console.log(`Delta sources: ${finalMatches.filter(m => m.sources.some(s => s.source === 'delta')).length}`);
-    console.log(`Echo sources: ${finalMatches.filter(m => m.sources.some(s => s.source === 'echo')).length}`);
-    console.log(`Golf sources: ${finalMatches.filter(m => m.sources.some(s => s.source === 'golf')).length}`);
-
-    // Process matches
-    const records = finalMatches.map((match) => {
-      const adminSource = match.sources.find((s) => s.source === "admin");
-      const deltaSource = match.sources.find((s) => s.source === "delta");
-      const echoSource = match.sources.find((s) => s.source === "echo");
-      const golfSource = match.sources.find((s) => s.source === "golf");
-
-      return {
-        match_id: match.id,
-        match_title: match.title,
-        category: match.category || null,
-        team_home: match.teams?.home?.name || null,
-        team_away: match.teams?.away?.name || null,
-        source_admin: adminSource ? buildLink("admin", adminSource.id) : null,
-        source_delta: deltaSource ? buildLink("delta", deltaSource.id) : null,
-        source_echo: echoSource ? buildLink("echo", echoSource.id) : null,
-        source_golf: golfSource ? buildLink("golf", golfSource.id) : null,
-        scanned_at: new Date().toISOString(),
-      };
-    });
-
     // Use service role to upsert (bypasses RLS)
-    const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    // Clear old records and insert new ones
-    await adminClient.from("live_scraped_links").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+    // Limpiar registros antiguos
+    console.log("\nClearing old records...");
+    await adminClient
+      .from("live_scraped_links")
+      .delete()
+      .neq("id", "00000000-0000-0000-0000-000000000000");
 
+    // Insertar nuevos registros
     if (records.length > 0) {
+      console.log(`Inserting ${records.length} new records...`);
+      
       const { error: insertError } = await adminClient
         .from("live_scraped_links")
         .upsert(records, { onConflict: "match_id" });
@@ -321,35 +308,74 @@ Deno.serve(async (req) => {
         console.error("Insert error:", insertError);
         throw new Error(insertError.message);
       }
+      
+      console.log("✓ Records inserted successfully");
     }
+
+    console.log("=== SCRAPER COMPLETED ===\n");
 
     return new Response(
       JSON.stringify({
         success: true,
         count: records.length,
+        stats: {
+          admin: adminCount,
+          delta: deltaCount,
+          echo: echoCount,
+          golf: golfCount,
+        },
         matches: records,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+    
   } catch (error) {
-    console.error("Scrape error:", error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("=== SCRAPER ERROR ===");
+    console.error(error);
+    
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message,
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });
 ```
 
-**Cambios clave:**
+**Características clave del scraper:**
 
-1. ✅ **API real de MovieBite**: Ahora usa `https://sportsbite.top/api/matches/all` (la API backend real)
-2. ✅ **Múltiples endpoints de respaldo**: Si uno falla, prueba otros
-3. ✅ **Logging mejorado**: Verás exactamente cuántos sources de cada tipo encontró
-4. ✅ **Triple estrategia**: streamed.pk → MovieBite API → MovieBite Schedule
+✅ **Fuente única**: Solo extrae de MovieBite (`https://app.moviebite.cc`)
+✅ **Dos pasos**: 
+   1. GET `/api/schedule` → lista de partidos
+   2. GET `/api/stream/[ID]` → fuentes de cada partido
+✅ **Mapeo correcto**:
+   - `vola`, `main`, `admin` → `source_admin`
+   - `delta` → `source_delta`
+   - `echo` → `source_echo`
+   - `mv`, `golf` → `source_golf`
+✅ **Links correctos**: `https://embedsports.top/embed/[servidor]/[id]/1?autoplay=1`
+✅ **Calendario completo**: Trae todos los partidos del schedule, no solo live
+✅ **Limpieza antes de insertar**: `delete()` + `upsert()`
+✅ **Logging detallado**: Para debugging
 
-Despliega este código y **revisa los logs de Supabase** para ver qué está pasando. Deberías ver algo como:
+**Ejemplo de salida en logs:**
 ```
-✓ MovieBite API: 25 matches
-Admin sources: 15
-Delta sources: 20
+[1/30] Charlotte Hornets vs Atlanta Hawks
+  Fetching sources for match 2358138
+  Found 4 sources for match 2358138
+    ✓ admin → admin: 123
+    ✓ delta → delta: 456
+    ✓ echo → echo: 789
+    ✓ golf → golf: 012
+
+=== SCRAPING SUMMARY ===
+Total matches: 30
+Admin sources: 25
+Delta sources: 28
+Echo sources: 22
+Golf sources: 15
