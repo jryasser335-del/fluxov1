@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+
 interface EventLink {
   id: string;
   espn_id: string | null;
@@ -51,11 +52,13 @@ interface EventLink {
   is_live: boolean;
   is_active: boolean;
 }
+
 interface LeagueCategory {
   name: string;
   icon: string;
   leagues: { key: string; name: string; sport: string; flag?: string }[];
 }
+
 const LEAGUE_CATEGORIES: LeagueCategory[] = [
   {
     name: "🏀 Basketball",
@@ -260,16 +263,18 @@ const LEAGUE_CATEGORIES: LeagueCategory[] = [
     ],
   },
 ];
-// Flat list for quick lookup
+
 const ALL_LEAGUES = LEAGUE_CATEGORIES.flatMap((cat) => cat.leagues);
+
 export function AdminEvents() {
   const [eventLinks, setEventLinks] = useState<EventLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [cleaningFinished, setCleaningFinished] = useState(false);
+
   // ESPN search state
-  const [selectedLeague, setSelectedLeague] = useState("");
+  const [selectedLeague, setSelectedLeague] = useState<string>("");
   const [espnEvents, setEspnEvents] = useState<ESPNEvent[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<ESPNEvent | null>(null);
@@ -277,58 +282,38 @@ export function AdminEvents() {
   const [newStreamUrl2, setNewStreamUrl2] = useState("");
   const [newStreamUrl3, setNewStreamUrl3] = useState("");
   const [espnSearchQuery, setEspnSearchQuery] = useState("");
+
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "live" | "with-link" | "without-link">("all");
   const [leagueSearch, setLeagueSearch] = useState("");
   const [openCategories, setOpenCategories] = useState<string[]>(["🏀 Basketball", "⚽ Ligas Top Europeas"]);
+
   useEffect(() => {
-    // Auto-limpiar eventos de días anteriores, luego cargar
-    deleteOldEvents().then(() => {
-      fetchEventLinks();
-      syncEventStatus();
-    });
+    fetchEventLinks();
+    syncEventStatus();
   }, []);
-  // 🧹 AUTO-LIMPIEZA: Elimina eventos de días anteriores (aunque tengan link)
-  const deleteOldEvents = async () => {
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayISO = today.toISOString();
-      const { data: oldEvents, error: fetchError } = await supabase
-        .from("events")
-        .select("id, name, event_date")
-        .lt("event_date", todayISO);
-      if (fetchError) {
-        console.error("Error buscando eventos antiguos:", fetchError);
-        return;
-      }
-      if (!oldEvents || oldEvents.length === 0) {
-        return;
-      }
-      const ids = oldEvents.map((e) => e.id);
-      const { error } = await supabase.from("events").delete().in("id", ids);
-      if (error) {
-        console.error("Error eliminando eventos antiguos:", error);
-      } else {
-        console.log(`🧹 Auto-limpieza: ${ids.length} evento(s) de días anteriores eliminados`);
-        toast.success(`🧹 ${ids.length} evento(s) de días anteriores eliminados automáticamente`);
-      }
-    } catch (error) {
-      console.error("Error en auto-limpieza:", error);
-    }
-  };
+
   const syncEventStatus = async () => {
     try {
       await supabase.functions.invoke("sync-event-status");
-      // Reload after sync to reflect deletions
       fetchEventLinks();
     } catch (error) {
       console.error("Error syncing event status:", error);
     }
   };
+
   const fetchEventLinks = async () => {
-    const { data, error } = await supabase.from("events").select("*").order("event_date", { ascending: true });
+    // CORRECCIÓN: Filtramos para que solo traiga eventos de hoy o futuro (evita eventos de ayer)
+    const yesterday = new Date();
+    yesterday.setHours(0, 0, 0, 0); // Inicio del día de hoy
+
+    const { data, error } = await supabase
+      .from("events")
+      .select("*")
+      .gte("event_date", yesterday.toISOString()) // Solo eventos desde hoy a las 00:00 en adelante
+      .order("event_date", { ascending: true });
+
     if (error) {
       toast.error("Error al cargar eventos");
     } else {
@@ -336,11 +321,13 @@ export function AdminEvents() {
     }
     setLoading(false);
   };
+
   const searchESPN = async () => {
     if (!selectedLeague) {
       toast.error("Selecciona una liga");
       return;
     }
+
     setSearching(true);
     try {
       const response = await fetchESPNScoreboard(selectedLeague);
@@ -353,33 +340,42 @@ export function AdminEvents() {
     }
     setSearching(false);
   };
+
   const selectEvent = async (event: ESPNEvent) => {
     setSelectedEvent(event);
     setEspnEvents([]);
+
     const comp = event.competitions[0];
     const home = comp.competitors.find((c) => c.homeAway === "home");
     const away = comp.competitors.find((c) => c.homeAway === "away");
+
     if (home?.team.displayName && away?.team.displayName) {
       const normalize = (s: string) =>
         s
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
           .toLowerCase();
+
       const homeWords = normalize(home.team.displayName).split(/\s+/);
       const awayWords = normalize(away.team.displayName).split(/\s+/);
+
       const { data: scrapedLinks } = await supabase.from("live_scraped_links").select("*");
+
       const match = (scrapedLinks || []).find((s: any) => {
         const title = normalize(s.match_title || "");
         const sHome = normalize(s.team_home || "");
         const sAway = normalize(s.team_away || "");
         const allText = `${title} ${sHome} ${sAway}`;
+
         const homeMatch = homeWords.some((w) => w.length > 2 && allText.includes(w));
         const awayMatch = awayWords.some((w) => w.length > 2 && allText.includes(w));
         return homeMatch && awayMatch;
       });
+
       if (match) {
         const m = match as any;
         const availableLinks = [m.source_admin, m.source_delta, m.source_echo, m.source_golf].filter(Boolean);
+
         setNewStreamUrl(availableLinks[0] || "");
         setNewStreamUrl2(availableLinks[1] || "");
         setNewStreamUrl3(availableLinks[2] || "");
@@ -392,21 +388,25 @@ export function AdminEvents() {
       }
     }
   };
+
   const getEventName = (event: ESPNEvent) => {
     const comp = event.competitions[0];
     const home = comp.competitors.find((c) => c.homeAway === "home");
     const away = comp.competitors.find((c) => c.homeAway === "away");
     return `${home?.team.displayName || "TBD"} vs ${away?.team.displayName || "TBD"}`;
   };
+
   const addEventLink = async () => {
     if (!selectedEvent || !newStreamUrl) {
       toast.error("Selecciona un evento y agrega el link");
       return;
     }
+
     const comp = selectedEvent.competitions[0];
     const home = comp.competitors.find((c) => c.homeAway === "home");
     const away = comp.competitors.find((c) => c.homeAway === "away");
     const league = ALL_LEAGUES.find((l) => l.key === selectedLeague);
+
     const { data, error } = await supabase
       .from("events")
       .insert({
@@ -425,6 +425,7 @@ export function AdminEvents() {
       })
       .select()
       .single();
+
     if (error) {
       if (error.message.includes("duplicate")) {
         toast.error("Ya existe un link para este evento");
@@ -437,6 +438,7 @@ export function AdminEvents() {
       toast.success("✨ Link agregado correctamente");
     }
   };
+
   const resetDialog = () => {
     setSelectedEvent(null);
     setNewStreamUrl("");
@@ -447,12 +449,14 @@ export function AdminEvents() {
     setEspnSearchQuery("");
     setIsDialogOpen(false);
   };
+
   const updateStreamUrls = async (
     event: EventLink,
     urls: { stream_url?: string; stream_url_2?: string; stream_url_3?: string },
   ) => {
     setSaving(event.id);
     const { error } = await supabase.from("events").update(urls).eq("id", event.id);
+
     if (error) {
       toast.error("Error al guardar links");
     } else {
@@ -461,24 +465,30 @@ export function AdminEvents() {
     }
     setSaving(null);
   };
+
   const toggleLive = async (event: EventLink, is_live: boolean) => {
     const { error } = await supabase.from("events").update({ is_live }).eq("id", event.id);
+
     if (error) {
       toast.error("Error al cambiar estado");
     } else {
       setEventLinks(eventLinks.map((e) => (e.id === event.id ? { ...e, is_live } : e)));
     }
   };
+
   const toggleActive = async (event: EventLink, is_active: boolean) => {
     const { error } = await supabase.from("events").update({ is_active }).eq("id", event.id);
+
     if (error) {
       toast.error("Error al cambiar estado");
     } else {
       setEventLinks(eventLinks.map((e) => (e.id === event.id ? { ...e, is_active } : e)));
     }
   };
+
   const deleteEventLink = async (id: string) => {
     const { error } = await supabase.from("events").delete().eq("id", id);
+
     if (error) {
       toast.error("Error al eliminar");
     } else {
@@ -486,16 +496,20 @@ export function AdminEvents() {
       toast.success("Evento eliminado");
     }
   };
-  // 🗑️ LIMPIAR TODOS LOS FINALIZADOS
+
   const cleanAllFinished = async () => {
     setCleaningFinished(true);
     try {
-      // 1. Delete all inactive events
       const { error: err1 } = await supabase.from("events").delete().eq("is_active", false);
       if (err1) throw err1;
-      // 2. Delete events with no links and not live
       const { error: err2 } = await supabase.from("events").delete().eq("is_live", false).is("stream_url", null);
       if (err2) throw err2;
+
+      // ADICIONAL: Limpiar físicamente cualquier cosa anterior a hoy para no depender solo del filtro visual
+      const yesterday = new Date();
+      yesterday.setHours(0, 0, 0, 0);
+      await supabase.from("events").delete().lt("event_date", yesterday.toISOString());
+
       toast.success("🗑️ Eventos finalizados eliminados");
       fetchEventLinks();
     } catch (error) {
@@ -504,7 +518,7 @@ export function AdminEvents() {
     }
     setCleaningFinished(false);
   };
-  // Stats
+
   const stats = useMemo(() => {
     const total = eventLinks.length;
     const live = eventLinks.filter((e) => e.is_live).length;
@@ -512,7 +526,7 @@ export function AdminEvents() {
     const withoutLink = eventLinks.filter((e) => !e.stream_url).length;
     return { total, live, withLink, withoutLink };
   }, [eventLinks]);
-  // Filtered events
+
   const filteredEvents = useMemo(() => {
     return eventLinks.filter((event) => {
       if (searchQuery) {
@@ -525,13 +539,15 @@ export function AdminEvents() {
           event.sport?.toLowerCase().includes(query);
         if (!matchesSearch) return false;
       }
+
       if (filterStatus === "live" && !event.is_live) return false;
       if (filterStatus === "with-link" && !event.stream_url) return false;
       if (filterStatus === "without-link" && event.stream_url) return false;
+
       return true;
     });
   }, [eventLinks, searchQuery, filterStatus]);
-  // Filtered leagues for dialog
+
   const filteredCategories = useMemo(() => {
     if (!leagueSearch) return LEAGUE_CATEGORIES;
     const query = leagueSearch.toLowerCase();
@@ -540,7 +556,7 @@ export function AdminEvents() {
       leagues: cat.leagues.filter((l) => l.name.toLowerCase().includes(query) || l.key.toLowerCase().includes(query)),
     })).filter((cat) => cat.leagues.length > 0);
   }, [leagueSearch]);
-  // Filter ESPN events by team name
+
   const filteredEspnEvents = useMemo(() => {
     if (!espnSearchQuery.trim()) return espnEvents;
     const query = espnSearchQuery.toLowerCase().trim();
@@ -556,66 +572,70 @@ export function AdminEvents() {
       );
     });
   }, [espnEvents, espnSearchQuery]);
+
   const toggleCategory = (catName: string) => {
     setOpenCategories((prev) => (prev.includes(catName) ? prev.filter((c) => c !== catName) : [...prev, catName]));
   };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center space-y-4">
+      <div className="flex items-center justify-center py-12">
+        <div className="flex flex-col items-center gap-4">
           <div className="relative">
-            <div className="absolute inset-0 w-12 h-12 bg-primary/30 rounded-full blur-xl animate-pulse mx-auto" />
-            <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto relative z-10" />
+            <div
+              className="w-12 h-12 rounded-full border-2 border-primary/30 animate-spin"
+              style={{ borderTopColor: "hsl(var(--primary))" }}
+            />
+            <Sparkles className="w-5 h-5 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
           </div>
-          <p className="text-muted-foreground animate-pulse">Cargando eventos...</p>
+          <p className="text-sm text-muted-foreground">Cargando eventos...</p>
         </div>
       </div>
     );
   }
+
   return (
     <div className="space-y-6">
-      {/* Premium Header */}
-      <div className="glass-panel rounded-2xl p-6 space-y-6">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 rounded-2xl pointer-events-none" />
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative">
-          <div className="space-y-1">
-            <h2 className="text-2xl font-bold flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-primary/10">
-                <Trophy className="w-6 h-6 text-primary" />
+      <div className="relative overflow-hidden rounded-2xl glass-panel p-6">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-accent/10" />
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
+
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-display font-bold tracking-wide flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <Trophy className="w-5 h-5 text-white" />
               </div>
               Gestión de Eventos
             </h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mt-1">
               Administra links de streaming para partidos y eventos deportivos
             </p>
           </div>
+
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={cleanAllFinished}
-              disabled={cleaningFinished}
-              className="border-red-500/30 text-red-400 hover:bg-red-500/10"
-            >
-              {cleaningFinished ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-1" />
-              ) : (
-                <Trash2 className="w-4 h-4 mr-1" />
-              )}
+            <Button onClick={cleanAllFinished} variant="destructive" className="gap-2" disabled={cleaningFinished}>
+              {cleaningFinished ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
               Limpiar Finalizados
             </Button>
+
             <Button
               onClick={() => setIsDialogOpen(true)}
               className="bg-gradient-to-r from-primary to-accent hover:opacity-90 shadow-lg shadow-primary/25"
             >
-              <Plus className="w-4 h-4 mr-1" />
+              <Plus className="w-4 h-4 mr-2" />
               Agregar Evento
             </Button>
           </div>
         </div>
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 relative">
-          <StatCard label="Total" value={stats.total} icon={<Calendar className="w-4 h-4" />} color="text-foreground" />
+
+        <div className="relative grid grid-cols-2 md:grid-cols-4 gap-3 mt-6">
+          <StatCard
+            label="Total Eventos"
+            value={stats.total}
+            icon={<Calendar className="w-4 h-4" />}
+            color="text-foreground"
+          />
           <StatCard
             label="En Vivo"
             value={stats.live}
@@ -637,7 +657,7 @@ export function AdminEvents() {
           />
         </div>
       </div>
-      {/* Filters */}
+
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -648,7 +668,8 @@ export function AdminEvents() {
             className="pl-10 bg-card/50 border-border/50"
           />
         </div>
-        <div className="flex gap-1.5 flex-wrap">
+
+        <div className="flex gap-2">
           <FilterButton
             active={filterStatus === "all"}
             onClick={() => setFilterStatus("all")}
@@ -675,7 +696,7 @@ export function AdminEvents() {
           />
         </div>
       </div>
-      {/* Add Link Dialog */}
+
       <Dialog
         open={isDialogOpen}
         onOpenChange={(open) => {
@@ -683,20 +704,20 @@ export function AdminEvents() {
           setIsDialogOpen(open);
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="bg-card border-border max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-primary/10">
-                <Sparkles className="w-5 h-5 text-primary" />
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                <Plus className="w-4 h-4 text-white" />
               </div>
               Agregar Nuevo Evento
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+
+          <div className="flex-1 min-h-0 overflow-hidden">
             {!selectedEvent ? (
-              <div className="space-y-4">
-                {/* League Search */}
-                <div className="relative">
+              <div className="space-y-4 h-full flex flex-col">
+                <div className="relative shrink-0">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
                     value={leagueSearch}
@@ -705,11 +726,13 @@ export function AdminEvents() {
                     className="pl-10"
                   />
                 </div>
-                {/* Selected League Indicator */}
+
                 {selectedLeague && (
-                  <div className="flex items-center gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20">
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/30 shrink-0">
                     <Trophy className="w-4 h-4 text-primary" />
-                    <Badge variant="secondary">{ALL_LEAGUES.find((l) => l.key === selectedLeague)?.name}</Badge>
+                    <span className="text-sm font-medium">
+                      {ALL_LEAGUES.find((l) => l.key === selectedLeague)?.name}
+                    </span>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -718,22 +741,22 @@ export function AdminEvents() {
                     >
                       <X className="w-3 h-3" />
                     </Button>
-                    <Button size="sm" onClick={searchESPN} disabled={searching}>
+                    <Button size="sm" onClick={searchESPN} disabled={searching} className="h-7">
                       {searching ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         <>
-                          <Search className="w-4 h-4 mr-1" />
+                          <Search className="w-3 h-3 mr-1" />
                           Buscar en ESPN
                         </>
                       )}
                     </Button>
                   </div>
                 )}
-                {/* ESPN Results */}
+
                 {espnEvents.length > 0 ? (
-                  <div className="space-y-3">
-                    <div className="relative">
+                  <div className="flex flex-col flex-1 min-h-0 space-y-3">
+                    <div className="relative shrink-0">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
                         value={espnSearchQuery}
@@ -742,58 +765,71 @@ export function AdminEvents() {
                         className="pl-10"
                       />
                     </div>
-                    <p className="text-xs text-muted-foreground">
+
+                    <p className="text-xs text-muted-foreground shrink-0">
                       {filteredEspnEvents.length} de {espnEvents.length} evento(s)
                     </p>
-                    <ScrollArea className="h-[300px]">
+
+                    <div className="flex-1 min-h-0 overflow-y-auto max-h-[350px] space-y-2 pr-2">
                       {filteredEspnEvents.map((event) => {
                         const comp = event.competitions[0];
                         const home = comp.competitors.find((c) => c.homeAway === "home");
                         const away = comp.competitors.find((c) => c.homeAway === "away");
                         const isLive = comp.status.type.state === "in";
+
                         return (
                           <div
                             key={event.id}
                             onClick={() => selectEvent(event)}
-                            className="flex items-center gap-3 p-3 rounded-xl glass-panel hover:bg-white/5 cursor-pointer transition-all hover:scale-[1.01] mb-2"
+                            className="flex items-center gap-3 p-3 rounded-xl glass-panel hover:bg-white/5 cursor-pointer transition-all hover:scale-[1.01]"
                           >
-                            <div className="flex items-center gap-2 flex-1">
-                              {home?.team.logo && <img src={home.team.logo} alt="" className="w-8 h-8 rounded" />}
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              {home?.team.logo && (
+                                <img src={home.team.logo} alt="" className="w-10 h-10 object-contain" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">
                                   {home?.team.shortDisplayName || "TBD"} vs {away?.team.shortDisplayName || "TBD"}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   {new Date(event.date).toLocaleString("es-ES")}
                                 </p>
                               </div>
-                              {away?.team.logo && <img src={away.team.logo} alt="" className="w-8 h-8 rounded" />}
+                              {away?.team.logo && (
+                                <img src={away.team.logo} alt="" className="w-10 h-10 object-contain" />
+                              )}
                             </div>
-                            {isLive && <Badge className="bg-red-500 text-white animate-pulse">🔴 LIVE</Badge>}
+                            {isLive && (
+                              <Badge variant="destructive" className="animate-pulse">
+                                🔴 LIVE
+                              </Badge>
+                            )}
                           </div>
                         );
                       })}
+
                       {filteredEspnEvents.length === 0 && (
-                        <div className="text-center py-8">
-                          <p className="text-muted-foreground">No se encontraron partidos con "{espnSearchQuery}"</p>
+                        <div className="text-center py-8 text-muted-foreground">
+                          <p>No se encontraron partidos con "{espnSearchQuery}"</p>
                         </div>
                       )}
-                    </ScrollArea>
+                    </div>
                   </div>
                 ) : (
-                  /* Categories List */
-                  <ScrollArea className="h-[400px]">
-                    <div className="space-y-1">
+                  <ScrollArea className="flex-1 -mx-2 px-2">
+                    <div className="space-y-2 pb-4">
                       {filteredCategories.map((category) => (
                         <Collapsible
                           key={category.name}
                           open={openCategories.includes(category.name)}
                           onOpenChange={() => toggleCategory(category.name)}
                         >
-                          <CollapsibleTrigger className="flex items-center gap-2 w-full p-2.5 rounded-lg hover:bg-white/5 transition-colors text-left">
-                            {category.icon}
-                            <span className="font-medium text-sm flex-1">{category.name.replace(/^[^\s]+\s/, "")}</span>
-                            <Badge variant="secondary" className="text-xs">
+                          <CollapsibleTrigger className="flex items-center gap-3 w-full p-3 rounded-xl glass-panel hover:bg-white/5 transition-all">
+                            <span className="text-lg">{category.icon}</span>
+                            <span className="font-medium flex-1 text-left">
+                              {category.name.replace(/^[^\s]+\s/, "")}
+                            </span>
+                            <Badge variant="secondary" className="mr-2">
                               {category.leagues.length}
                             </Badge>
                             {openCategories.includes(category.name) ? (
@@ -803,19 +839,19 @@ export function AdminEvents() {
                             )}
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <div className="pl-6 space-y-0.5 pb-2">
+                            <div className="grid grid-cols-2 gap-2 pt-2 pl-4">
                               {category.leagues.map((league) => (
                                 <button
                                   key={league.key}
                                   onClick={() => setSelectedLeague(league.key)}
-                                  className={`flex items-center gap-2 p-2.5 rounded-lg text-left text-sm transition-all w-full ${
+                                  className={`flex items-center gap-2 p-2.5 rounded-lg text-left text-sm transition-all ${
                                     selectedLeague === league.key
                                       ? "bg-primary/20 border border-primary/50 text-primary"
                                       : "hover:bg-white/5 border border-transparent"
                                   }`}
                                 >
-                                  {league.flag}
-                                  {league.name}
+                                  <span>{league.flag}</span>
+                                  <span className="truncate">{league.name}</span>
                                 </button>
                               ))}
                             </div>
@@ -827,12 +863,11 @@ export function AdminEvents() {
                 )}
               </div>
             ) : (
-              /* Selected Event Form */
               <div className="space-y-4">
-                <div className="flex items-center gap-3 p-4 rounded-xl glass-panel">
-                  <Trophy className="w-5 h-5 text-primary" />
-                  <div className="flex-1">
-                    <p className="font-bold">{getEventName(selectedEvent)}</p>
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
+                  <Trophy className="w-6 h-6 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold truncate">{getEventName(selectedEvent)}</p>
                     <p className="text-xs text-muted-foreground">
                       {ALL_LEAGUES.find((l) => l.key === selectedLeague)?.name} •{" "}
                       {new Date(selectedEvent.date).toLocaleString("es-ES")}
@@ -842,55 +877,64 @@ export function AdminEvents() {
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Satellite className="w-3.5 h-3.5" />
-                  <span>
+
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/30">
+                  <Satellite className="w-4 h-4 text-primary" />
+                  <span className="text-sm text-primary">
                     {newStreamUrl ? "Links reales del escáner asignados" : "Sin links escaneados — ingresa manualmente"}
                   </span>
                 </div>
+
                 <div className="space-y-3">
-                  <div>
-                    <Label className="text-xs flex items-center gap-1.5 mb-1.5">
-                      <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-primary/20 text-primary text-xs flex items-center justify-center font-bold">
                         1
                       </span>
                       Stream Principal *
                     </Label>
                     <Input
+                      placeholder="https://...m3u8"
                       value={newStreamUrl}
                       onChange={(e) => setNewStreamUrl(e.target.value)}
-                      placeholder="https://stream-url.com"
                     />
                   </div>
-                  <div>
-                    <Label className="text-xs flex items-center gap-1.5 mb-1.5">
-                      <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold">
                         2
                       </span>
                       Stream Alternativo 1
                     </Label>
                     <Input
+                      placeholder="https://...m3u8 (opcional)"
                       value={newStreamUrl2}
                       onChange={(e) => setNewStreamUrl2(e.target.value)}
-                      placeholder="https://stream-alt1.com"
                     />
                   </div>
-                  <div>
-                    <Label className="text-xs flex items-center gap-1.5 mb-1.5">
-                      <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">
+
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold">
                         3
                       </span>
                       Stream Alternativo 2
                     </Label>
                     <Input
+                      placeholder="https://...m3u8 (opcional)"
                       value={newStreamUrl3}
                       onChange={(e) => setNewStreamUrl3(e.target.value)}
-                      placeholder="https://stream-alt2.com"
                     />
                   </div>
                 </div>
-                <Button onClick={addEventLink} className="w-full bg-gradient-to-r from-primary to-accent">
-                  <Plus className="w-4 h-4 mr-1" />
+
+                <Button
+                  onClick={addEventLink}
+                  className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90"
+                  disabled={!newStreamUrl}
+                >
+                  <Zap className="w-4 h-4 mr-2" />
                   Agregar Evento
                 </Button>
               </div>
@@ -898,16 +942,16 @@ export function AdminEvents() {
           </div>
         </DialogContent>
       </Dialog>
-      {/* Event Links List */}
-      <ScrollArea className="h-[600px]">
-        <div className="space-y-2">
+
+      <ScrollArea className="h-[calc(100vh-400px)] min-h-[400px]">
+        <div className="space-y-3 pr-4">
           {filteredEvents.length === 0 ? (
-            <div className="text-center py-16 space-y-4">
-              <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center mx-auto">
-                <Trophy className="w-8 h-8 text-muted-foreground" />
+            <div className="text-center py-16 glass-panel rounded-2xl">
+              <div className="w-16 h-16 rounded-2xl bg-muted/50 flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-8 h-8 text-muted-foreground" />
               </div>
-              <p className="text-lg font-medium text-muted-foreground">No hay eventos que mostrar</p>
-              <p className="text-sm text-muted-foreground/70">
+              <p className="text-muted-foreground mb-2">No hay eventos que mostrar</p>
+              <p className="text-xs text-muted-foreground/60">
                 {searchQuery || filterStatus !== "all"
                   ? "Intenta cambiar los filtros de búsqueda"
                   : "Busca en ESPN y agrega un link de stream"}
@@ -932,7 +976,7 @@ export function AdminEvents() {
     </div>
   );
 }
-// Stat Card Component
+
 function StatCard({
   label,
   value,
@@ -947,16 +991,16 @@ function StatCard({
   pulse?: boolean;
 }) {
   return (
-    <div className="glass-panel rounded-xl p-3 space-y-1">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <span className={`${color} ${pulse ? "animate-pulse" : ""}`}>{icon}</span>
-        {label}
+    <div className="glass-panel rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <div className={`${color} ${pulse ? "animate-pulse" : ""}`}>{icon}</div>
+        <span className="text-xs text-muted-foreground">{label}</span>
       </div>
-      <p className={`text-2xl font-bold ${color}`}>{value}</p>
+      <p className={`text-2xl font-bold font-tech ${color}`}>{value}</p>
     </div>
   );
 }
-// Filter Button Component
+
 function FilterButton({
   active,
   onClick,
@@ -969,20 +1013,20 @@ function FilterButton({
   count: number;
 }) {
   return (
-    <Button
-      variant={active ? "default" : "outline"}
-      size="sm"
+    <button
       onClick={onClick}
-      className={active ? "" : "border-border/50"}
+      className={`px-3 py-2 rounded-lg text-xs font-medium transition-all flex items-center gap-2 ${
+        active
+          ? "bg-primary/20 text-primary border border-primary/30"
+          : "bg-card/50 text-muted-foreground hover:bg-card border border-transparent"
+      }`}
     >
       {label}
-      <Badge variant="secondary" className="ml-1.5 text-[10px] px-1.5">
-        {count}
-      </Badge>
-    </Button>
+      <span className={`px-1.5 py-0.5 rounded text-[10px] ${active ? "bg-primary/30" : "bg-muted"}`}>{count}</span>
+    </button>
   );
 }
-// Event Row Component
+
 interface EventRowProps {
   event: EventLink;
   saving: boolean;
@@ -992,16 +1036,19 @@ interface EventRowProps {
   onDelete: () => void;
   index: number;
 }
+
 function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive, onDelete, index }: EventRowProps) {
   const [streamUrl, setStreamUrl] = useState(event.stream_url || "");
   const [streamUrl2, setStreamUrl2] = useState(event.stream_url_2 || "");
   const [streamUrl3, setStreamUrl3] = useState(event.stream_url_3 || "");
   const [isExpanded, setIsExpanded] = useState(false);
   const hasLink = Boolean(event.stream_url);
+
   const isModified =
     streamUrl !== (event.stream_url || "") ||
     streamUrl2 !== (event.stream_url_2 || "") ||
     streamUrl3 !== (event.stream_url_3 || "");
+
   const handleSave = () => {
     onUpdateStreams({
       stream_url: streamUrl || undefined,
@@ -1009,23 +1056,41 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
       stream_url_3: streamUrl3 || undefined,
     });
   };
+
   return (
-    <div className="glass-panel rounded-xl overflow-hidden transition-all hover:bg-white/[0.02]">
-      {/* Header Row */}
-      <div className="flex items-center gap-3 p-3 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-        <span className="text-xs text-muted-foreground/50 w-5 text-center font-mono">{index + 1}</span>
+    <div
+      className={`glass-panel rounded-xl overflow-hidden transition-all duration-300 animate-fade-in ${
+        !event.is_active ? "opacity-50" : ""
+      }`}
+      style={{ animationDelay: `${index * 50}ms` }}
+    >
+      <div
+        className="flex items-center gap-3 p-4 cursor-pointer hover:bg-white/[0.02] transition-colors"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div
+          className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+            event.is_live
+              ? "bg-red-500 animate-pulse shadow-lg shadow-red-500/50"
+              : hasLink
+                ? "bg-green-500 shadow-lg shadow-green-500/30"
+                : "bg-yellow-500 shadow-lg shadow-yellow-500/30"
+          }`}
+        />
+
         {event.thumbnail ? (
-          <img src={event.thumbnail} alt="" className="w-8 h-8 rounded-lg object-cover" />
+          <img src={event.thumbnail} alt="" className="w-10 h-10 object-contain shrink-0 rounded-lg bg-black/20 p-1" />
         ) : (
-          <div className="w-8 h-8 rounded-lg bg-muted/30 flex items-center justify-center">
-            <Trophy className="w-4 h-4 text-muted-foreground" />
+          <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
+            <Trophy className="w-5 h-5 text-muted-foreground" />
           </div>
         )}
+
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm truncate">{event.name}</p>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Clock className="w-3 h-3" />
-            <span>
+          <div className="font-medium truncate">{event.name}</div>
+          <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1">
+              <Clock className="w-3 h-3" />
               {new Date(event.event_date).toLocaleString("es-ES", {
                 day: "2-digit",
                 month: "short",
@@ -1034,71 +1099,84 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               })}
             </span>
             {event.league && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                 {event.league}
               </Badge>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+
+        <div className="flex items-center gap-2 shrink-0">
           {hasLink ? (
-            <Badge className="bg-green-500/10 text-green-400 border-green-500/20 text-[10px]">
-              <Link2 className="w-3 h-3 mr-0.5" />
+            <Badge className="bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30">
+              <Link2 className="w-3 h-3 mr-1" />
               Link
             </Badge>
           ) : (
-            <Badge variant="outline" className="text-yellow-400 border-yellow-500/20 text-[10px]">
+            <Badge variant="outline" className="border-yellow-500/30 text-yellow-400">
               Sin Link
             </Badge>
           )}
-          {event.is_live && <Badge className="bg-red-500 text-white animate-pulse text-[10px]">🔴 LIVE</Badge>}
+
+          {event.is_live && (
+            <Badge variant="destructive" className="animate-pulse">
+              🔴 LIVE
+            </Badge>
+          )}
         </div>
+
         <ChevronDown
           className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
         />
       </div>
-      {/* Expanded Content */}
+
       {isExpanded && (
-        <div className="px-3 pb-3 space-y-3 border-t border-border/30 pt-3">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="px-4 pb-4 pt-2 border-t border-border/50 space-y-4 animate-fade-in">
+          <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
-              <Label className="text-xs">En Vivo</Label>
-              <Switch checked={event.is_live} onCheckedChange={() => onToggleLive(!event.is_live)}>
+              <Switch checked={event.is_live} onCheckedChange={onToggleLive} />
+              <Label className="text-sm cursor-pointer" onClick={() => onToggleLive(!event.is_live)}>
                 {event.is_live ? "🔴 EN VIVO" : "No en vivo"}
-              </Switch>
+              </Label>
             </div>
+
             <div className="flex items-center gap-2">
-              <Label className="text-xs">Visible</Label>
-              <Switch checked={event.is_active} onCheckedChange={() => onToggleActive(!event.is_active)}>
+              <Switch checked={event.is_active} onCheckedChange={onToggleActive} />
+              <Label
+                className="text-sm cursor-pointer flex items-center gap-1"
+                onClick={() => onToggleActive(!event.is_active)}
+              >
                 {event.is_active ? (
                   <>
-                    <Eye className="w-3 h-3 mr-1" /> Visible
+                    <Eye className="w-3 h-3" /> Visible
                   </>
                 ) : (
                   <>
-                    <EyeOff className="w-3 h-3 mr-1" /> Oculto
+                    <EyeOff className="w-3 h-3" /> Oculto
                   </>
                 )}
-              </Switch>
+              </Label>
             </div>
+
             <Button
-              variant="destructive"
+              variant="ghost"
               size="sm"
-              className="ml-auto"
+              className="text-destructive hover:bg-destructive/20 ml-auto"
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete();
               }}
             >
-              <Trash2 className="w-3.5 h-3.5 mr-1" />
+              <Trash2 className="w-4 h-4 mr-1" />
               Eliminar
             </Button>
           </div>
-          <div className="space-y-2">
+
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+              <div className="w-6 h-6 rounded bg-primary/20 text-primary text-xs flex items-center justify-center font-bold shrink-0">
                 1
-              </span>
+              </div>
               <Input
                 value={streamUrl}
                 onChange={(e) => setStreamUrl(e.target.value)}
@@ -1107,9 +1185,9 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold shrink-0">
+              <div className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold shrink-0">
                 2
-              </span>
+              </div>
               <Input
                 value={streamUrl2}
                 onChange={(e) => setStreamUrl2(e.target.value)}
@@ -1118,9 +1196,9 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold shrink-0">
+              <div className="w-6 h-6 rounded bg-muted text-muted-foreground text-xs flex items-center justify-center font-bold shrink-0">
                 3
-              </span>
+              </div>
               <Input
                 value={streamUrl3}
                 onChange={(e) => setStreamUrl3(e.target.value)}
@@ -1129,9 +1207,14 @@ function EventRow({ event, saving, onUpdateStreams, onToggleLive, onToggleActive
               />
             </div>
           </div>
+
           <div className="flex justify-end">
-            <Button size="sm" onClick={handleSave} disabled={!isModified || saving}>
-              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
+            <Button
+              onClick={handleSave}
+              disabled={saving || !isModified}
+              className={`${isModified ? "bg-gradient-to-r from-primary to-accent" : ""}`}
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
               Guardar Cambios
             </Button>
           </div>
