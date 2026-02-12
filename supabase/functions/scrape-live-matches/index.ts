@@ -76,6 +76,7 @@ Deno.serve(async (req) => {
     // Try schedule endpoints in order
     let matches: MatchData[] = [];
     const urls = [
+      "https://streamed.pk/api/matches/all",
       "https://sportsbite.top/api/matches/all",
       "https://app.moviebite.cc/api/schedule",
     ];
