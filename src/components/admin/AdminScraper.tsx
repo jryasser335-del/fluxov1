@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Loader2, Search, Copy, Check, RefreshCw, Satellite,
-  Zap, Globe, Filter
+  Zap, Globe, Timer, Play, Pause
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
@@ -34,13 +34,9 @@ const SERVER_COLORS: Record<string, string> = {
 const CATEGORY_EMOJIS: Record<string, string> = {
   basketball: "🏀",
   football: "⚽",
-  fight: "🥊",
-  tennis: "🎾",
-  hockey: "🏒",
-  baseball: "⚾",
-  motorsport: "🏎️",
-  other: "🎯",
 };
+
+const SCAN_INTERVAL = 120; // 2 minutes in seconds
 
 export function AdminScraper() {
   const [matches, setMatches] = useState<ScrapedMatch[]>([]);
@@ -49,9 +45,18 @@ export function AdminScraper() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [autoScan, setAutoScan] = useState(false);
+  const [countdown, setCountdown] = useState(SCAN_INTERVAL);
+  const [scanCount, setScanCount] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetchSavedMatches();
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
   }, []);
 
   const fetchSavedMatches = async () => {
@@ -69,24 +74,57 @@ export function AdminScraper() {
     setFetching(false);
   };
 
-  const scanAll = async () => {
+  const runFullCycle = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("scrape-live-matches");
+      // Step 1: Scrape
+      const { data: scrapeData, error: scrapeError } = await supabase.functions.invoke("scrape-live-matches");
+      if (scrapeError) throw scrapeError;
 
-      if (error) throw error;
-
-      if (data?.success) {
-        toast.success(`🛰️ Escaneo completo: ${data.count} partidos encontrados`);
+      if (scrapeData?.success) {
+        // Step 2: Auto-assign
+        const { data: assignData } = await supabase.functions.invoke("auto-assign-links");
+        
+        const msg = `🛰️ Escaneo #${scanCount + 1}: ${scrapeData.count} partidos | ${assignData?.assigned || 0} asignados, ${assignData?.created || 0} creados, ${assignData?.cleaned || 0} limpiados`;
+        toast.success(msg);
+        setScanCount(prev => prev + 1);
         await fetchSavedMatches();
       } else {
-        toast.error(data?.error || "Error en el escaneo");
+        toast.error(scrapeData?.error || "Error en el escaneo");
       }
     } catch (err: any) {
       console.error("Scan error:", err);
       toast.error("Error al escanear: " + (err.message || "desconocido"));
     }
     setLoading(false);
+    setCountdown(SCAN_INTERVAL);
+  }, [scanCount]);
+
+  const toggleAutoScan = () => {
+    if (autoScan) {
+      // Stop
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      intervalRef.current = null;
+      countdownRef.current = null;
+      setAutoScan(false);
+      setCountdown(SCAN_INTERVAL);
+    } else {
+      // Start - run immediately then every 2 min
+      setAutoScan(true);
+      runFullCycle();
+      
+      intervalRef.current = setInterval(() => {
+        runFullCycle();
+      }, SCAN_INTERVAL * 1000);
+
+      countdownRef.current = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) return SCAN_INTERVAL;
+          return prev - 1;
+        });
+      }, 1000);
+    }
   };
 
   const copyLink = async (link: string, matchId: string, server: string) => {
@@ -112,6 +150,7 @@ export function AdminScraper() {
   });
 
   const lastScan = matches.length > 0 ? matches[0].scanned_at : null;
+  const formatCountdown = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 
   return (
     <div className="space-y-6">
@@ -132,28 +171,74 @@ export function AdminScraper() {
                   {lastScan
                     ? `Último escaneo: ${new Date(lastScan).toLocaleTimeString("es")}`
                     : "Sin escaneos previos"}
+                  {scanCount > 0 && ` • ${scanCount} escaneos realizados`}
                 </p>
               </div>
             </div>
 
-            <Button
-              onClick={scanAll}
-              disabled={loading}
-              className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold px-6 shadow-lg shadow-cyan-500/25"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Escaneando...
-                </>
-              ) : (
-                <>
-                  <Satellite className="w-4 h-4 mr-2" />
-                  Escanear Cartelera Completa
-                </>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Auto-scan toggle */}
+              <Button
+                onClick={toggleAutoScan}
+                variant="outline"
+                className={`font-bold ${
+                  autoScan
+                    ? "bg-green-500/20 border-green-500/40 text-green-400 hover:bg-green-500/30"
+                    : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+                }`}
+              >
+                {autoScan ? (
+                  <>
+                    <Pause className="w-4 h-4 mr-2" />
+                    Detener
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 mr-2" />
+                    Auto (2min)
+                  </>
+                )}
+              </Button>
+
+              {/* Manual scan */}
+              <Button
+                onClick={runFullCycle}
+                disabled={loading}
+                className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold px-6 shadow-lg shadow-cyan-500/25"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Escaneando...
+                  </>
+                ) : (
+                  <>
+                    <Satellite className="w-4 h-4 mr-2" />
+                    Escanear
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
+
+          {/* Countdown bar */}
+          {autoScan && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-xs text-white/50 mb-1">
+                <span className="flex items-center gap-1">
+                  <Timer className="w-3 h-3" />
+                  Próximo escaneo en {formatCountdown(countdown)}
+                </span>
+                <span>Escaneo #{scanCount + 1}</span>
+              </div>
+              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-1000"
+                  style={{ width: `${((SCAN_INTERVAL - countdown) / SCAN_INTERVAL) * 100}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -232,7 +317,7 @@ export function AdminScraper() {
           <Satellite className="w-10 h-10 mx-auto mb-3 opacity-50" />
           <p>
             {matches.length === 0
-              ? 'Presiona "Escanear Cartelera Completa" para comenzar'
+              ? 'Presiona "Escanear" para comenzar'
               : "No se encontraron partidos con ese filtro"}
           </p>
         </div>
@@ -245,7 +330,6 @@ export function AdminScraper() {
                 className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/[0.08] transition-colors"
               >
                 <div className="flex flex-col gap-3">
-                  {/* Match info */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -268,17 +352,10 @@ export function AdminScraper() {
                     </div>
                   </div>
 
-                  {/* Server buttons */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {(
-                      ["admin", "delta", "echo", "golf"] as const
-                    ).map((server) => {
-                      const link =
-                        match[
-                          `source_${server}` as keyof ScrapedMatch
-                        ] as string | null;
-                      const isCopied =
-                        copiedId === `${match.match_id}-${server}`;
+                    {(["admin", "delta", "echo", "golf"] as const).map((server) => {
+                      const link = match[`source_${server}` as keyof ScrapedMatch] as string | null;
+                      const isCopied = copiedId === `${match.match_id}-${server}`;
 
                       return (
                         <Button
@@ -286,9 +363,7 @@ export function AdminScraper() {
                           variant="outline"
                           size="sm"
                           disabled={!link}
-                          onClick={() =>
-                            link && copyLink(link, match.match_id, server)
-                          }
+                          onClick={() => link && copyLink(link, match.match_id, server)}
                           className={`text-xs font-mono ${
                             link
                               ? SERVER_COLORS[server]
