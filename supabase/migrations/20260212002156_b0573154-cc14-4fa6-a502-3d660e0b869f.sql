@@ -1,0 +1,1 @@
+DELETE FROM public.events WHERE is_live = false;
