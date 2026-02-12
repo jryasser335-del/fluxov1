@@ -17,12 +17,6 @@ function normalize(s: string): string {
 const CATEGORY_TO_SPORT: Record<string, string> = {
   basketball: "Basketball",
   football: "Soccer",
-  fight: "Boxing/MMA",
-  tennis: "Tennis",
-  hockey: "Hockey",
-  baseball: "Baseball",
-  motorsport: "Motorsports",
-  other: "Other",
 };
 
 function getLinks(scraped: any): string[] {
@@ -72,10 +66,10 @@ Deno.serve(async (req) => {
     let assigned = 0;
     let created = 0;
     let cleaned = 0;
+    let skippedTooEarly = 0;
 
     // Track which scraped links were matched to existing events
     const matchedScrapedIds = new Set<string>();
-    // Track which events got matched to a scraped link
     const matchedEventIds = new Set<string>();
 
     // 1. Update existing events with scraped links
@@ -91,7 +85,6 @@ Deno.serve(async (req) => {
         if (homeWords[0] !== "" && awayWords[0] !== "") {
           return wordsMatch(homeWords, allText) && wordsMatch(awayWords, allText);
         }
-        // Fallback: match by name words
         const matched = nameWords.filter((w: string) => allText.includes(w)).length;
         return matched >= 2;
       });
@@ -102,13 +95,18 @@ Deno.serve(async (req) => {
         const links = getLinks(match);
 
         if (links.length > 0) {
+          // Check if we need to update (add new links to existing event)
+          const currentLinks = [event.stream_url, event.stream_url_2, event.stream_url_3].filter(Boolean);
+          const newUpdate: Record<string, string | null> = {};
+          
+          // Always set the best available links
+          newUpdate.stream_url = links[0] || null;
+          newUpdate.stream_url_2 = links[1] || null;
+          newUpdate.stream_url_3 = links[2] || null;
+
           const { error: updateError } = await supabase
             .from("events")
-            .update({
-              stream_url: links[0] || null,
-              stream_url_2: links[1] || null,
-              stream_url_3: links[2] || null,
-            })
+            .update(newUpdate)
             .eq("id", event.id);
 
           if (!updateError) {
@@ -121,7 +119,6 @@ Deno.serve(async (req) => {
     // 2. Clean links from events that are NO LONGER in the scraper (match ended)
     for (const event of events) {
       if (matchedEventIds.has(event.id)) continue;
-      // Only clean if the event has a stream_url that looks auto-assigned (embedsports)
       if (!event.stream_url || !event.stream_url.includes("embedsports")) continue;
 
       const { error: cleanError } = await supabase
@@ -140,6 +137,7 @@ Deno.serve(async (req) => {
     }
 
     // 3. Create events for scraped links that have sources but no matching event
+    // Only create if the match has links available (schedule with links = likely starting soon or live)
     for (const scraped of scrapedLinks) {
       if (matchedScrapedIds.has(scraped.id)) continue;
 
@@ -160,7 +158,7 @@ Deno.serve(async (req) => {
         .from("events")
         .insert({
           name: scraped.match_title,
-          event_date: scraped.scanned_at || new Date().toISOString(),
+          event_date: new Date().toISOString(),
           sport: CATEGORY_TO_SPORT[scraped.category || "other"] || "Other",
           league: scraped.category || null,
           team_home: scraped.team_home || null,
@@ -185,6 +183,7 @@ Deno.serve(async (req) => {
         assigned,
         created,
         cleaned,
+        skippedTooEarly,
         checked: events.length,
         scraped: scrapedLinks.length,
         message: `Updated ${assigned} events, created ${created} new, cleaned ${cleaned} finished`,
