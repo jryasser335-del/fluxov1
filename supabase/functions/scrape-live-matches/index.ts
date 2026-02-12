@@ -12,6 +12,7 @@ function buildLink(source: string, id: string): string {
   return `${EMBED_BASE}/${source}/${id}/1?autoplay=1`;
 }
 
+// Map API source names to our internal source names and embed path
 const SOURCE_MAP: Record<string, { field: string; embedName: string }> = {
   vola: { field: "source_admin", embedName: "admin" },
   main: { field: "source_admin", embedName: "admin" },
@@ -31,9 +32,8 @@ interface MatchData {
   id: string;
   title: string;
   category: string;
-  date?: string; // Añadido para capturar la hora de la API
-  time?: string; // Añadido para capturar la hora de la API
-  scheduled?: string; // Añadido para capturar la hora de la API
+  date?: string; // Campo añadido para validación de tiempo
+  time?: string; // Campo añadido para validación de tiempo
   teams?: {
     home?: { name: string };
     away?: { name: string };
@@ -48,10 +48,12 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
+
     if (authHeader) {
       const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
         global: { headers: { Authorization: authHeader } },
       });
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -61,7 +63,9 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
       const { data: roleData } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
+
       if (!roleData) {
         return new Response(JSON.stringify({ error: "Forbidden" }), {
           status: 403,
@@ -70,6 +74,7 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Try schedule endpoints in order
     let matches: MatchData[] = [];
     const urls = [
       "https://streamed.pk/api/matches/all",
@@ -79,7 +84,9 @@ Deno.serve(async (req) => {
 
     for (const url of urls) {
       try {
-        const response = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+        const response = await fetch(url, {
+          headers: { "User-Agent": "Mozilla/5.0" },
+        });
         if (response.ok) {
           matches = await response.json();
           console.log(`Fetched ${matches.length} matches from ${url}`);
@@ -97,6 +104,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Process matches with source mapping and time validation
     const records = matches.map((match) => {
       const record: Record<string, string | null> = {
         match_id: match.id,
@@ -111,25 +119,24 @@ Deno.serve(async (req) => {
         scanned_at: new Date().toISOString(),
       };
 
-      // --- NUEVA LÓGICA DE VALIDACIÓN DE 15 MINUTOS ---
+      // --- LÓGICA DE VALIDACIÓN DE TIEMPO (15 MINUTOS) ---
       const now = new Date();
-      // Intentamos obtener la fecha de inicio de cualquier campo disponible
-      const matchStartTime = match.scheduled || match.date || match.time;
+      // Intentamos construir una fecha válida con los datos de la API
+      const matchTimeStr = match.date || match.time;
+      let isWithinTimeRange = true;
 
-      let shouldAddLinks = true;
+      if (matchTimeStr) {
+        const matchStartTime = new Date(matchTimeStr);
+        // Diferencia en milisegundos convertida a minutos
+        const diffInMinutes = (matchStartTime.getTime() - now.getTime()) / (1000 * 60);
 
-      if (matchStartTime) {
-        const matchDate = new Date(matchStartTime);
-        const diffInMinutes = (matchDate.getTime() - now.getTime()) / (1000 * 60);
-
-        // Si faltan más de 15 minutos, no asignamos links (mantenerlos null)
+        // Si faltan más de 15 minutos, no procesamos los links
         if (diffInMinutes > 15) {
-          shouldAddLinks = false;
+          isWithinTimeRange = false;
         }
       }
-      // ------------------------------------------------
 
-      if (shouldAddLinks) {
+      if (isWithinTimeRange) {
         for (const src of match.sources) {
           const mapping = SOURCE_MAP[src.source];
           if (mapping) {
@@ -137,12 +144,15 @@ Deno.serve(async (req) => {
           }
         }
       }
+      // --------------------------------------------------
 
       return record;
     });
 
+    // Use service role to upsert
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+    // Clear all old records and insert fresh schedule
     await adminClient.from("live_scraped_links").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
     if (records.length > 0) {
@@ -156,9 +166,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ success: true, count: records.length, matches: records }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        success: true,
+        count: records.length,
+        matches: records,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (error) {
     console.error("Scrape error:", error);
     return new Response(JSON.stringify({ success: false, error: error.message }), {
