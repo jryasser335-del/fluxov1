@@ -23,6 +23,12 @@ const SOURCE_MAP: Record<string, { field: string; embedName: string }> = {
   golf: { field: "source_golf", embedName: "golf" },
 };
 
+// Only keep these categories from the scraped data
+const ALLOWED_CATEGORIES = new Set([
+  "football",
+  "basketball",
+]);
+
 interface MatchSource {
   source: string;
   id: string;
@@ -32,8 +38,6 @@ interface MatchData {
   id: string;
   title: string;
   category: string;
-  date?: string; // Campo añadido para validación de tiempo
-  time?: string; // Campo añadido para validación de tiempo
   teams?: {
     home?: { name: string };
     away?: { name: string };
@@ -47,34 +51,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization");
-
-    if (authHeader) {
-      const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-        global: { headers: { Authorization: authHeader } },
-      });
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: roleData } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
-
-      if (!roleData) {
-        return new Response(JSON.stringify({ error: "Forbidden" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
-    // Try schedule endpoints in order
+    // Try schedule endpoints in order with retries
     let matches: MatchData[] = [];
     const urls = [
       "https://streamed.pk/api/matches/all",
@@ -83,29 +60,56 @@ Deno.serve(async (req) => {
     ];
 
     for (const url of urls) {
-      try {
-        const response = await fetch(url, {
-          headers: { "User-Agent": "Mozilla/5.0" },
-        });
-        if (response.ok) {
-          matches = await response.json();
-          console.log(`Fetched ${matches.length} matches from ${url}`);
-          break;
+      // Try each URL up to 2 times
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 10000);
+          
+          const response = await fetch(url, {
+            headers: { 
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+              "Accept": "application/json",
+            },
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          
+          if (response.ok) {
+            const contentType = response.headers.get("content-type") || "";
+            if (!contentType.includes("json")) {
+              console.error(`${url} returned non-JSON: ${contentType}`);
+              break; // Don't retry if it's returning HTML
+            }
+            matches = await response.json();
+            console.log(`Fetched ${matches.length} matches from ${url} (attempt ${attempt + 1})`);
+            break;
+          }
+        } catch (e) {
+          console.error(`Failed ${url} attempt ${attempt + 1}:`, e.message);
+          if (attempt === 0) {
+            await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
+          }
         }
-      } catch (e) {
-        console.error(`Failed to fetch from ${url}:`, e.message);
       }
+      if (matches.length > 0) break;
     }
 
     if (matches.length === 0) {
-      return new Response(JSON.stringify({ success: false, error: "Could not fetch schedule from any endpoint" }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: "Could not fetch schedule from any endpoint" }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Process matches with source mapping and time validation
-    const records = matches.map((match) => {
+    // Filter to only football and basketball (NBA)
+    const filteredMatches = matches.filter((m) => {
+      const cat = (m.category || "").toLowerCase();
+      return ALLOWED_CATEGORIES.has(cat);
+    });
+
+    // Process matches with source mapping
+    const records = filteredMatches.map((match) => {
       const record: Record<string, string | null> = {
         match_id: match.id,
         match_title: match.title,
@@ -119,38 +123,21 @@ Deno.serve(async (req) => {
         scanned_at: new Date().toISOString(),
       };
 
-      // --- LÓGICA DE VALIDACIÓN DE TIEMPO (15 MINUTOS) ---
-      const now = new Date();
-      // Intentamos construir una fecha válida con los datos de la API
-      const matchTimeStr = match.date || match.time;
-      let isWithinTimeRange = true;
-
-      if (matchTimeStr) {
-        const matchStartTime = new Date(matchTimeStr);
-        // Diferencia en milisegundos convertida a minutos
-        const diffInMinutes = (matchStartTime.getTime() - now.getTime()) / (1000 * 60);
-
-        // Si faltan más de 15 minutos, no procesamos los links
-        if (diffInMinutes > 15) {
-          isWithinTimeRange = false;
+      for (const src of match.sources) {
+        const mapping = SOURCE_MAP[src.source];
+        if (mapping) {
+          record[mapping.field] = buildLink(mapping.embedName, src.id);
         }
       }
-
-      if (isWithinTimeRange) {
-        for (const src of match.sources) {
-          const mapping = SOURCE_MAP[src.source];
-          if (mapping) {
-            record[mapping.field] = buildLink(mapping.embedName, src.id);
-          }
-        }
-      }
-      // --------------------------------------------------
 
       return record;
     });
 
     // Use service role to upsert
-    const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
     // Clear all old records and insert fresh schedule
     await adminClient.from("live_scraped_links").delete().neq("id", "00000000-0000-0000-0000-000000000000");
@@ -170,15 +157,16 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         count: records.length,
-        matches: records,
+        totalFetched: matches.length,
+        filtered: matches.length - filteredMatches.length,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Scrape error:", error);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
