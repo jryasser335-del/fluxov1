@@ -8,95 +8,128 @@ const corsHeaders = {
 
 const EMBED_BASE = "https://embedsports.top/embed";
 
-function buildLink(server: string, id: string): string {
-  return `${EMBED_BASE}/${server}/${id}/1?autoplay=1`;
+function buildLink(source: string, id: string): string {
+  return `${EMBED_BASE}/${source}/${id}/1?autoplay=1`;
+}
+
+interface MatchSource {
+  source: string;
+  id: string;
+}
+
+interface MatchData {
+  id: string;
+  title: string;
+  category: string;
+  teams?: {
+    home?: { name: string };
+    away?: { name: string };
+  };
+  sources: MatchSource[];
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
   try {
-    console.log("=== Iniciando Scraper MovieBite v2 (Forzado de Admin) ===");
+    // Check if this is a cron call (no auth header) or admin call
+    const authHeader = req.headers.get("Authorization");
+    
+    if (authHeader) {
+      // Manual call - verify admin
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
 
-    const response = await fetch("https://sportsbite.top/api/matches/all", {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        Accept: "application/json",
-      },
-    });
-
-    if (!response.ok) throw new Error(`Error API: ${response.status}`);
-
-    const data = await response.json();
-    // La API puede devolver el array directo o dentro de .events o .data
-    const allMatches = Array.isArray(data) ? data : data.events || data.data || [];
-
-    const records = allMatches.map((match: any) => {
-      let adminId = null;
-      let deltaId = null;
-      let echoId = null;
-      let golfId = null;
-
-      // 1. Intentar sacar de la propiedad directa (si existe match.admin, match.vola, etc)
-      adminId = match.admin || match.vola || match.main;
-      deltaId = match.delta;
-      echoId = match.echo;
-      golfId = match.golf || match.mv;
-
-      // 2. Si no, buscar dentro del array de sources con mapeo de nombres
-      if (match.sources && Array.isArray(match.sources)) {
-        match.sources.forEach((s: any) => {
-          const name = String(s.name || s.source || "").toLowerCase();
-          const id = s.id || s.value;
-
-          if (["vola", "admin", "main", "stream1"].includes(name)) adminId = id;
-          if (["delta", "stream2"].includes(name)) deltaId = id;
-          if (["echo", "stream3"].includes(name)) echoId = id;
-          if (["mv", "golf", "stream4"].includes(name)) golfId = id;
-        });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
+      const { data: roleData } = await supabase
+        .rpc("has_role", { _user_id: user.id, _role: "admin" });
+
+      if (!roleData) {
+        return new Response(
+          JSON.stringify({ error: "Forbidden" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+    // If no auth header, allow cron execution (called by pg_cron internally)
+
+    // Fetch live matches from API
+    const response = await fetch("https://streamed.pk/api/matches/live", {
+      headers: { "User-Agent": "Mozilla/5.0" },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API returned ${response.status}`);
+    }
+
+    const matches: MatchData[] = await response.json();
+
+    // Process matches
+    const records = matches.map((match) => {
+      const adminSource = match.sources.find((s) => s.source === "admin");
+      const deltaSource = match.sources.find((s) => s.source === "delta");
+      const echoSource = match.sources.find((s) => s.source === "echo");
+      const golfSource = match.sources.find((s) => s.source === "golf");
+
       return {
-        match_id: String(match.id || match._id),
-        match_title: match.title || match.name || "Partido",
-        category: match.category || match.sport || "other",
+        match_id: match.id,
+        match_title: match.title,
+        category: match.category || null,
         team_home: match.teams?.home?.name || null,
         team_away: match.teams?.away?.name || null,
-        // CONSTRUCCIÓN FORZADA: Usamos el ID encontrado pero siempre con el nombre que tu panel espera
-        source_admin: adminId ? buildLink("admin", adminId) : null,
-        source_delta: deltaId ? buildLink("delta", deltaId) : null,
-        source_echo: echoId ? buildLink("echo", echoId) : null,
-        source_golf: golfId ? buildLink("golf", golfId) : null,
+        source_admin: adminSource ? buildLink("admin", adminSource.id) : null,
+        source_delta: deltaSource ? buildLink("delta", deltaSource.id) : null,
+        source_echo: echoSource ? buildLink("echo", echoSource.id) : null,
+        source_golf: golfSource ? buildLink("golf", golfSource.id) : null,
         scanned_at: new Date().toISOString(),
       };
     });
 
-    // Solo subimos los que tengan al menos UN link activo
-    const validRecords = records.filter((r) => r.source_admin || r.source_delta || r.source_echo || r.source_golf);
+    // Use service role to upsert (bypasses RLS)
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-
-    // Limpieza total antes de insertar
+    // Clear old records and insert new ones
     await adminClient.from("live_scraped_links").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
-    if (validRecords.length > 0) {
-      const { error } = await adminClient.from("live_scraped_links").upsert(validRecords);
-      if (error) throw error;
+    if (records.length > 0) {
+      const { error: insertError } = await adminClient
+        .from("live_scraped_links")
+        .upsert(records, { onConflict: "match_id" });
+
+      if (insertError) {
+        console.error("Insert error:", insertError);
+        throw new Error(insertError.message);
+      }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        count: validRecords.length,
-        admin_found: validRecords.filter((r) => r.source_admin).length,
+        count: records.length,
+        matches: records,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Scraper Error:", error.message);
-    return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("Scrape error:", error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });
