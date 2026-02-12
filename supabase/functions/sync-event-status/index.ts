@@ -24,8 +24,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const now = new Date();
-    
-    // Get all active events
+
     const { data: events, error: fetchError } = await supabase
       .from("events")
       .select("id, espn_id, event_date, is_live, is_active")
@@ -36,66 +35,62 @@ Deno.serve(async (req) => {
     }
 
     const updates: { id: string; is_live: boolean }[] = [];
-    const deactivations: string[] = [];
+    const deletions: string[] = [];
 
     for (const event of events as Event[]) {
       const eventDate = new Date(event.event_date);
       const timeDiff = now.getTime() - eventDate.getTime();
       const hoursDiff = timeDiff / (1000 * 60 * 60);
 
-      // Event should be "en vivo" if:
-      // - Started within the last 3 hours (typical game duration)
-      // - And the event has started (timeDiff > 0)
       const shouldBeLive = timeDiff >= 0 && hoursDiff <= 3;
+      const shouldDelete = hoursDiff > 4;
 
-      // Event should be deactivated if:
-      // - It ended more than 4 hours ago
-      const shouldDeactivate = hoursDiff > 4;
-
-      if (shouldDeactivate) {
-        deactivations.push(event.id);
+      if (shouldDelete) {
+        deletions.push(event.id);
       } else if (shouldBeLive !== event.is_live) {
         updates.push({ id: event.id, is_live: shouldBeLive });
       }
     }
 
-    // Batch update is_live status
+    // Update is_live status
     for (const update of updates) {
-      await supabase
-        .from("events")
-        .update({ is_live: update.is_live })
-        .eq("id", update.id);
+      await supabase.from("events").update({ is_live: update.is_live }).eq("id", update.id);
     }
 
-    // Deactivate finished events
-    if (deactivations.length > 0) {
+    // DELETE finished events (clear links first, then delete)
+    if (deletions.length > 0) {
       await supabase
         .from("events")
-        .update({ is_active: false })
-        .in("id", deactivations);
+        .update({
+          stream_url: null,
+          stream_url_2: null,
+          stream_url_3: null,
+          is_live: false,
+          is_active: false,
+        })
+        .in("id", deletions);
+
+      await supabase.from("events").delete().in("id", deletions);
     }
 
     return new Response(
       JSON.stringify({
         success: true,
         updated: updates.length,
-        deactivated: deactivations.length,
-        message: `Updated ${updates.length} events, deactivated ${deactivations.length} events`,
+        deleted: deletions.length,
+        message: `Updated ${updates.length} events, deleted ${deletions.length} finished events`,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
-      }
+      },
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Error syncing event status:", errorMessage);
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      }
-    );
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
   }
 });
