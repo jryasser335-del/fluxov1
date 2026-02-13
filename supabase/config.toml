@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.sync-event-status]
 verify_jwt = false
+
+[functions.check-links]
+verify_jwt = false
