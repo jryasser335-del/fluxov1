@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Search, Copy, Check, RefreshCw, Satellite, Zap, Globe, Timer, Play, Pause } from "lucide-react";
+import { Loader2, Search, Copy, Check, RefreshCw, Satellite, Zap, Globe, Timer, Play, Pause, ShieldCheck, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface ScrapedMatch {
@@ -45,6 +45,8 @@ export function AdminScraper() {
   const [autoScan, setAutoScan] = useState(false);
   const [countdown, setCountdown] = useState(SCAN_INTERVAL);
   const [scanCount, setScanCount] = useState(0);
+  const [checkingLinks, setCheckingLinks] = useState(false);
+  const [lastCheckResult, setLastCheckResult] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoStartedRef = useRef(false);
@@ -74,6 +76,25 @@ export function AdminScraper() {
     setLoading(false);
     setCountdown(SCAN_INTERVAL);
   }, [scanCount]);
+
+  const runLinkCheck = useCallback(async () => {
+    setCheckingLinks(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("check-links");
+      if (error) throw error;
+      if (data?.success) {
+        const msg = `🔍 Links: ${data.tested} probados, ${data.removed} eliminados, ${data.cleaned} limpiados, ${data.working} funcionando`;
+        toast.success(msg);
+        setLastCheckResult(msg);
+        await fetchSavedMatches();
+      } else {
+        toast.error(data?.error || "Error verificando links");
+      }
+    } catch (err: any) {
+      toast.error("Error al verificar links: " + (err.message || "desconocido"));
+    }
+    setCheckingLinks(false);
+  }, []);
 
   const startAutoScan = useCallback(() => {
     setAutoScan(true);
@@ -222,6 +243,26 @@ export function AdminScraper() {
                   <>
                     <Satellite className="w-4 h-4 mr-2" />
                     Escanear
+                  </>
+                )}
+              </Button>
+
+              {/* Check links */}
+              <Button
+                onClick={runLinkCheck}
+                disabled={checkingLinks}
+                variant="outline"
+                className="bg-orange-500/20 border-orange-500/40 text-orange-400 hover:bg-orange-500/30 font-bold"
+              >
+                {checkingLinks ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Verificando...
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4 mr-2" />
+                    Verificar Links
                   </>
                 )}
               </Button>
