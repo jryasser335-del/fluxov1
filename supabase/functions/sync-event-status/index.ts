@@ -5,39 +5,56 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface Event {
-  id: string;
-  espn_id: string | null;
-  event_date: string;
-  is_live: boolean;
-  is_active: boolean;
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     const now = new Date();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-    const { data: events, error: fetchError } = await supabase
+    // ── 1. PURGE past events (before today) ──
+    const { data: pastEvents } = await supabase
+      .from("events")
+      .select("id")
+      .lt("event_date", todayStart.toISOString());
+
+    let deletedPast = 0;
+    if (pastEvents && pastEvents.length > 0) {
+      const ids = pastEvents.map((e: any) => e.id);
+      await supabase.from("events").delete().in("id", ids);
+      deletedPast = ids.length;
+    }
+
+    // ── 2. PURGE incomplete events (no team info) ──
+    const { data: allEvents } = await supabase.from("events").select("id, team_home, team_away");
+    let deletedIncomplete = 0;
+    if (allEvents) {
+      const badIds = allEvents
+        .filter((e: any) => !e.team_home?.trim() || !e.team_away?.trim())
+        .map((e: any) => e.id);
+      if (badIds.length > 0) {
+        await supabase.from("events").delete().in("id", badIds);
+        deletedIncomplete = badIds.length;
+      }
+    }
+
+    // ── 3. Update is_live status & delete finished events ──
+    const { data: activeEvents, error: fetchError } = await supabase
       .from("events")
       .select("id, espn_id, event_date, is_live, is_active")
       .eq("is_active", true);
 
-    if (fetchError) {
-      throw fetchError;
-    }
+    if (fetchError) throw fetchError;
 
     const updates: { id: string; is_live: boolean }[] = [];
     const deletions: string[] = [];
 
-    for (const event of events as Event[]) {
+    for (const event of activeEvents || []) {
       const eventDate = new Date(event.event_date);
       const timeDiff = now.getTime() - eventDate.getTime();
       const hoursDiff = timeDiff / (1000 * 60 * 60);
@@ -52,24 +69,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update is_live status
     for (const update of updates) {
       await supabase.from("events").update({ is_live: update.is_live }).eq("id", update.id);
     }
 
-    // DELETE finished events (clear links first, then delete)
     if (deletions.length > 0) {
-      await supabase
-        .from("events")
-        .update({
-          stream_url: null,
-          stream_url_2: null,
-          stream_url_3: null,
-          is_live: false,
-          is_active: false,
-        })
-        .in("id", deletions);
-
       await supabase.from("events").delete().in("id", deletions);
     }
 
@@ -78,12 +82,11 @@ Deno.serve(async (req) => {
         success: true,
         updated: updates.length,
         deleted: deletions.length,
-        message: `Updated ${updates.length} events, deleted ${deletions.length} finished events`,
+        deletedPast,
+        deletedIncomplete,
+        message: `Updated ${updates.length}, deleted ${deletions.length} finished, ${deletedPast} past, ${deletedIncomplete} incomplete`,
       }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      },
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
     );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";

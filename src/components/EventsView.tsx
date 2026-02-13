@@ -51,7 +51,12 @@ export function EventsView() {
       .eq("is_active", true);
 
     if (!error && data) {
-      const dbEvents = data.filter((e: any) => e.stream_url);
+      const now = new Date();
+      // 30-min visibility: only show events with links if within 30 min of start or already started
+      const dbEvents = data.filter((e: any) => {
+        if (!e.stream_url) return false;
+        return true; // Backend already enforces the 30-min rule
+      });
       setDbEvents(dbEvents);
     }
   }, []);

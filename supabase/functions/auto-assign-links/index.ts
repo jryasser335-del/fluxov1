@@ -35,38 +35,73 @@ Deno.serve(async (req) => {
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
+    // ── 0. PURGE: Delete events from before today ──
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    
+    const { data: pastEvents } = await supabase
+      .from("events")
+      .select("id")
+      .lt("event_date", todayStart.toISOString());
+
+    let purgedPast = 0;
+    if (pastEvents && pastEvents.length > 0) {
+      const ids = pastEvents.map((e: any) => e.id);
+      await supabase.from("events").delete().in("id", ids);
+      purgedPast = ids.length;
+    }
+
+    // ── 0b. QUALITY FILTER: Delete events without team info ──
+    const { data: badEvents } = await supabase
+      .from("events")
+      .select("id, team_home, team_away, name")
+      .eq("is_active", true);
+
+    let purgedBadQuality = 0;
+    if (badEvents) {
+      const badIds = badEvents
+        .filter((e: any) => {
+          const hasTeams = e.team_home?.trim() && e.team_away?.trim();
+          return !hasTeams;
+        })
+        .map((e: any) => e.id);
+
+      if (badIds.length > 0) {
+        await supabase.from("events").delete().in("id", badIds);
+        purgedBadQuality = badIds.length;
+      }
+    }
+
     // Get all scraped links
     const { data: scrapedLinks, error: scrapedError } = await supabase.from("live_scraped_links").select("*");
 
     if (scrapedError) throw scrapedError;
     if (!scrapedLinks || scrapedLinks.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, message: "No scraped links available", assigned: 0, created: 0 }),
+        JSON.stringify({ success: true, message: "No scraped links available", assigned: 0, created: 0, purgedPast, purgedBadQuality }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     // Get ALL active events
     const { data: allEvents } = await supabase.from("events").select("*").eq("is_active", true);
-
     const allActiveEvents = allEvents || [];
     const now = new Date();
 
-    // Filter: only assign links to events starting within 15 minutes or already started
+    // ── VISIBILITY RULE: 30 minutes before start ──
+    // Links are only assigned when event starts within 30 min or already started
     const events = allActiveEvents.filter((e: any) => {
       if (!e.event_date) return false;
       const eventDate = new Date(e.event_date);
       const minutesUntilStart = (eventDate.getTime() - now.getTime()) / (1000 * 60);
-      // Allow if: already started (negative) OR within 15 minutes of starting
-      return minutesUntilStart <= 15;
+      return minutesUntilStart <= 30;
     });
 
-    // Events that exist but are too early (more than 15 min away)
     const tooEarlyEvents = allActiveEvents.filter((e: any) => {
       if (!e.event_date) return false;
       const eventDate = new Date(e.event_date);
       const minutesUntilStart = (eventDate.getTime() - now.getTime()) / (1000 * 60);
-      return minutesUntilStart > 15;
+      return minutesUntilStart > 30;
     });
 
     let assigned = 0;
@@ -75,11 +110,10 @@ Deno.serve(async (req) => {
     let removed = 0;
     let skippedTooEarly = 0;
 
-    // Track which scraped links were matched to existing events
     const matchedScrapedIds = new Set<string>();
     const matchedEventIds = new Set<string>();
 
-    // 1. Update existing events (only those within 15 min) with scraped links
+    // 1. Update existing events with scraped links
     for (const event of events) {
       const homeWords = normalize(event.team_home || "").split(/\s+/);
       const awayWords = normalize(event.team_away || "").split(/\s+/);
@@ -105,29 +139,22 @@ Deno.serve(async (req) => {
 
         if (links.length > 0) {
           const newUpdate: Record<string, string | null> = {};
-
-          // Always set the best available links
           newUpdate.stream_url = links[0] || null;
           newUpdate.stream_url_2 = links[1] || null;
           newUpdate.stream_url_3 = links[2] || null;
 
           const { error: updateError } = await supabase.from("events").update(newUpdate).eq("id", event.id);
-
-          if (!updateError) {
-            assigned++;
-          }
+          if (!updateError) assigned++;
         }
       }
     }
 
-    // 2. Clean links from events that are NO LONGER in the scraper (match ended)
-    // AND delete the event entirely since the match is finished
+    // 2. Clean links from events no longer in scraper
     for (const event of events) {
       if (matchedEventIds.has(event.id)) continue;
       if (!event.stream_url || !event.stream_url.includes("embedsports")) continue;
 
-      // Match ended - remove the event from the panel entirely
-      const { error: deleteError } = await supabase
+      await supabase
         .from("events")
         .update({
           stream_url: null,
@@ -137,17 +164,14 @@ Deno.serve(async (req) => {
           is_active: false,
         })
         .eq("id", event.id);
-
-      if (!deleteError) {
-        cleaned++;
-      }
+      cleaned++;
     }
 
-    // 2b. Clean links from events that are too early (more than 15 min away)
+    // 2b. Ensure too-early events have NO links (30-min rule)
     for (const event of tooEarlyEvents) {
-      if (!event.stream_url || !event.stream_url.includes("embedsports")) continue;
+      if (!event.stream_url) continue;
 
-      const { error: cleanEarlyError } = await supabase
+      await supabase
         .from("events")
         .update({
           stream_url: null,
@@ -155,13 +179,10 @@ Deno.serve(async (req) => {
           stream_url_3: null,
         })
         .eq("id", event.id);
-
-      if (!cleanEarlyError) {
-        skippedTooEarly++;
-      }
+      skippedTooEarly++;
     }
 
-    // 3. Also remove events that are NOT live (is_live = false) and have links - clean them
+    // 3. Remove links from not-live events
     const { data: notLiveWithLinks } = await supabase
       .from("events")
       .select("*")
@@ -172,28 +193,28 @@ Deno.serve(async (req) => {
     if (notLiveWithLinks) {
       for (const event of notLiveWithLinks) {
         if (!event.stream_url?.includes("embedsports")) continue;
+        // Check if it's within 30 min window - if so, keep the link
+        const eventDate = new Date(event.event_date);
+        const minutesUntilStart = (eventDate.getTime() - now.getTime()) / (1000 * 60);
+        if (minutesUntilStart <= 30 && minutesUntilStart >= 0) continue;
 
-        const { error: cleanNotLiveError } = await supabase
+        await supabase
           .from("events")
-          .update({
-            stream_url: null,
-            stream_url_2: null,
-            stream_url_3: null,
-          })
+          .update({ stream_url: null, stream_url_2: null, stream_url_3: null })
           .eq("id", event.id);
-
-        if (!cleanNotLiveError) {
-          removed++;
-        }
+        removed++;
       }
     }
 
-    // 4. Create events for scraped links that have sources but no matching event
+    // 4. Create events for unmatched scraped links (only with complete info)
     for (const scraped of scrapedLinks) {
       if (matchedScrapedIds.has(scraped.id)) continue;
 
       const links = getLinks(scraped);
       if (links.length === 0) continue;
+
+      // QUALITY: Skip if missing team names
+      if (!scraped.team_home?.trim() || !scraped.team_away?.trim()) continue;
 
       const scrapedNorm = normalize(scraped.match_title || "");
       const alreadyExists = allActiveEvents.some((e: any) => {
@@ -210,8 +231,8 @@ Deno.serve(async (req) => {
         event_date: new Date().toISOString(),
         sport: CATEGORY_TO_SPORT[scraped.category || "other"] || "Other",
         league: scraped.category || null,
-        team_home: scraped.team_home || null,
-        team_away: scraped.team_away || null,
+        team_home: scraped.team_home,
+        team_away: scraped.team_away,
         stream_url: links[0] || null,
         stream_url_2: links[1] || null,
         stream_url_3: links[2] || null,
@@ -219,11 +240,8 @@ Deno.serve(async (req) => {
         is_active: true,
       });
 
-      if (!insertError) {
-        created++;
-      } else {
-        console.error(`Failed to create event ${scraped.match_title}:`, insertError.message);
-      }
+      if (!insertError) created++;
+      else console.error(`Failed to create event ${scraped.match_title}:`, insertError.message);
     }
 
     return new Response(
@@ -234,10 +252,12 @@ Deno.serve(async (req) => {
         cleaned,
         removed,
         skippedTooEarly,
+        purgedPast,
+        purgedBadQuality,
         checked: events.length,
         tooEarly: tooEarlyEvents.length,
         scraped: scrapedLinks.length,
-        message: `Updated ${assigned} events, created ${created} new, cleaned ${cleaned} finished, removed ${removed} not-live links, ${skippedTooEarly} too early`,
+        message: `Assigned ${assigned}, created ${created}, cleaned ${cleaned}, removed ${removed}, purged ${purgedPast} past + ${purgedBadQuality} bad quality, ${skippedTooEarly} too early`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
