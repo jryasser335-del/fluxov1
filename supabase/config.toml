@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.auto-assign-links]
 verify_jwt = false
+
+[functions.sync-event-status]
+verify_jwt = false
