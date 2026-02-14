@@ -27,6 +27,7 @@ interface DbEvent {
   stream_url: string | null;
   stream_url_2: string | null;
   stream_url_3: string | null;
+  pending_url: string | null;
   is_active: boolean;
 }
 
@@ -47,17 +48,13 @@ export function EventsView() {
   const fetchEventLinks = useCallback(async () => {
     const { data, error } = await supabase
       .from("events")
-      .select("espn_id, name, team_home, team_away, stream_url, stream_url_2, stream_url_3, is_active")
+      .select("espn_id, name, team_home, team_away, stream_url, stream_url_2, stream_url_3, pending_url, is_active")
       .eq("is_active", true);
 
     if (!error && data) {
-      const now = new Date();
-      // 30-min visibility: only show events with links if within 30 min of start or already started
-      const dbEvents = data.filter((e: any) => {
-        if (!e.stream_url) return false;
-        return true; // Backend already enforces the 30-min rule
-      });
-      setDbEvents(dbEvents);
+      // Only show events with active stream_url (30-min rule handled by backend)
+      const dbEvents = data.filter((e: any) => e.stream_url);
+      setDbEvents(dbEvents as any);
     }
   }, []);
 
