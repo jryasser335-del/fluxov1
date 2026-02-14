@@ -106,6 +106,9 @@ export type Database = {
           is_live: boolean
           league: string | null
           name: string
+          pending_url: string | null
+          pending_url_2: string | null
+          pending_url_3: string | null
           sport: string | null
           stream_url: string | null
           stream_url_2: string | null
@@ -125,6 +128,9 @@ export type Database = {
           is_live?: boolean
           league?: string | null
           name: string
+          pending_url?: string | null
+          pending_url_2?: string | null
+          pending_url_3?: string | null
           sport?: string | null
           stream_url?: string | null
           stream_url_2?: string | null
@@ -144,6 +150,9 @@ export type Database = {
           is_live?: boolean
           league?: string | null
           name?: string
+          pending_url?: string | null
+          pending_url_2?: string | null
+          pending_url_3?: string | null
           sport?: string | null
           stream_url?: string | null
           stream_url_2?: string | null

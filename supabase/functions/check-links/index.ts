@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function testLink(url: string): Promise<boolean> {
+async function testLink(url: string): Promise<{ ok: boolean; expired: boolean }> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
@@ -23,15 +23,26 @@ async function testLink(url: string): Promise<boolean> {
     });
     clearTimeout(timeout);
 
-    // If we get a valid response (2xx or 3xx), the link works
-    if (response.ok || (response.status >= 300 && response.status < 400)) {
-      return true;
+    if (!response.ok && response.status >= 400) {
+      return { ok: false, expired: false };
     }
 
-    // 403/404/500+ means broken
-    return false;
+    // Check if m3u8 content contains 'expired'
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("mpegurl") || contentType.includes("m3u8") || url.includes(".m3u8")) {
+      try {
+        const body = await response.text();
+        if (body.toLowerCase().includes("expired")) {
+          return { ok: false, expired: true };
+        }
+      } catch {
+        // Can't read body, assume ok if status was good
+      }
+    }
+
+    return { ok: true, expired: false };
   } catch {
-    return false;
+    return { ok: false, expired: false };
   }
 }
 
@@ -46,16 +57,20 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Get all active events with links
+    // Get events with active or pending links
     const { data: events, error } = await supabase
       .from("events")
-      .select("id, name, stream_url, stream_url_2, stream_url_3")
-      .eq("is_active", true)
-      .not("stream_url", "is", null);
+      .select("id, name, stream_url, stream_url_2, stream_url_3, pending_url, pending_url_2, pending_url_3")
+      .eq("is_active", true);
 
-    // Limit to 50 events per run to avoid timeout
-    const eventsToCheck = events.slice(0, 50);
-    if (!eventsToCheck || eventsToCheck.length === 0) {
+    if (error) throw error;
+
+    // Filter to events that have any link
+    const eventsWithLinks = (events || []).filter((e: any) =>
+      e.stream_url || e.pending_url
+    ).slice(0, 50);
+
+    if (eventsWithLinks.length === 0) {
       return new Response(
         JSON.stringify({ success: true, tested: 0, removed: 0, message: "No events with links to test" }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -65,79 +80,69 @@ Deno.serve(async (req) => {
     let tested = 0;
     let removed = 0;
     let cleaned = 0;
-    const results: { name: string; status: string }[] = [];
+    let expiredRemoved = 0;
 
-    // Test in batches of 5 to avoid overwhelming
     const batchSize = 5;
-    for (let i = 0; i < eventsToCheck.length; i += batchSize) {
-      const batch = eventsToCheck.slice(i, i + batchSize);
+    for (let i = 0; i < eventsWithLinks.length; i += batchSize) {
+      const batch = eventsWithLinks.slice(i, i + batchSize);
 
       await Promise.all(
         batch.map(async (event: any) => {
           tested++;
-          const url1Works = event.stream_url ? await testLink(event.stream_url) : false;
 
-          if (!url1Works) {
-            // Primary link broken - check if url2 or url3 work as fallback
-            const url2Works = event.stream_url_2 ? await testLink(event.stream_url_2) : false;
-            const url3Works = event.stream_url_3 ? await testLink(event.stream_url_3) : false;
+          // Test pending links first
+          const pendingUrl = event.pending_url || event.stream_url;
+          if (!pendingUrl) return;
 
-            if (url2Works) {
-              // Promote url2 to primary
-              await supabase
-                .from("events")
-                .update({
-                  stream_url: event.stream_url_2,
-                  stream_url_2: url3Works ? event.stream_url_3 : null,
-                  stream_url_3: null,
-                })
-                .eq("id", event.id);
-              cleaned++;
-              results.push({ name: event.name, status: "promoted_url2" });
-            } else if (url3Works) {
-              // Promote url3 to primary
-              await supabase
-                .from("events")
-                .update({
-                  stream_url: event.stream_url_3,
-                  stream_url_2: null,
-                  stream_url_3: null,
-                })
-                .eq("id", event.id);
-              cleaned++;
-              results.push({ name: event.name, status: "promoted_url3" });
-            } else {
-              // All links broken - delete event
+          const result = await testLink(pendingUrl);
+
+          if (result.expired) {
+            // Expired m3u8 → remove entirely
+            await supabase.from("events").delete().eq("id", event.id);
+            removed++;
+            expiredRemoved++;
+            return;
+          }
+
+          if (!result.ok) {
+            // Try fallbacks
+            const url2 = event.pending_url_2 || event.stream_url_2;
+            const url3 = event.pending_url_3 || event.stream_url_3;
+
+            const r2 = url2 ? await testLink(url2) : { ok: false, expired: false };
+            const r3 = url3 ? await testLink(url3) : { ok: false, expired: false };
+
+            if (r2.expired && r3.expired) {
               await supabase.from("events").delete().eq("id", event.id);
               removed++;
-              results.push({ name: event.name, status: "deleted" });
-            }
-          } else {
-            // Primary works, check secondary links
-            const updates: Record<string, string | null> = {};
-            let needsUpdate = false;
-
-            if (event.stream_url_2) {
-              const url2Works = await testLink(event.stream_url_2);
-              if (!url2Works) {
-                updates.stream_url_2 = null;
-                needsUpdate = true;
-              }
-            }
-            if (event.stream_url_3) {
-              const url3Works = await testLink(event.stream_url_3);
-              if (!url3Works) {
-                updates.stream_url_3 = null;
-                needsUpdate = true;
-              }
+              expiredRemoved++;
+              return;
             }
 
-            if (needsUpdate) {
-              await supabase.from("events").update(updates).eq("id", event.id);
+            if (r2.ok && !r2.expired) {
+              await supabase.from("events").update({
+                pending_url: url2,
+                pending_url_2: (r3.ok && !r3.expired) ? url3 : null,
+                pending_url_3: null,
+                stream_url: event.stream_url ? url2 : null,
+                stream_url_2: (event.stream_url && r3.ok && !r3.expired) ? url3 : null,
+                stream_url_3: null,
+              }).eq("id", event.id);
               cleaned++;
-              results.push({ name: event.name, status: "cleaned_bad_secondary" });
+            } else if (r3.ok && !r3.expired) {
+              await supabase.from("events").update({
+                pending_url: url3,
+                pending_url_2: null,
+                pending_url_3: null,
+                stream_url: event.stream_url ? url3 : null,
+                stream_url_2: null,
+                stream_url_3: null,
+              }).eq("id", event.id);
+              cleaned++;
             } else {
-              results.push({ name: event.name, status: "ok" });
+              // All broken → delete event
+              await supabase.from("events").delete().eq("id", event.id);
+              removed++;
             }
           }
         }),
@@ -150,9 +155,9 @@ Deno.serve(async (req) => {
         tested,
         removed,
         cleaned,
+        expiredRemoved,
         working: tested - removed - cleaned,
-        message: `Tested ${tested} events: ${removed} deleted (broken), ${cleaned} cleaned, ${tested - removed - cleaned} working`,
-        details: results,
+        message: `Tested ${tested}: ${removed} deleted (${expiredRemoved} expired), ${cleaned} cleaned`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
