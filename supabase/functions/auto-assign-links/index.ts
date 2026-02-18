@@ -7,11 +7,7 @@ const corsHeaders = {
 };
 
 function normalize(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
 const CATEGORY_TO_SPORT: Record<string, string> = {
@@ -19,8 +15,70 @@ const CATEGORY_TO_SPORT: Record<string, string> = {
   football: "Soccer",
 };
 
-function getLinks(scraped: any): string[] {
+interface LinkTest {
+  url: string;
+  ok: boolean;
+  latency: number; // ms
+  expired: boolean;
+}
+
+/** Test a single link: checks status + latency + expired content */
+async function testLink(url: string): Promise<LinkTest> {
+  const start = Date.now();
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Accept: "*/*",
+        Referer: "https://embedsports.top/",
+      },
+      signal: controller.signal,
+      redirect: "follow",
+    });
+    clearTimeout(timeout);
+    const latency = Date.now() - start;
+
+    if (!res.ok) return { url, ok: false, latency, expired: false };
+
+    // Check m3u8 for "expired"
+    const ct = res.headers.get("content-type") || "";
+    if (ct.includes("mpegurl") || ct.includes("m3u8") || url.includes(".m3u8")) {
+      try {
+        const body = await res.text();
+        if (body.toLowerCase().includes("expired")) {
+          return { url, ok: false, latency, expired: true };
+        }
+      } catch { /* ignore */ }
+    }
+
+    return { url, ok: true, latency, expired: false };
+  } catch {
+    return { url, ok: false, latency: Date.now() - start, expired: false };
+  }
+}
+
+/** Get raw links from a scraped entry */
+function getRawLinks(scraped: any): string[] {
   return [scraped.source_admin, scraped.source_delta, scraped.source_echo, scraped.source_golf].filter(Boolean);
+}
+
+/** Test all links and return sorted by quality (working first, then by latency) */
+async function getQualityLinks(scraped: any): Promise<string[]> {
+  const raw = getRawLinks(scraped);
+  if (raw.length === 0) return [];
+
+  const results = await Promise.all(raw.map(testLink));
+
+  // Filter working, non-expired links and sort by latency (fastest first)
+  const working = results
+    .filter((r) => r.ok && !r.expired)
+    .sort((a, b) => a.latency - b.latency)
+    .map((r) => r.url);
+
+  return working;
 }
 
 function wordsMatch(eventWords: string[], scrapedText: string): boolean {
@@ -87,11 +145,12 @@ Deno.serve(async (req) => {
     let created = 0;
     let promoted = 0;
     let cleaned = 0;
+    let qualityFiltered = 0;
 
     const matchedScrapedIds = new Set<string>();
     const matchedEventIds = new Set<string>();
 
-    // 1. Match scraped links → store in pending_url always
+    // 1. Match scraped links → test quality → store best in pending_url
     for (const event of allActiveEvents) {
       const homeWords = normalize(event.team_home || "").split(/\s+/);
       const awayWords = normalize(event.team_away || "").split(/\s+/);
@@ -111,14 +170,17 @@ Deno.serve(async (req) => {
       if (match) {
         matchedScrapedIds.add(match.id);
         matchedEventIds.add(event.id);
-        const links = getLinks(match);
 
-        if (links.length > 0) {
-          // Always save to pending_url
+        // Test and sort links by quality
+        const qualityLinks = await getQualityLinks(match);
+        const discarded = getRawLinks(match).length - qualityLinks.length;
+        qualityFiltered += discarded;
+
+        if (qualityLinks.length > 0) {
           const pendingUpdate: Record<string, string | null> = {
-            pending_url: links[0] || null,
-            pending_url_2: links[1] || null,
-            pending_url_3: links[2] || null,
+            pending_url: qualityLinks[0] || null,
+            pending_url_2: qualityLinks[1] || null,
+            pending_url_3: qualityLinks[2] || null,
           };
 
           await supabase.from("events").update(pendingUpdate).eq("id", event.id);
@@ -135,7 +197,6 @@ Deno.serve(async (req) => {
       const minutesUntilStart = (eventDate.getTime() - now.getTime()) / (1000 * 60);
 
       if (minutesUntilStart <= 30) {
-        // Promote pending → active
         await supabase.from("events").update({
           stream_url: event.pending_url,
           stream_url_2: event.pending_url_2 || null,
@@ -143,7 +204,6 @@ Deno.serve(async (req) => {
         }).eq("id", event.id);
         promoted++;
       } else {
-        // Too early → ensure active links are null
         if (event.stream_url) {
           await supabase.from("events").update({
             stream_url: null,
@@ -161,25 +221,20 @@ Deno.serve(async (req) => {
       if (event.stream_url && !event.stream_url.includes("embedsports")) continue;
 
       await supabase.from("events").update({
-        pending_url: null,
-        pending_url_2: null,
-        pending_url_3: null,
-        stream_url: null,
-        stream_url_2: null,
-        stream_url_3: null,
-        is_live: false,
-        is_active: false,
+        pending_url: null, pending_url_2: null, pending_url_3: null,
+        stream_url: null, stream_url_2: null, stream_url_3: null,
+        is_live: false, is_active: false,
       }).eq("id", event.id);
       cleaned++;
     }
 
-    // 4. Create events for unmatched scraped links
+    // 4. Create events for unmatched scraped links (test quality first)
     for (const scraped of scrapedLinks) {
       if (matchedScrapedIds.has(scraped.id)) continue;
-
-      const links = getLinks(scraped);
-      if (links.length === 0) continue;
       if (!scraped.team_home?.trim() || !scraped.team_away?.trim()) continue;
+
+      const qualityLinks = await getQualityLinks(scraped);
+      if (qualityLinks.length === 0) continue;
 
       const scrapedNorm = normalize(scraped.match_title || "");
       const alreadyExists = allActiveEvents.some((e: any) => {
@@ -191,7 +246,6 @@ Deno.serve(async (req) => {
 
       if (alreadyExists) continue;
 
-      // New events: links go to pending_url, stream_url stays null (30-min rule)
       const { error: insertError } = await supabase.from("events").insert({
         name: scraped.match_title,
         event_date: new Date().toISOString(),
@@ -199,12 +253,10 @@ Deno.serve(async (req) => {
         league: scraped.category || null,
         team_home: scraped.team_home,
         team_away: scraped.team_away,
-        pending_url: links[0] || null,
-        pending_url_2: links[1] || null,
-        pending_url_3: links[2] || null,
-        stream_url: null,
-        stream_url_2: null,
-        stream_url_3: null,
+        pending_url: qualityLinks[0] || null,
+        pending_url_2: qualityLinks[1] || null,
+        pending_url_3: qualityLinks[2] || null,
+        stream_url: null, stream_url_2: null, stream_url_3: null,
         is_live: true,
         is_active: true,
       });
@@ -215,15 +267,11 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        assigned,
-        created,
-        promoted,
-        cleaned,
-        purgedPast,
-        purgedBadQuality,
+        assigned, created, promoted, cleaned,
+        purgedPast, purgedBadQuality, qualityFiltered,
         checked: allActiveEvents.length,
         scraped: scrapedLinks.length,
-        message: `Assigned ${assigned}, promoted ${promoted}, created ${created}, cleaned ${cleaned}, purged ${purgedPast} past + ${purgedBadQuality} bad`,
+        message: `Assigned ${assigned}, promoted ${promoted}, created ${created}, cleaned ${cleaned}, quality-filtered ${qualityFiltered}, purged ${purgedPast} past + ${purgedBadQuality} bad`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
