@@ -14,10 +14,12 @@ export const CHANNELS = [
 ];
 
 export const LEAGUE_OPTIONS = [
-  // US Sports (Basketball only)
+  // US Sports
   { value: "nba", label: "🏀 NBA" },
   { value: "wnba", label: "🏀 WNBA" },
   { value: "ncaab", label: "🏀 NCAA Basketball" },
+  { value: "mlb", label: "⚾ MLB" },
+  { value: "mlb.spring", label: "⚾ MLB Spring Training" },
   
   // European Soccer - Top Leagues
   { value: "eng.1", label: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League" },
