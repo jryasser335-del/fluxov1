@@ -44,7 +44,7 @@ export function PlayerModal() {
   const [availableQualities] = useState<string[]>(["Auto", "1080p", "720p", "480p", "360p"]);
   // Key to force re-mount of video/iframe when switching sources
   const [sourceKey, setSourceKey] = useState(0);
-  const [iframeBlocked, setIframeBlocked] = useState(false);
+  
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -94,7 +94,6 @@ export function PlayerModal() {
     }
     setLoadError(null);
     setIsLoading(true);
-    setIframeBlocked(false);
     fatalErrorCount.current = 0;
     setActiveOption(num);
     setSourceKey(prev => prev + 1); // Force re-mount
@@ -111,7 +110,6 @@ export function PlayerModal() {
     if (isOpen) {
       setActiveOption(1);
       setSourceKey(0);
-      setIframeBlocked(false);
       setShowShareMenu(false);
       setShowSleepTimer(false);
       setShowCastMenu(false);
@@ -179,21 +177,12 @@ export function PlayerModal() {
 
     if (isEmbedUrl || isYouTube) {
       if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current);
-      setIframeBlocked(false);
       loadingWatchdog.current = setTimeout(() => {
         setIsLoading(false);
         setLoadError(null);
         if (iframeRef.current) iframeRef.current.focus();
       }, 2000);
-      // Secondary check: if iframe loaded but shows error (connection refused), detect via a longer timeout
-      const blockedCheck = setTimeout(() => {
-        // If still no interaction possible, show blocked state with open-in-tab option
-        setIframeBlocked(true);
-      }, 6000);
-      return () => { 
-        if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current); 
-        clearTimeout(blockedCheck);
-      };
+      return () => { if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current); };
     }
 
     if (loadingWatchdog.current) clearTimeout(loadingWatchdog.current);
@@ -491,30 +480,6 @@ export function PlayerModal() {
               </div>
             )}
 
-            {/* Iframe blocked overlay - connection refused etc */}
-            {iframeBlocked && (isEmbedUrl || isYouTube) && !loadError && (
-              <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3 p-4 rounded-2xl bg-black/80 backdrop-blur-md border border-white/10 max-w-sm">
-                <p className="text-white/70 text-sm text-center">¿No se ve el stream? El servidor puede estar bloqueando la carga.</p>
-                <div className="flex gap-2">
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2 rounded-xl bg-primary/20 hover:bg-primary/30 border border-primary/30 text-sm text-primary font-medium transition-all"
-                  >
-                    Abrir en nueva pestaña
-                  </a>
-                  {nextAvailableServer && (
-                    <button onClick={() => switchSource(nextAvailableServer.num)} className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-sm text-white transition-all">
-                      {nextAvailableServer.label}
-                    </button>
-                  )}
-                  <button onClick={() => setIframeBlocked(false)} className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-white/50 transition-all">
-                    Cerrar
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Video/Iframe with key for re-mount */}
             {isHlsStream ? (
@@ -534,7 +499,7 @@ export function PlayerModal() {
                 allow="autoplay; encrypted-media; picture-in-picture; fullscreen; accelerometer; gyroscope; clipboard-write"
                 allowFullScreen referrerPolicy="no-referrer-when-downgrade"
                 onLoad={() => { setIsLoading(false); setLoadError(null); }}
-                onError={() => { setIsLoading(false); setIframeBlocked(true); }}
+                onError={() => { setIsLoading(false); }}
               />
             ) : (
               <div className="w-full h-full flex flex-col items-center justify-center gap-4">
