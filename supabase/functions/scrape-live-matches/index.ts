@@ -22,7 +22,7 @@ const SOURCE_MAP: Record<string, { field: string; embedName: string }> = {
   golf: { field: "source_golf", embedName: "golf" },
 };
 
-const ALLOWED_CATEGORIES = new Set(["football", "basketball"]);
+const ALLOWED_CATEGORIES = new Set(["football", "basketball", "baseball"]);
 
 interface MatchSource {
   source: string;
