@@ -29,6 +29,20 @@ const ALLOWED_CATEGORIES = new Set([
   "afl", "darts", "handball", "volleyball",
 ]);
 
+// PPV.to category mapping
+const PPV_CATEGORY_MAP: Record<string, string> = {
+  "Basketball": "basketball",
+  "Football": "football",
+  "Baseball": "baseball",
+  "Ice Hockey": "hockey",
+  "Combat Sports": "fighting",
+  "Wrestling": "wrestling",
+  "American Football": "football",
+  "Arm Wrestling": "fighting",
+  "Cricket": "cricket",
+  "Motorsports": "motorsport",
+};
+
 interface MatchSource {
   source: string;
   id: string;
@@ -45,12 +59,83 @@ interface MatchData {
   sources: MatchSource[];
 }
 
+interface PPVEvent {
+  title: string;
+  category: string;
+  embedUrl: string;
+  teamHome: string | null;
+  teamAway: string | null;
+}
+
+/** Extract team names from a "Team A vs. Team B" title */
+function parseTeams(title: string): { home: string; away: string } | null {
+  const separators = [" vs. ", " vs ", " v ", " - "];
+  for (const sep of separators) {
+    const idx = title.toLowerCase().indexOf(sep.toLowerCase());
+    if (idx > 0) {
+      const home = title.substring(0, idx).trim();
+      const away = title.substring(idx + sep.length).trim();
+      if (home && away) return { home, away };
+    }
+  }
+  return null;
+}
+
+/** Fetch PPV.to events via their JSON API */
+async function fetchPPV(): Promise<PPVEvent[]> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const response = await fetch("https://api.ppv.to/api/streams", {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) return [];
+    const data = await response.json();
+    if (!data.success || !data.streams) return [];
+
+    const events: PPVEvent[] = [];
+    for (const category of data.streams) {
+      const catName = category.category || "";
+      const mappedCat = PPV_CATEGORY_MAP[catName] || "other";
+
+      for (const stream of category.streams || []) {
+        if (!stream.name || !stream.iframe) continue;
+        // Skip always_live channels (24/7 streams)
+        if (stream.always_live) continue;
+
+        const teams = parseTeams(stream.name);
+        events.push({
+          title: stream.name,
+          category: mappedCat,
+          embedUrl: stream.iframe,
+          teamHome: teams?.home || null,
+          teamAway: teams?.away || null,
+        });
+      }
+    }
+
+    console.log(`PPV.to API: Found ${events.length} events`);
+    return events;
+  } catch (e) {
+    console.error("PPV.to API failed:", e.message);
+    return [];
+  }
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // ── 1. Fetch from streamed.pk / sportsbite / moviebite ──
     let matches: MatchData[] = [];
     const urls = [
       "https://streamed.pk/api/matches/all",
@@ -63,7 +148,6 @@ Deno.serve(async (req) => {
         try {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 10000);
-
           const response = await fetch(url, {
             headers: {
               "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -75,29 +159,17 @@ Deno.serve(async (req) => {
 
           if (response.ok) {
             const contentType = response.headers.get("content-type") || "";
-            if (!contentType.includes("json")) {
-              console.error(`${url} returned non-JSON: ${contentType}`);
-              break;
-            }
+            if (!contentType.includes("json")) break;
             matches = await response.json();
             console.log(`Fetched ${matches.length} matches from ${url} (attempt ${attempt + 1})`);
             break;
           }
         } catch (e) {
           console.error(`Failed ${url} attempt ${attempt + 1}:`, e.message);
-          if (attempt === 0) {
-            await new Promise((r) => setTimeout(r, 1000));
-          }
+          if (attempt === 0) await new Promise((r) => setTimeout(r, 1000));
         }
       }
       if (matches.length > 0) break;
-    }
-
-    if (matches.length === 0) {
-      return new Response(
-        JSON.stringify({ success: false, error: "Could not fetch schedule from any endpoint" }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
     }
 
     // Filter to allowed categories
@@ -106,25 +178,18 @@ Deno.serve(async (req) => {
       return ALLOWED_CATEGORIES.has(cat);
     });
 
-    // QUALITY FILTER: Only keep matches with COMPLETE team info
+    // Quality filter: must have both team names and at least one source
     const qualityMatches = filteredMatches.filter((match) => {
       const homeName = match.teams?.home?.name?.trim();
       const awayName = match.teams?.away?.name?.trim();
-
-      // Must have both team names
       if (!homeName || !awayName) return false;
-
-      // Must have at least one valid source
-      const hasSource = match.sources?.some((s) => SOURCE_MAP[s.source]);
-      if (!hasSource) return false;
-
-      return true;
+      return match.sources?.some((s) => SOURCE_MAP[s.source]);
     });
 
     const skippedIncomplete = filteredMatches.length - qualityMatches.length;
 
-    // Process matches with source mapping
-    const records = qualityMatches.map((match) => {
+    // Build records from main sources
+    const records: Record<string, any>[] = qualityMatches.map((match) => {
       const record: Record<string, string | null> = {
         match_id: match.id,
         match_title: match.title,
@@ -148,6 +213,55 @@ Deno.serve(async (req) => {
       return record;
     });
 
+    // ── 2. Fetch from ppv.to as supplementary source ──
+    const ppvEvents = await fetchPPV();
+    let ppvAdded = 0;
+    let ppvEnriched = 0;
+
+    const normalize = (s: string) =>
+      s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+    for (const ppv of ppvEvents) {
+      // Try to find existing record and add ppv as source_golf (backup)
+      const existingIdx = records.findIndex((r) => {
+        if (!r.team_home || !r.team_away) return false;
+        if (!ppv.teamHome || !ppv.teamAway) return false;
+        const rHome = normalize(r.team_home);
+        const rAway = normalize(r.team_away);
+        const pH = normalize(ppv.teamHome);
+        const pA = normalize(ppv.teamAway);
+        const homeWords = pH.split(/\s+/).filter((w: string) => w.length > 3);
+        const awayWords = pA.split(/\s+/).filter((w: string) => w.length > 3);
+        const homeMatch = homeWords.some((w: string) => rHome.includes(w) || rAway.includes(w));
+        const awayMatch = awayWords.some((w: string) => rHome.includes(w) || rAway.includes(w));
+        return homeMatch && awayMatch;
+      });
+
+      if (existingIdx >= 0) {
+        if (!records[existingIdx].source_golf) {
+          records[existingIdx].source_golf = ppv.embedUrl;
+          ppvEnriched++;
+        }
+      } else if (ppv.teamHome && ppv.teamAway && ppv.category !== "other") {
+        // New event only from ppv.to
+        const slugId = ppv.embedUrl.replace(/[^a-z0-9]/gi, "-").slice(-40);
+        records.push({
+          match_id: `ppv-${slugId}`,
+          match_title: ppv.title,
+          category: ppv.category,
+          team_home: ppv.teamHome,
+          team_away: ppv.teamAway,
+          source_admin: null,
+          source_delta: null,
+          source_echo: null,
+          source_golf: ppv.embedUrl,
+          scanned_at: new Date().toISOString(),
+        });
+        ppvAdded++;
+      }
+    }
+
+    // ── 3. Save to database ──
     const adminClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -174,6 +288,9 @@ Deno.serve(async (req) => {
         totalFetched: matches.length,
         filtered: matches.length - filteredMatches.length,
         skippedIncomplete,
+        ppvTotal: ppvEvents.length,
+        ppvAdded,
+        ppvEnriched,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
