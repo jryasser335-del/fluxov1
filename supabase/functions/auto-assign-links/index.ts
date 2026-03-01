@@ -31,16 +31,38 @@ function getRawLinks(scraped: any): string[] {
   return [scraped.source_admin, scraped.source_echo, scraped.source_delta, scraped.source_golf].filter(Boolean);
 }
 
-function nameContains(eventName: string, scrapedName: string): boolean {
-  const words = scrapedName.split(/\s+/).filter((w: string) => w.length > 3);
-  if (words.length === 0) return scrapedName.length > 2 && eventName.includes(scrapedName);
-  const matched = words.filter((w: string) => eventName.includes(w)).length;
-  return matched >= Math.max(1, Math.ceil(words.length * 0.5));
+const TEAM_STOPWORDS = new Set([
+  "fc", "cf", "sc", "ac", "bc", "cd", "club", "team", "the", "de", "la", "el",
+  "basketball", "football", "soccer", "baseball", "hockey", "rugby", "cricket", "motorsport", "vs", "v",
+]);
+
+function tokenizeTeamName(name: string): string[] {
+  return normalize(name)
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length > 2 && !TEAM_STOPWORDS.has(t));
 }
 
-function teamsMatch(eHome: string, eAway: string, sHome: string, sAway: string): boolean {
-  const eh = normalize(eHome), ea = normalize(eAway), sh = normalize(sHome), sa = normalize(sAway);
-  return (nameContains(eh, sh) && nameContains(ea, sa)) || (nameContains(eh, sa) && nameContains(ea, sh));
+function tokenOverlapScore(a: string, b: string): number {
+  const ta = tokenizeTeamName(a);
+  const tb = tokenizeTeamName(b);
+  if (ta.length === 0 || tb.length === 0) return 0;
+  const sa = new Set(ta);
+  const sb = new Set(tb);
+  let overlap = 0;
+  for (const token of sa) if (sb.has(token)) overlap++;
+  return overlap / Math.max(sa.size, sb.size);
+}
+
+function teamsMatchScore(eHome: string, eAway: string, sHome: string, sAway: string): number {
+  const direct = (tokenOverlapScore(eHome, sHome) + tokenOverlapScore(eAway, sAway)) / 2;
+  const swapped = (tokenOverlapScore(eHome, sAway) + tokenOverlapScore(eAway, sHome)) / 2;
+  return Math.max(direct, swapped);
+}
+
+function sportMatches(eventSport: string | null, scrapedCategory: string | null): boolean {
+  if (!eventSport || !scrapedCategory) return true;
+  const mappedSport = CATEGORY_TO_SPORT[scrapedCategory.toLowerCase()] || scrapedCategory;
+  return normalize(eventSport) === normalize(mappedSport);
 }
 
 Deno.serve(async (req) => {
@@ -81,10 +103,23 @@ Deno.serve(async (req) => {
     for (const event of activeEvents) {
       if (!event.team_home?.trim() || !event.team_away?.trim()) continue;
 
-      const match = scrapedLinks.find((s: any) => {
-        if (!s.team_home?.trim() || !s.team_away?.trim()) return false;
-        return teamsMatch(event.team_home, event.team_away, s.team_home, s.team_away);
-      });
+      const MIN_MATCH_SCORE = 0.55;
+      let bestMatch: any = null;
+      let bestScore = 0;
+
+      for (const s of scrapedLinks) {
+        if (matchedScrapedIds.has(s.id)) continue;
+        if (!s.team_home?.trim() || !s.team_away?.trim()) continue;
+        if (!sportMatches(event.sport ?? null, s.category ?? null)) continue;
+
+        const score = teamsMatchScore(event.team_home, event.team_away, s.team_home, s.team_away);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = s;
+        }
+      }
+
+      const match = bestMatch && bestScore >= MIN_MATCH_SCORE ? bestMatch : null;
 
       if (match) {
         matchedScrapedIds.add(match.id);
@@ -133,10 +168,11 @@ Deno.serve(async (req) => {
       const links = getRawLinks(scraped);
       if (links.length === 0) continue;
 
-      const exists = activeEvents.some((e: any) =>
-        e.team_home?.trim() && e.team_away?.trim() &&
-        teamsMatch(e.team_home, e.team_away, scraped.team_home, scraped.team_away)
-      );
+      const exists = activeEvents.some((e: any) => {
+        if (!e.team_home?.trim() || !e.team_away?.trim()) return false;
+        if (!sportMatches(e.sport ?? null, scraped.category ?? null)) return false;
+        return teamsMatchScore(e.team_home, e.team_away, scraped.team_home, scraped.team_away) >= 0.65;
+      });
       if (exists) continue;
 
       newEvents.push({
