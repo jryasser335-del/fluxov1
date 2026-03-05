@@ -1,65 +1,66 @@
 import { useState } from "react";
 import { InstallPrompt } from "@/components/InstallPrompt";
-import { Sidebar, ViewType } from "@/components/Sidebar";
-import { TopBar } from "@/components/TopBar";
 import { PlayerModal } from "@/components/PlayerModal";
 import { EventsView } from "@/components/EventsView";
 import { MultiStreamView } from "@/components/MultiStreamView";
 import { NotificationCenter } from "@/components/NotificationCenter";
-import { IntroScreen } from "@/components/IntroScreen";
-import { PremiumPageWrapper } from "@/components/PremiumPageWrapper";
+import { cn } from "@/lib/utils";
+import { Trophy, LayoutGrid, Settings, Moon, Sun } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Link } from "react-router-dom";
+
+type ViewType = "eventos" | "multistream";
 
 const Index = () => {
   const [activeView, setActiveView] = useState<ViewType>("eventos");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showIntro, setShowIntro] = useState(() => {
-    const lastShown = sessionStorage.getItem("fluxo_intro_shown");
-    return !lastShown;
-  });
-
-  const handleViewChange = (view: ViewType) => {
-    setActiveView(view);
-    setSearchQuery("");
-  };
-
-  const handleIntroDone = () => {
-    setShowIntro(false);
-    sessionStorage.setItem("fluxo_intro_shown", "1");
-  };
+  const { isAdmin } = useAuth();
 
   return (
     <>
-      {showIntro && <IntroScreen onComplete={handleIntroDone} />}
-
-      <div className="grid grid-cols-[86px_1fr] max-md:grid-cols-1 min-h-screen relative bg-black">
-        {/* Ambient background effects */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-0 left-1/3 w-[600px] h-[400px] bg-primary/5 blur-[150px] rounded-full" />
-          <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-accent/3 blur-[120px] rounded-full" />
-          {/* Extra premium ambient orbs */}
-          <div className="absolute top-1/2 left-0 w-[300px] h-[300px] bg-primary/[0.03] blur-[100px] rounded-full animate-pulse" />
-          <div className="absolute bottom-0 right-1/3 w-[400px] h-[200px] bg-accent/[0.02] blur-[80px] rounded-full" />
-        </div>
-
-        {/* Sidebar - hidden on mobile, shown at bottom */}
-        <div className="max-md:fixed max-md:bottom-0 max-md:left-0 max-md:right-0 max-md:z-50">
-          <Sidebar activeView={activeView} onViewChange={handleViewChange} />
-        </div>
-        
-        <main className="relative p-4 md:p-5 pb-24 md:pb-8 overflow-x-hidden">
-          <PremiumPageWrapper>
-            <TopBar
-              activeView={activeView}
-              searchValue={searchQuery}
-              onSearchChange={setSearchQuery}
-            />
-            
-            <div className="mt-2">
-              {activeView === "eventos" && <EventsView />}
-              {activeView === "multistream" && <MultiStreamView />}
-            </div>
-          </PremiumPageWrapper>
+      <div className="min-h-screen bg-[#0e1117]">
+        {/* Main content */}
+        <main className="max-w-[1400px] mx-auto px-3 sm:px-4 md:px-6 pb-24 md:pb-8 pt-3">
+          {activeView === "eventos" && <EventsView />}
+          {activeView === "multistream" && <MultiStreamView />}
         </main>
+
+        {/* Bottom navigation bar - BINTV style */}
+        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#0e1117]/95 backdrop-blur-xl border-t border-white/[0.06]">
+          <div className="max-w-[600px] mx-auto flex items-center justify-around px-4 py-2.5 safe-area-pb">
+            <button
+              onClick={() => setActiveView("eventos")}
+              className={cn(
+                "flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all",
+                activeView === "eventos"
+                  ? "bg-primary text-white shadow-lg shadow-primary/30"
+                  : "text-white/50 hover:text-white"
+              )}
+            >
+              <Trophy className="w-4 h-4" />
+              Live
+            </button>
+            <button
+              onClick={() => setActiveView("multistream")}
+              className={cn(
+                "flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium transition-all",
+                activeView === "multistream"
+                  ? "bg-primary text-white shadow-lg shadow-primary/30"
+                  : "text-white/50 hover:text-white"
+              )}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Schedule
+            </button>
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className="flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium text-white/50 hover:text-white transition-all"
+              >
+                <Settings className="w-4 h-4" />
+              </Link>
+            )}
+          </div>
+        </nav>
       </div>
 
       <PlayerModal />

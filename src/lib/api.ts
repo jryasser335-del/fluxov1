@@ -43,6 +43,7 @@ export async function fetchTMDB(path: string): Promise<TMDBResponse> {
 
 export interface ESPNEvent {
   id: string;
+  name?: string;
   date: string;
   competitions: {
     id: string;
