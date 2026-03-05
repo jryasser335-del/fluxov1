@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
-import { Heart, Radio, Eye } from "lucide-react";
+import { Heart, Radio } from "lucide-react";
 import { ESPNEvent } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { EventCountdown } from "./EventCountdown";
 
 interface EventCardProps {
   event: ESPNEvent;
@@ -132,11 +133,6 @@ export function EventCard({
   const awayColor = away?.team?.color ? `#${away.team.color}` : "#1e3a5f";
   const homeColor = home?.team?.color ? `#${home.team.color}` : "#5f1e1e";
 
-  const viewerCount = useMemo(() => {
-    if (hasLink && isLive) return Math.floor(Math.random() * 5000 + 500);
-    if (hasLink) return Math.floor(Math.random() * 300 + 10);
-    return 0;
-  }, [hasLink, isLive]);
 
   const leagueLogos = useMemo(() => getLeagueLogoCandidates(leagueInfo), [leagueInfo]);
   const [leagueLogoIndex, setLeagueLogoIndex] = useState(0);
@@ -147,7 +143,7 @@ export function EventCard({
       className={cn(
         "group relative rounded-xl overflow-hidden transition-all duration-300",
         isLive
-          ? "ring-1 ring-red-500/50 shadow-[0_0_20px_-5px] shadow-red-500/40"
+          ? "ring-1 ring-primary/30 shadow-[0_0_25px_-5px] shadow-primary/20"
           : "ring-1 ring-white/[0.06] hover:ring-white/[0.15]",
         hasLink ? "cursor-pointer hover:scale-[1.02] hover:shadow-xl" : "opacity-80"
       )}
@@ -166,14 +162,13 @@ export function EventCard({
 
       {/* Live indicator top bar */}
       {isLive && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-red-500 via-red-400 to-red-500 animate-pulse" />
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary via-accent to-primary" />
       )}
 
-      {/* Viewer badge */}
-      {hasLink && viewerCount > 0 && (
-        <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/90 shadow-lg shadow-emerald-500/30">
-          <Eye className="w-3 h-3 text-white" />
-          <span className="text-[10px] font-bold text-white">{viewerCount.toLocaleString()}</span>
+      {/* Countdown for pre-match events */}
+      {isPre && hasLink && (
+        <div className="absolute top-2.5 right-2.5 z-10">
+          <EventCountdown targetDate={comp?.date || event.date} compact />
         </div>
       )}
 
@@ -238,18 +233,18 @@ export function EventCard({
           </h3>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <span className={cn(
-                "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
-                isLive ? "bg-red-500/25 text-red-400" : "bg-primary/15 text-primary"
-              )}>
-                {leagueInfo.sub || leagueInfo.name}
-              </span>
-              {isLive && (
-                <div className="flex items-center gap-1">
-                  <Radio className="w-2.5 h-2.5 text-red-400 animate-pulse" />
-                  <span className="text-[8px] font-bold text-red-400 uppercase">LIVE</span>
-                </div>
-              )}
+               <span className={cn(
+                 "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
+                 isLive ? "bg-primary/25 text-primary" : "bg-primary/15 text-primary"
+               )}>
+                 {leagueInfo.sub || leagueInfo.name}
+               </span>
+               {isLive && (
+                 <div className="flex items-center gap-1">
+                   <Radio className="w-2.5 h-2.5 text-primary animate-pulse" />
+                   <span className="text-[8px] font-bold text-primary uppercase">LIVE</span>
+                 </div>
+               )}
             </div>
             <span className="text-[10px] text-white/30 font-medium">
               {isPre ? clockTxt : isFinal ? clockTxt : ""}

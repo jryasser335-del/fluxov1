@@ -8,6 +8,7 @@ import { SkeletonEventCard } from "./Skeleton";
 import { Search, RefreshCw, Radio, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import fluxoLogo from "@/assets/fluxotv-logo.png";
 
 // Sport category tabs
 const SPORT_TABS = [
@@ -340,7 +341,7 @@ export function EventsView() {
       {/* Top bar with search */}
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
-          <img src="/pwa-192x192.png" alt="FluxoTV" className="w-9 h-9 rounded-xl" />
+          <img src={fluxoLogo} alt="FluxoTV" className="w-9 h-9 rounded-xl" />
           <span className="font-display text-xl font-bold text-white tracking-wide hidden sm:block">FLUXO</span>
         </div>
         <div className="relative flex-1 max-w-md">
@@ -492,7 +493,7 @@ function DbEventCard({ event }: { event: { name: string; team_home: string | nul
   return (
     <div className={cn(
       "group relative rounded-2xl overflow-hidden transition-all duration-300 border cursor-pointer hover:scale-[1.02]",
-      event.is_live ? "border-red-500/30 shadow-[0_0_20px_-8px] shadow-red-500/20" : "border-white/[0.08] hover:border-white/15"
+      event.is_live ? "border-primary/30 shadow-[0_0_20px_-8px] shadow-primary/20" : "border-white/[0.08] hover:border-white/15"
     )}>
       <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10 opacity-50" />
       <div className="absolute inset-0 bg-gradient-to-b from-[#0d1117]/60 via-[#0d1117]/80 to-[#0d1117]/95" />

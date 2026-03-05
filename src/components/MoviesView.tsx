@@ -389,11 +389,7 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
 
   return (
     <div className="space-y-2">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-4 mb-4">
-        <Chips options={MOVIE_FILTERS} value={type} onChange={setType} />
-        <Chips options={PLATFORM_FILTERS} value={platform} onChange={(v) => setPlatform(v as "all" | PlatformValue)} />
-      </div>
+      {/* No filters - clean cinezo-style layout */}
 
       {loading ? (
         <SkeletonGrid count={24} />
