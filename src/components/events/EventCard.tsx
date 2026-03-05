@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Heart, Radio } from "lucide-react";
 import { ESPNEvent } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -42,6 +42,39 @@ function getTeamLogoCandidates(team: TeamData | undefined, leagueKey: string): s
   return candidates;
 }
 
+const teamSearchCache = new Map<string, string | null>();
+
+async function searchTeamLogoFromESPN(teamName: string): Promise<string | null> {
+  if (!teamName) return null;
+  const key = teamName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  if (teamSearchCache.has(key)) return teamSearchCache.get(key) || null;
+
+  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "tizmocegplamrmpfxvdu";
+  const queries = Array.from(new Set([
+    teamName,
+    teamName.replace(/\b(Baseball|Basketball|Football|Hockey|Rugby)\b/gi, "").trim(),
+    teamName.replace(/\b(Fc|CF|SC|SK|AC|Club)\b/gi, "").trim(),
+  ].filter(Boolean)));
+
+  for (const q of queries) {
+    try {
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/team-logo-search?t=${encodeURIComponent(q)}`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const logo = data?.logo || null;
+      if (logo) {
+        teamSearchCache.set(key, logo);
+        return logo;
+      }
+    } catch {
+      // continue
+    }
+  }
+
+  teamSearchCache.set(key, null);
+  return null;
+}
+
 const LEAGUE_LOGO_MAP: Record<string, string> = {
   "eng.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png",
   "esp.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/15.png",
@@ -81,13 +114,33 @@ function getLeagueLogoCandidates(leagueInfo: EventCardProps["leagueInfo"]): stri
 
 function TeamLogo({ team, color, leagueKey, size = "lg" }: { team: TeamData | undefined; color: string; leagueKey: string; size?: "sm" | "lg" }) {
   const [candidateIndex, setCandidateIndex] = useState(0);
-  const logos = useMemo(() => getTeamLogoCandidates(team, leagueKey), [team, leagueKey]);
+  const [searchedLogo, setSearchedLogo] = useState<string | null>(null);
+  const [searchTried, setSearchTried] = useState(false);
+  const baseLogos = useMemo(() => getTeamLogoCandidates(team, leagueKey), [team, leagueKey]);
+  const logos = useMemo(() => (searchedLogo ? [...baseLogos, searchedLogo] : baseLogos), [baseLogos, searchedLogo]);
   const logoUrl = logos[candidateIndex];
   const abbr = (team?.abbreviation || team?.shortDisplayName || "?").slice(0, 3);
 
   const sizeClasses = size === "lg" ? "w-16 h-16 sm:w-20 sm:h-20" : "w-12 h-12";
   const textSize = size === "lg" ? "text-xl sm:text-2xl" : "text-lg";
   const fallbackSize = size === "lg" ? "w-16 h-16 sm:w-20 sm:h-20" : "w-12 h-12";
+
+  useEffect(() => {
+    let cancelled = false;
+    if (searchTried || searchedLogo) return;
+    if (logoUrl) return;
+    const name = team?.displayName || team?.shortDisplayName;
+    if (!name) return;
+
+    setSearchTried(true);
+    searchTeamLogoFromESPN(name).then((url) => {
+      if (!cancelled && url) setSearchedLogo(url);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [logoUrl, searchedLogo, searchTried, team?.displayName, team?.shortDisplayName]);
 
   if (logoUrl) {
     return (
