@@ -3,6 +3,7 @@ import { Heart, Radio } from "lucide-react";
 import { ESPNEvent } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { EventCountdown } from "./EventCountdown";
+import { motion } from "framer-motion";
 
 interface EventCardProps {
   event: ESPNEvent;
@@ -30,14 +31,11 @@ function getTeamLogoCandidates(team: TeamData | undefined, leagueKey: string): s
   const sport = getSportSegment(leagueKey);
   const candidates: string[] = [];
 
-  // Primary: direct logo from ESPN API
   if (team.logo) candidates.push(team.logo);
 
-  // Fallback: ESPN CDN by team ID
   if (team.id) {
     candidates.push(`https://a.espncdn.com/i/teamlogos/${sport}/500/${team.id}.png`);
     candidates.push(`https://a.espncdn.com/i/teamlogos/${sport}/500-dark/${team.id}.png`);
-    // Generic combiner fallback
     candidates.push(`https://a.espncdn.com/combiner/i?img=/i/teamlogos/${sport}/500/${team.id}.png&h=100&w=100`);
   }
 
@@ -63,6 +61,18 @@ const LEAGUE_LOGO_MAP: Record<string, string> = {
   mlb: "https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png",
   nhl: "https://a.espncdn.com/i/teamlogos/leagues/500/nhl.png",
   ufc: "https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png",
+  // Additional leagues
+  "ger.2": "https://a.espncdn.com/i/leaguelogos/soccer/500/10.png",
+  "eng.2": "https://a.espncdn.com/i/leaguelogos/soccer/500/24.png",
+  "esp.2": "https://a.espncdn.com/i/leaguelogos/soccer/500/15.png",
+  "fra.2": "https://a.espncdn.com/i/leaguelogos/soccer/500/9.png",
+  "ita.2": "https://a.espncdn.com/i/leaguelogos/soccer/500/12.png",
+  "ned.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/11.png",
+  "por.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/14.png",
+  "arg.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/1.png",
+  "bra.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/85.png",
+  "mex.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/22.png",
+  mls: "https://a.espncdn.com/i/leaguelogos/soccer/500/19.png",
 };
 
 function getLeagueLogoCandidates(leagueInfo: EventCardProps["leagueInfo"]): string[] {
@@ -110,6 +120,7 @@ export function EventCard({
   onClick,
   formatTime,
 }: EventCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const comp = event.competitions?.[0];
   const status = comp?.status?.type;
   const isLive = status?.state === "in";
@@ -133,135 +144,150 @@ export function EventCard({
   const awayColor = away?.team?.color ? `#${away.team.color}` : "#1e3a5f";
   const homeColor = home?.team?.color ? `#${home.team.color}` : "#5f1e1e";
 
-
   const leagueLogos = useMemo(() => getLeagueLogoCandidates(leagueInfo), [leagueInfo]);
   const [leagueLogoIndex, setLeagueLogoIndex] = useState(0);
   const leagueLogoUrl = leagueLogos[leagueLogoIndex];
 
   return (
-    <div
-      className={cn(
-        "group relative rounded-2xl overflow-hidden transition-all duration-500 ease-out",
-        isLive
-          ? "ring-1 ring-primary/40 shadow-[0_0_30px_-5px] shadow-primary/25"
-          : "ring-1 ring-white/[0.06] hover:ring-white/[0.12]",
-        hasLink ? "cursor-pointer hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/40" : "opacity-70"
-      )}
-      onClick={hasLink ? onClick : undefined}
+    <motion.div
+      className="relative"
+      onHoverStart={() => setIsHovered(true)}
+      onHoverEnd={() => setIsHovered(false)}
+      whileHover={{ scale: hasLink ? 1.03 : 1, y: hasLink ? -4 : 0 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
     >
-      {/* Split gradient background */}
-      <div className="absolute inset-0">
-        <div
-          className="absolute inset-0 opacity-50 group-hover:opacity-70 transition-opacity duration-700"
-          style={{
-            background: `linear-gradient(135deg, ${awayColor}60 0%, #08080800 40%, #08080800 60%, ${homeColor}60 100%)`
-          }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-black/90" />
-        {/* Subtle noise texture */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`
-        }} />
-      </div>
+      {/* Ambient glow behind card */}
+      <motion.div
+        className="absolute -inset-3 rounded-3xl blur-2xl -z-10"
+        animate={{
+          opacity: isHovered ? 0.4 : 0,
+        }}
+        transition={{ duration: 0.5 }}
+        style={{
+          background: `radial-gradient(ellipse at center, ${awayColor}40, ${homeColor}30, transparent 70%)`
+        }}
+      />
 
-      {/* Live indicator — animated gradient bar */}
-      {isLive && (
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent animate-gradient-shift" style={{ backgroundSize: '200% 100%' }} />
-      )}
-
-      {/* Favorite */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+      <div
         className={cn(
-          "absolute top-3 left-3 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm",
-          isFavorite
-            ? "bg-red-500/25 text-red-400 scale-100"
-            : "bg-black/40 text-white/20 opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100"
+          "group relative rounded-2xl overflow-hidden transition-all duration-300",
+          isLive
+            ? "ring-1 ring-primary/40 shadow-[0_0_30px_-5px] shadow-primary/25"
+            : "ring-1 ring-white/[0.06] hover:ring-white/[0.12]",
+          hasLink ? "cursor-pointer" : "opacity-70"
         )}
+        onClick={hasLink ? onClick : undefined}
       >
-        <Heart className={cn("w-3.5 h-3.5", isFavorite && "fill-current")} />
-      </button>
-
-      <div className="relative flex flex-col min-h-[220px] sm:min-h-[240px]">
-        {/* Team logos section */}
-        <div className="flex items-center justify-center gap-1 flex-1 px-4 py-5">
-          {/* Away team */}
-          <div className="flex-1 flex flex-col items-center gap-2 group-hover:scale-110 transition-transform duration-500 ease-out">
-            <TeamLogo team={away?.team} color={awayColor} leagueKey={leagueInfo.key} />
-            <span className="text-[10px] font-semibold text-white/40 truncate max-w-[80px] text-center leading-tight">
-              {away?.team?.abbreviation || away?.team?.shortDisplayName || ""}
-            </span>
-          </div>
-
-          {/* Center: Score/VS/League */}
-          <div className="flex flex-col items-center gap-2 px-2 min-w-[60px]">
-            {leagueLogoUrl && (
-              <img
-                src={leagueLogoUrl}
-                alt={leagueInfo.name}
-                className="w-7 h-7 sm:w-9 sm:h-9 object-contain opacity-70 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]"
-                onError={() => setLeagueLogoIndex((prev) => prev + 1)}
-              />
-            )}
-            {isLive ? (
-              <div className="flex items-center gap-2.5">
-                <span className="font-display text-3xl sm:text-4xl text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.2)]">{away?.score ?? "0"}</span>
-                <span className="text-white/20 text-xs">–</span>
-                <span className="font-display text-3xl sm:text-4xl text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.2)]">{home?.score ?? "0"}</span>
-              </div>
-            ) : isFinal ? (
-              <div className="flex items-center gap-2">
-                <span className="font-display text-2xl text-white/50">{away?.score ?? "0"}</span>
-                <span className="text-white/15 text-xs">–</span>
-                <span className="font-display text-2xl text-white/50">{home?.score ?? "0"}</span>
-              </div>
-            ) : (
-              <span className="font-display text-lg text-white/15 tracking-[0.3em]">VS</span>
-            )}
-          </div>
-
-          {/* Home team */}
-          <div className="flex-1 flex flex-col items-center gap-2 group-hover:scale-110 transition-transform duration-500 ease-out">
-            <TeamLogo team={home?.team} color={homeColor} leagueKey={leagueInfo.key} />
-            <span className="text-[10px] font-semibold text-white/40 truncate max-w-[80px] text-center leading-tight">
-              {home?.team?.abbreviation || home?.team?.shortDisplayName || ""}
-            </span>
-          </div>
+        {/* Split gradient background */}
+        <div className="absolute inset-0">
+          <div
+            className="absolute inset-0 opacity-50 group-hover:opacity-70 transition-opacity duration-700"
+            style={{
+              background: `linear-gradient(135deg, ${awayColor}60 0%, #08080800 40%, #08080800 60%, ${homeColor}60 100%)`
+            }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-black/90" />
         </div>
 
-        {/* Countdown for upcoming matches — prominent */}
+        {/* Live indicator */}
+        {isLive && (
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent animate-gradient-shift" style={{ backgroundSize: '200% 100%' }} />
+        )}
+
+        {/* Countdown for pre-match — top right */}
         {isPre && (
-          <div className="flex justify-center pb-2">
+          <div className="absolute top-2.5 right-2.5 z-10">
             <EventCountdown targetDate={comp?.date || event.date} compact />
           </div>
         )}
 
-        {/* Footer info */}
-        <div className="mt-auto px-4 pb-3 pt-2 border-t border-white/[0.04]">
-          <h3 className="text-[12px] sm:text-[13px] font-semibold text-white/80 leading-tight truncate mb-1.5">
-            {away?.team?.displayName || "TBD"} vs {home?.team?.displayName || "TBD"}
-          </h3>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className={cn(
-                "px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider",
-                isLive ? "bg-primary/20 text-primary" : "bg-white/[0.06] text-white/40"
-              )}>
-                {leagueInfo.sub || leagueInfo.name}
+        {/* Favorite */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+          className={cn(
+            "absolute top-3 left-3 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm",
+            isFavorite
+              ? "bg-destructive/25 text-destructive scale-100"
+              : "bg-black/40 text-white/20 opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100"
+          )}
+        >
+          <Heart className={cn("w-3.5 h-3.5", isFavorite && "fill-current")} />
+        </button>
+
+        <div className="relative flex flex-col min-h-[200px] sm:min-h-[220px]">
+          {/* Team logos section */}
+          <div className="flex items-center justify-center gap-1 flex-1 px-4 py-4">
+            {/* Away team */}
+            <div className="flex-1 flex flex-col items-center gap-1.5 group-hover:scale-110 transition-transform duration-500 ease-out">
+              <TeamLogo team={away?.team} color={awayColor} leagueKey={leagueInfo.key} />
+              <span className="text-[10px] font-semibold text-white/40 truncate max-w-[80px] text-center leading-tight">
+                {away?.team?.abbreviation || away?.team?.shortDisplayName || ""}
               </span>
-              {isLive && (
-                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary/10">
-                  <Radio className="w-2.5 h-2.5 text-primary animate-pulse" />
-                  <span className="text-[8px] font-bold text-primary uppercase tracking-wider">LIVE</span>
+            </div>
+
+            {/* Center: Score/VS/League */}
+            <div className="flex flex-col items-center gap-1.5 px-2 min-w-[55px]">
+              {leagueLogoUrl && (
+                <img
+                  src={leagueLogoUrl}
+                  alt={leagueInfo.name}
+                  className="w-7 h-7 sm:w-9 sm:h-9 object-contain opacity-70 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]"
+                  onError={() => setLeagueLogoIndex((prev) => prev + 1)}
+                />
+              )}
+              {isLive ? (
+                <div className="flex items-center gap-2">
+                  <span className="font-display text-3xl sm:text-4xl text-white drop-shadow-lg">{away?.score ?? "0"}</span>
+                  <span className="text-white/20 text-xs">–</span>
+                  <span className="font-display text-3xl sm:text-4xl text-white drop-shadow-lg">{home?.score ?? "0"}</span>
                 </div>
+              ) : isFinal ? (
+                <div className="flex items-center gap-2">
+                  <span className="font-display text-2xl text-white/50">{away?.score ?? "0"}</span>
+                  <span className="text-white/15 text-xs">–</span>
+                  <span className="font-display text-2xl text-white/50">{home?.score ?? "0"}</span>
+                </div>
+              ) : (
+                <span className="font-display text-lg text-white/15 tracking-[0.3em]">VS</span>
               )}
             </div>
-            <span className="text-[10px] text-white/25 font-medium font-mono">
-              {isPre ? clockTxt : isFinal ? clockTxt : ""}
-            </span>
+
+            {/* Home team */}
+            <div className="flex-1 flex flex-col items-center gap-1.5 group-hover:scale-110 transition-transform duration-500 ease-out">
+              <TeamLogo team={home?.team} color={homeColor} leagueKey={leagueInfo.key} />
+              <span className="text-[10px] font-semibold text-white/40 truncate max-w-[80px] text-center leading-tight">
+                {home?.team?.abbreviation || home?.team?.shortDisplayName || ""}
+              </span>
+            </div>
+          </div>
+
+          {/* Footer info */}
+          <div className="mt-auto px-4 pb-3 pt-2 border-t border-white/[0.04]">
+            <h3 className="text-[12px] sm:text-[13px] font-semibold text-white/80 leading-tight truncate mb-1.5">
+              {away?.team?.displayName || "TBD"} vs {home?.team?.displayName || "TBD"}
+            </h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className={cn(
+                  "px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider",
+                  isLive ? "bg-primary/20 text-primary" : "bg-white/[0.06] text-white/40"
+                )}>
+                  {leagueInfo.sub || leagueInfo.name}
+                </span>
+                {isLive && (
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary/10">
+                    <Radio className="w-2.5 h-2.5 text-primary animate-pulse" />
+                    <span className="text-[8px] font-bold text-primary uppercase tracking-wider">LIVE</span>
+                  </div>
+                )}
+              </div>
+              <span className="text-[10px] text-white/25 font-medium font-mono">
+                {isPre ? clockTxt : isFinal ? clockTxt : ""}
+              </span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -4,11 +4,13 @@ import { LEAGUE_OPTIONS } from "@/lib/constants";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./events/EventCard";
+import { HeroBanner } from "./events/HeroBanner";
 import { SkeletonEventCard } from "./Skeleton";
 import { Search, RefreshCw, Radio, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import fluxoLogo from "@/assets/fluxotv-logo.png";
+import { motion } from "framer-motion";
 
 // Sport category tabs
 const SPORT_TABS = [
@@ -336,6 +338,24 @@ export function EventsView() {
     return counts;
   }, [allEnrichedEvents]);
 
+  // Pick featured/hero event: first live event with link, or first live, or first with link
+  const heroEvent = useMemo(() => {
+    if (searchQuery.trim() || activeLeagueFilter) return null;
+    const liveWithLink = filteredEvents.find(e =>
+      e.event.competitions?.[0]?.status?.type?.state === "in" && eventLinks.has(e.event.id)
+    );
+    if (liveWithLink) return liveWithLink;
+    const anyLive = filteredEvents.find(e => e.event.competitions?.[0]?.status?.type?.state === "in");
+    if (anyLive) return anyLive;
+    return null;
+  }, [filteredEvents, eventLinks, searchQuery, activeLeagueFilter]);
+
+  // Filtered events without hero
+  const gridEvents = useMemo(() => {
+    if (!heroEvent) return filteredEvents;
+    return filteredEvents.filter(e => e.event.id !== heroEvent.event.id);
+  }, [filteredEvents, heroEvent]);
+
   return (
     <div className="space-y-0">
       {/* Top bar */}
@@ -425,6 +445,16 @@ export function EventsView() {
         </div>
       )}
 
+      {/* Hero banner */}
+      {!loading && heroEvent && (
+        <HeroBanner
+          event={heroEvent.event}
+          leagueInfo={{ key: heroEvent.leagueKey, name: heroEvent.leagueName, sub: heroEvent.leagueSub, logo: heroEvent.leagueLogo }}
+          hasLink={eventLinks.has(heroEvent.event.id)}
+          onClick={() => handleEventClick(heroEvent)}
+        />
+      )}
+
       {/* Events grid */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -432,7 +462,7 @@ export function EventsView() {
             <SkeletonEventCard key={i} />
           ))}
         </div>
-      ) : filteredEvents.length === 0 && dbOnlyEvents.length === 0 ? (
+      ) : gridEvents.length === 0 && dbOnlyEvents.length === 0 && !heroEvent ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mb-4">
             <span className="text-3xl">🏟️</span>
@@ -442,8 +472,13 @@ export function EventsView() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredEvents.map((enriched, index) => (
-            <div key={enriched.event.id} className="animate-card-entrance" style={{ animationDelay: `${index * 30}ms` }}>
+          {gridEvents.map((enriched, index) => (
+            <motion.div
+              key={enriched.event.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.03, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            >
               <EventCard
                 event={enriched.event}
                 leagueInfo={{ key: enriched.leagueKey, name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
@@ -453,7 +488,7 @@ export function EventsView() {
                 onClick={() => handleEventClick(enriched)}
                 formatTime={formatTime}
               />
-            </div>
+            </motion.div>
           ))}
           {/* DB-only events */}
           {dbOnlyEvents.filter(d => {
@@ -468,14 +503,16 @@ export function EventsView() {
                 [normalizeText(away.team.displayName), normalizeText(away.team.shortDisplayName || "")].some(n => n.length > 2 && dAll.includes(n));
             });
           }).map((dbEvent, index) => (
-            <div
+            <motion.div
               key={`db-${dbEvent.name}-${index}`}
-              className="animate-card-entrance cursor-pointer"
-              style={{ animationDelay: `${(filteredEvents.length + index) * 30}ms` }}
+              className="cursor-pointer"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: (gridEvents.length + index) * 0.03, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               onClick={() => handleDbEventClick(dbEvent)}
             >
               <DbEventCard event={dbEvent} />
-            </div>
+            </motion.div>
           ))}
         </div>
       )}
@@ -491,45 +528,66 @@ export function EventsView() {
   );
 }
 
-// Simple card for DB-only events
+// DB-only event card with team initials
 function DbEventCard({ event }: { event: { name: string; team_home: string | null; team_away: string | null; sport: string | null; league: string | null; is_live: boolean; stream_url: string | null } }) {
+  const homeInitials = (event.team_home || "?").slice(0, 3).toUpperCase();
+  const awayInitials = (event.team_away || "?").slice(0, 3).toUpperCase();
+
   return (
     <div className={cn(
-      "group relative rounded-2xl overflow-hidden transition-all duration-300 border cursor-pointer hover:scale-[1.02]",
-      event.is_live ? "border-primary/30 shadow-[0_0_20px_-8px] shadow-primary/20" : "border-white/[0.08] hover:border-white/15"
+      "group relative rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.02]",
+      event.is_live
+        ? "ring-1 ring-primary/30 shadow-[0_0_20px_-8px] shadow-primary/20"
+        : "ring-1 ring-white/[0.06] hover:ring-white/[0.12]"
     )}>
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10 opacity-50" />
-      <div className="absolute inset-0 bg-gradient-to-b from-[#0d1117]/60 via-[#0d1117]/80 to-[#0d1117]/95" />
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-accent/8" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/90" />
       
-      <div className="relative p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <span className={cn(
-            "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
-            event.is_live ? "bg-red-500/20 text-red-400" : "bg-primary/20 text-primary"
-          )}>
-            {event.sport || "Sports"}
-          </span>
-          {event.is_live && (
-            <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-[9px] font-bold text-red-400">LIVE</span>
-            </div>
-          )}
+      <div className="relative flex flex-col min-h-[200px]">
+        {/* Live bar */}
+        {event.is_live && (
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent animate-gradient-shift" style={{ backgroundSize: '200% 100%' }} />
+        )}
+
+        {/* Team initials face-off */}
+        <div className="flex items-center justify-center gap-4 flex-1 px-4 py-6">
+          <div className="w-14 h-14 rounded-full flex items-center justify-center font-display text-xl text-white/80 border border-white/10 bg-white/[0.06]">
+            {awayInitials}
+          </div>
+          <span className="font-display text-lg text-white/15 tracking-[0.3em]">VS</span>
+          <div className="w-14 h-14 rounded-full flex items-center justify-center font-display text-xl text-white/80 border border-white/10 bg-white/[0.06]">
+            {homeInitials}
+          </div>
         </div>
 
-        <h3 className="text-sm font-bold text-white leading-tight mb-1">
-          {event.team_home || "TBD"} vs. {event.team_away || "TBD"}
-        </h3>
-        {event.league && (
-          <p className="text-[10px] text-white/30">{event.league}</p>
-        )}
-
-        {event.stream_url && (
-          <div className="flex items-center gap-1 mt-3 pt-3 border-t border-white/[0.06]">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[9px] font-semibold text-emerald-400">Disponible</span>
+        {/* Footer */}
+        <div className="mt-auto px-4 pb-3 pt-2 border-t border-white/[0.04]">
+          <h3 className="text-[12px] font-semibold text-white/80 leading-tight truncate mb-1.5">
+            {event.team_home || "TBD"} vs {event.team_away || "TBD"}
+          </h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className={cn(
+                "px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider",
+                event.is_live ? "bg-primary/20 text-primary" : "bg-white/[0.06] text-white/40"
+              )}>
+                {event.league || event.sport || "Sports"}
+              </span>
+              {event.is_live && (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary/10">
+                  <Radio className="w-2.5 h-2.5 text-primary animate-pulse" />
+                  <span className="text-[8px] font-bold text-primary uppercase tracking-wider">LIVE</span>
+                </div>
+              )}
+            </div>
+            {event.stream_url && (
+              <div className="flex items-center gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
+                <span className="text-[8px] font-semibold text-success">Disponible</span>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
