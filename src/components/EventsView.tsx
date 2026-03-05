@@ -50,6 +50,36 @@ interface EnrichedEvent {
   leagueLogo: string;
 }
 
+const normalizeText = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+const LEAGUE_LOGO_FALLBACKS: Record<string, string> = {
+  "eng.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png",
+  "esp.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/15.png",
+  "ger.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/10.png",
+  "ita.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/12.png",
+  "fra.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/9.png",
+  "uefa.champions": "https://a.espncdn.com/i/leaguelogos/soccer/500/2.png",
+  "uefa.europa": "https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png",
+};
+
+const DB_LEAGUE_ALIASES: Record<string, string[]> = {
+  "eng.1": ["premier league", "premier"],
+  "esp.1": ["laliga", "la liga"],
+  "ger.1": ["bundesliga"],
+  "ita.1": ["serie a"],
+  "fra.1": ["ligue 1", "ligue one"],
+  "uefa.champions": ["champions", "uefa champions"],
+  "uefa.europa": ["europa league", "uefa europa"],
+  "mex.1": ["liga mx"],
+  "arg.1": ["liga argentina", "primera division argentina"],
+  "bra.1": ["brasileirao", "brasileirao serie a"],
+  mls: ["mls", "major league soccer"],
+  "conmebol.libertadores": ["libertadores", "copa libertadores"],
+};
+
+const getLeagueLogoFallback = (leagueKey: string) => LEAGUE_LOGO_FALLBACKS[leagueKey] || "";
+
 export function EventsView() {
   const { openPlayer } = usePlayerModal();
   const [activeSport, setActiveSport] = useState("all");
@@ -101,7 +131,7 @@ export function EventsView() {
         leaguesToFetch.map(async (leagueKey) => {
           const data = await fetchESPNScoreboard(leagueKey);
           const lg = data.leagues?.[0];
-          const leagueLogo = lg?.logos?.[0]?.href || "";
+          const leagueLogo = lg?.logos?.[0]?.href || getLeagueLogoFallback(leagueKey);
           const leagueName = lg?.name || lg?.abbreviation || leagueKey;
           const leagueSub = lg?.abbreviation || leagueKey.toUpperCase();
           return (data.events || []).map(event => ({
@@ -137,7 +167,6 @@ export function EventsView() {
   const eventLinks = useMemo(() => {
     const linksMap = new Map<string, { url1: string; url2?: string; url3?: string }>();
     if (dbEvents.length === 0 || allEnrichedEvents.length === 0) return linksMap;
-    const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
     for (const { event: espnEvent } of allEnrichedEvents) {
       const byId = dbEvents.find(d => d.espn_id && d.espn_id === espnEvent.id);
@@ -150,14 +179,14 @@ export function EventsView() {
       const espnHome = competitors.find(c => c.homeAway === "home");
       const espnAway = competitors.find(c => c.homeAway === "away");
       if (!espnHome?.team?.displayName && !espnAway?.team?.displayName) continue;
-      const homeName = norm(espnHome?.team?.displayName || "");
-      const awayName = norm(espnAway?.team?.displayName || "");
-      const homeShort = norm(espnHome?.team?.shortDisplayName || "");
-      const awayShort = norm(espnAway?.team?.shortDisplayName || "");
+      const homeName = normalizeText(espnHome?.team?.displayName || "");
+      const awayName = normalizeText(espnAway?.team?.displayName || "");
+      const homeShort = normalizeText(espnHome?.team?.shortDisplayName || "");
+      const awayShort = normalizeText(espnAway?.team?.shortDisplayName || "");
 
       const match = dbEvents.find(d => {
         if (!d.stream_url) return false;
-        const dAll = norm(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""}`);
+        const dAll = normalizeText(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""}`);
         const homeMatch = [homeName, homeShort].some(n => n.length > 2 && dAll.includes(n));
         const awayMatch = [awayName, awayShort].some(n => n.length > 2 && dAll.includes(n));
         return homeMatch && awayMatch;
@@ -201,25 +230,47 @@ export function EventsView() {
     });
   };
 
-  // DB-only events (scraped, no ESPN match) for current sport
+  // DB-only events (scraped, no ESPN match) for current sport/league/search
   const dbOnlyEvents = useMemo(() => {
-    if (activeSport === "all") return dbEvents.filter(d => d.stream_url);
     const sportMap: Record<string, string[]> = {
-      basketball: ["Basketball"],
-      baseball: ["Baseball"],
-      football: ["Soccer", "Football"],
-      boxing: ["Boxing"],
-      mma: ["MMA"],
-      wrestling: ["Wrestling"],
-      cricket: ["Cricket"],
-      motorsport: ["Motorsport"],
-      rugby: ["Rugby"],
-      tennis: ["Tennis"],
-      hockey: ["Hockey"],
+      basketball: ["basketball"],
+      baseball: ["baseball"],
+      football: ["soccer", "football"],
+      boxing: ["boxing"],
+      mma: ["mma"],
+      wrestling: ["wrestling"],
+      cricket: ["cricket"],
+      motorsport: ["motorsport"],
+      rugby: ["rugby"],
+      tennis: ["tennis"],
+      hockey: ["hockey"],
     };
-    const sportNames = sportMap[activeSport] || [];
-    return dbEvents.filter(d => d.stream_url && sportNames.some(s => (d.sport || "").toLowerCase() === s.toLowerCase()));
-  }, [dbEvents, activeSport]);
+
+    const q = normalizeText(searchQuery);
+
+    return dbEvents.filter((d) => {
+      if (!d.stream_url) return false;
+
+      if (activeSport !== "all") {
+        const sportNames = sportMap[activeSport] || [];
+        const eventSport = normalizeText(d.sport || "");
+        if (!sportNames.some((s) => eventSport.includes(s))) return false;
+      }
+
+      if (activeLeagueFilter) {
+        const leagueText = normalizeText(`${d.league || ""} ${d.name || ""}`);
+        const aliases = DB_LEAGUE_ALIASES[activeLeagueFilter] || [normalizeText(activeLeagueFilter.replace(/\./g, " "))];
+        if (!aliases.some((alias) => leagueText.includes(alias))) return false;
+      }
+
+      if (q) {
+        const haystack = normalizeText(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""} ${d.league || ""}`);
+        if (!haystack.includes(q)) return false;
+      }
+
+      return true;
+    });
+  }, [dbEvents, activeSport, activeLeagueFilter, searchQuery]);
 
   // Filter enriched events by sub-league and search
   const filteredEvents = useMemo(() => {
@@ -396,7 +447,7 @@ export function EventsView() {
             <div key={enriched.event.id} className="animate-card-entrance" style={{ animationDelay: `${index * 30}ms` }}>
               <EventCard
                 event={enriched.event}
-                leagueInfo={{ name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
+                leagueInfo={{ key: enriched.leagueKey, name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
                 hasLink={eventLinks.has(enriched.event.id)}
                 isFavorite={favorites.has(enriched.event.id)}
                 onToggleFavorite={() => toggleFavorite(enriched.event.id)}
@@ -407,16 +458,15 @@ export function EventsView() {
           ))}
           {/* DB-only events */}
           {dbOnlyEvents.filter(d => {
-            const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
             return !allEnrichedEvents.some(({ event: e }) => {
               const comp = e.competitions?.[0];
               const competitors = comp?.competitors || [];
               const home = competitors.find(c => c.homeAway === "home");
               const away = competitors.find(c => c.homeAway === "away");
               if (!home?.team?.displayName || !away?.team?.displayName) return false;
-              const dAll = norm(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""}`);
-              return [norm(home.team.displayName), norm(home.team.shortDisplayName || "")].some(n => n.length > 2 && dAll.includes(n)) &&
-                [norm(away.team.displayName), norm(away.team.shortDisplayName || "")].some(n => n.length > 2 && dAll.includes(n));
+              const dAll = normalizeText(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""}`);
+              return [normalizeText(home.team.displayName), normalizeText(home.team.shortDisplayName || "")].some(n => n.length > 2 && dAll.includes(n)) &&
+                [normalizeText(away.team.displayName), normalizeText(away.team.shortDisplayName || "")].some(n => n.length > 2 && dAll.includes(n));
             });
           }).map((dbEvent, index) => (
             <div

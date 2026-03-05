@@ -61,6 +61,7 @@ export interface ESPNEvent {
       homeAway: "home" | "away";
       score?: string;
       team: {
+        id?: string;
         displayName: string;
         shortDisplayName: string;
         abbreviation: string;
