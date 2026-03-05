@@ -373,100 +373,136 @@ export function EventsView() {
 
   return (
     <div className="space-y-0">
-      {/* Top bar */}
-      <div className="flex items-center justify-between gap-3 mb-5">
-        <div className="flex items-center gap-3">
-          <img src={fluxoLogo} alt="FluxoTV" className="w-10 h-10 rounded-xl shadow-lg shadow-primary/10" />
-          <div className="hidden sm:block">
-            <span className="font-display text-2xl text-white tracking-wider">FLUXO</span>
-            <span className="font-display text-2xl text-primary tracking-wider">TV</span>
+      {/* Premium Header */}
+      <div className="relative mb-6">
+        {/* Background glow */}
+        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[200px] bg-primary/[0.06] blur-[100px] rounded-full pointer-events-none" />
+        
+        <div className="relative flex items-center justify-between gap-3 mb-6">
+          <div className="flex items-center gap-3">
+            <div className="relative group">
+              <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-primary/40 to-accent/20 blur-md opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
+              <img src={fluxoLogo} alt="FluxoTV" className="relative w-11 h-11 rounded-2xl shadow-2xl ring-1 ring-white/10" />
+            </div>
+            <div className="hidden sm:flex items-baseline gap-0.5">
+              <span className="font-display text-3xl text-white tracking-wider drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]">FLUXO</span>
+              <span className="font-display text-3xl tracking-wider bg-gradient-to-r from-primary to-[hsl(200,100%,55%)] bg-clip-text text-transparent drop-shadow-[0_0_30px_hsl(210,100%,50%,0.4)]">TV</span>
+            </div>
+          </div>
+          <div className="relative flex-1 max-w-md group">
+            <div className="absolute -inset-0.5 rounded-2xl bg-gradient-to-r from-primary/10 to-accent/5 opacity-0 group-focus-within:opacity-100 blur-sm transition-opacity duration-500" />
+            <div className="relative flex items-center">
+              <Search className="absolute left-3.5 w-4 h-4 text-white/20 pointer-events-none" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Buscar eventos..."
+                className="pl-10 h-11 rounded-2xl border-white/[0.06] bg-white/[0.03] backdrop-blur-sm text-white placeholder:text-white/20 focus:ring-1 focus:ring-primary/20 focus:border-primary/20 transition-all duration-300"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {stats.live > 0 && (
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-gradient-to-r from-primary/15 to-primary/5 border border-primary/20 backdrop-blur-sm"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary shadow-lg shadow-primary/50" />
+                </span>
+                <span className="text-xs font-bold text-primary tracking-wide">{stats.live} LIVE</span>
+              </motion.div>
+            )}
+            <button
+              onClick={() => { loadAllEvents(); fetchEventLinks(); }}
+              className="h-11 w-11 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-white/30 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.12] hover:shadow-lg hover:shadow-primary/5 transition-all duration-300"
+            >
+              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+            </button>
           </div>
         </div>
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25" />
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search events..."
-            className="pl-10 h-10 rounded-xl border-white/[0.06] bg-white/[0.03] text-white placeholder:text-white/25 focus:ring-primary/30 focus:border-primary/30 transition-all"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          {stats.live > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 backdrop-blur-sm">
-              <Radio className="w-3 h-3 text-primary animate-pulse" />
-              <span className="text-xs font-bold text-primary">{stats.live} Live</span>
-            </div>
-          )}
-          <button
-            onClick={() => { loadAllEvents(); fetchEventLinks(); }}
-            className="h-10 w-10 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.12] transition-all duration-300"
-          >
-            <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
-          </button>
-        </div>
-      </div>
 
-      {/* Sport category tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide mb-3">
-        {SPORT_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => setActiveSport(tab.value)}
-            className={cn(
-              "flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-300",
-              activeSport === tab.value
-                ? "bg-primary text-white shadow-lg shadow-primary/25 scale-[1.02]"
-                : "bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white/80 border border-white/[0.06] hover:border-white/[0.1]"
-            )}
-          >
-            <span className="text-sm">{tab.emoji}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Sub-league filter - only for football tab */}
-      {activeSport === "football" && availableLeagues.length > 1 && (
-        <div className="flex gap-1.5 overflow-x-auto pb-3 scrollbar-hide mb-1">
-          {availableLeagues.map((league) => {
-            const count = leagueCounts.get(league.value) || 0;
+        {/* Premium Sport Tabs */}
+        <div className="relative flex gap-1.5 overflow-x-auto pb-3 scrollbar-hide mb-4">
+          {SPORT_TABS.map((tab) => {
+            const isActive = activeSport === tab.value;
             return (
-              <button
-                key={league.value}
-                onClick={() => setActiveLeagueFilter(league.value)}
+              <motion.button
+                key={tab.value}
+                onClick={() => setActiveSport(tab.value)}
+                whileTap={{ scale: 0.97 }}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
-                  activeLeagueFilter === league.value
-                    ? "bg-white/[0.12] text-white border border-white/[0.15]"
-                    : "text-white/40 hover:text-white/70 hover:bg-white/[0.05]"
+                  "relative flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold whitespace-nowrap transition-all duration-300 overflow-hidden",
+                  isActive
+                    ? "text-white shadow-xl shadow-primary/20"
+                    : "text-white/40 hover:text-white/70 border border-white/[0.06] hover:border-white/[0.12] bg-white/[0.02] hover:bg-white/[0.05]"
                 )}
               >
-                {league.label} {count > 0 && `(${count})`}
-              </button>
+                {isActive && (
+                  <motion.div
+                    layoutId="sport-tab-bg"
+                    className="absolute inset-0 bg-gradient-to-r from-primary to-[hsl(200,100%,50%)] rounded-2xl"
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+                {isActive && (
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-2xl" />
+                )}
+                <span className="relative z-10 text-base">{tab.emoji}</span>
+                <span className="relative z-10">{tab.label}</span>
+              </motion.button>
             );
           })}
         </div>
-      )}
+
+        {/* Sub-league filter - only for football tab */}
+        {activeSport === "football" && availableLeagues.length > 1 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-3 scrollbar-hide">
+            {availableLeagues.map((league) => {
+              const count = leagueCounts.get(league.value) || 0;
+              const isActive = activeLeagueFilter === league.value;
+              return (
+                <button
+                  key={league.value}
+                  onClick={() => setActiveLeagueFilter(league.value)}
+                  className={cn(
+                    "relative px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-300",
+                    isActive
+                      ? "bg-white/[0.1] text-white border border-white/[0.15] shadow-sm"
+                      : "text-white/30 hover:text-white/60 hover:bg-white/[0.04]"
+                  )}
+                >
+                  {league.label} {count > 0 && <span className="text-white/20 ml-0.5">{count}</span>}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
 
       {/* Events grid */}
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {Array.from({ length: 8 }).map((_, i) => (
             <SkeletonEventCard key={i} />
           ))}
         </div>
       ) : gridEvents.length === 0 && dbOnlyEvents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mb-4">
-            <span className="text-3xl">🏟️</span>
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="relative mb-6">
+            <div className="absolute -inset-4 rounded-full bg-primary/5 blur-2xl" />
+            <div className="relative w-20 h-20 rounded-3xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center">
+              <span className="text-4xl">🏟️</span>
+            </div>
           </div>
-          <p className="text-lg font-bold text-white mb-1">No hay eventos</p>
-          <p className="text-sm text-white/40">No se encontraron partidos para esta categoría</p>
+          <p className="text-lg font-bold text-white/80 mb-1">No hay eventos</p>
+          <p className="text-sm text-white/30">No se encontraron partidos para esta categoría</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {gridEvents.map((enriched, index) => (
             <motion.div
               key={enriched.event.id}
