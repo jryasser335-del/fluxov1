@@ -4,9 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { AuthGuard } from "@/components/AuthGuard";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import AppLogin from "./pages/AppLogin";
+import Login from "./pages/Login";
 import Admin from "./pages/Admin";
 import Install from "./pages/Install";
 import DownloadApp from "./pages/DownloadApp";
@@ -22,10 +22,9 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/login" element={<AppLogin />} />
-            <Route path="/admin" element={<Admin />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<AuthGuard><Index /></AuthGuard>} />
+            <Route path="/admin" element={<AuthGuard><Admin /></AuthGuard>} />
             <Route path="/install" element={<Install />} />
             <Route path="/app" element={<DownloadApp />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
