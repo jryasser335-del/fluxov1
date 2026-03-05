@@ -14,8 +14,13 @@ import { motion } from "framer-motion";
 
 // Sport category tabs - each league is its own tab for precise filtering
 const SPORT_TABS = [
-  { value: "all", label: "All Sports", emoji: "🏆" },
-  { value: "football", label: "Football", emoji: "⚽", leagues: ["eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions"] },
+  { value: "football", label: "Football", emoji: "⚽", leagues: [
+    "eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions",
+    "uefa.europa", "esp.copa_del_rey", "eng.fa", "eng.league_cup",
+    "ger.dfb_pokal", "ita.coppa_italia", "fra.coupe_de_france",
+    "ned.1", "por.1", "tur.1", "mex.1", "arg.1", "bra.1",
+    "conmebol.libertadores", "mls"
+  ]},
   { value: "nba", label: "NBA", emoji: "🏀", leagues: ["nba"] },
   { value: "mlb", label: "MLB", emoji: "⚾", leagues: ["mlb"] },
   { value: "nhl", label: "NHL", emoji: "🏒", leagues: ["nhl"] },
@@ -81,7 +86,7 @@ const getLeagueLogoFallback = (leagueKey: string) => LEAGUE_LOGO_FALLBACKS[leagu
 
 export function EventsView() {
   const { openPlayer } = usePlayerModal();
-  const [activeSport, setActiveSport] = useState("all");
+  const [activeSport, setActiveSport] = useState("football");
   const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null); // null = "All" within sport
   const [searchQuery, setSearchQuery] = useState("");
   const [allEnrichedEvents, setAllEnrichedEvents] = useState<EnrichedEvent[]>([]);
@@ -102,9 +107,6 @@ export function EventsView() {
 
   // Get leagues to fetch based on active sport
   const leaguesToFetch = useMemo(() => {
-    if (activeSport === "all") {
-      return ["nba", "mlb", "eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions", "ufc", "boxing", "wwe", "nhl", "esp.copa_del_rey", "eng.fa", "eng.league_cup", "ger.dfb_pokal", "ita.coppa_italia", "fra.coupe_de_france"];
-    }
     const tab = SPORT_TABS.find(t => t.value === activeSport);
     return tab?.leagues || [];
   }, [activeSport]);
@@ -112,9 +114,8 @@ export function EventsView() {
   // Get available sub-league options for current sport tab
   const currentTab = SPORT_TABS.find(t => t.value === activeSport);
   const availableLeagues = useMemo(() => {
-    if (activeSport === "all") return LEAGUE_OPTIONS;
     return LEAGUE_OPTIONS.filter(l => currentTab?.leagues?.includes(l.value));
-  }, [activeSport, currentTab]);
+  }, [currentTab]);
 
   // Fetch ALL leagues for the current sport simultaneously
   const loadAllEvents = useCallback(async () => {
@@ -249,7 +250,7 @@ export function EventsView() {
       nba: { sports: ["basketball"], leagues: ["nba"] },
       mlb: { sports: ["baseball"], leagues: ["mlb"] },
       nhl: { sports: ["hockey"], leagues: ["nhl"] },
-      football: { sports: ["soccer", "football"], leagues: ["premier", "laliga", "la liga", "bundesliga", "serie a", "ligue 1", "champions"] },
+      football: { sports: ["soccer", "football"], leagues: ["premier", "laliga", "la liga", "bundesliga", "serie a", "ligue 1", "champions", "europa", "copa del rey", "fa cup", "carabao", "efl", "dfb", "coppa italia", "coupe de france", "eredivisie", "liga portugal", "super lig", "liga mx", "argentina", "brasileirao", "libertadores", "mls"] },
       boxing: { sports: ["boxing"] },
       mma: { sports: ["mma", "ufc"] },
       wrestling: { sports: ["wrestling", "wwe"] },
@@ -268,7 +269,7 @@ export function EventsView() {
         if (eventDay !== todayStr) return false;
       }
 
-      if (activeSport !== "all") {
+      {
         const config = sportMap[activeSport];
         if (!config) return false;
         const eventSport = normalizeText(d.sport || "");
@@ -425,8 +426,8 @@ export function EventsView() {
         ))}
       </div>
 
-      {/* Sub-league filter - only for "all" and "football" tabs */}
-      {(activeSport === "all" || activeSport === "football") && availableLeagues.length > 1 && (
+      {/* Sub-league filter - only for football tab */}
+      {activeSport === "football" && availableLeagues.length > 1 && (
         <div className="flex gap-1.5 overflow-x-auto pb-3 scrollbar-hide mb-1">
           {availableLeagues.map((league) => {
             const count = leagueCounts.get(league.value) || 0;
