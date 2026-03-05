@@ -17,15 +17,15 @@ const Index = () => {
 
   return (
     <>
-      <div className="min-h-screen bg-[#0e1117]">
+      <div className="min-h-screen bg-[#080808]">
         {/* Main content */}
-        <main className="max-w-[1400px] mx-auto px-3 sm:px-4 md:px-6 pb-24 md:pb-8 pt-3">
+        <main className="max-w-[1440px] mx-auto px-3 sm:px-4 md:px-6 pb-24 md:pb-8 pt-3">
           {activeView === "eventos" && <EventsView />}
           {activeView === "multistream" && <MultiStreamView />}
         </main>
 
         {/* Bottom navigation bar - BINTV style */}
-        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#0e1117]/95 backdrop-blur-xl border-t border-white/[0.06]">
+        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-t border-white/[0.06]">
           <div className="max-w-[600px] mx-auto flex items-center justify-around px-4 py-2.5 safe-area-pb">
             <button
               onClick={() => setActiveView("eventos")}
