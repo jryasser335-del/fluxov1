@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 interface EventCardProps {
   event: ESPNEvent;
-  leagueInfo: { name: string; sub: string; logo?: string };
+  leagueInfo: { key: string; name: string; sub: string; logo?: string };
   hasLink: boolean;
   isFavorite: boolean;
   isFeatured?: boolean;
@@ -14,34 +14,60 @@ interface EventCardProps {
   formatTime: (iso: string) => string;
 }
 
-// Generate a logo URL from ESPN's CDN using team ID
-function getTeamLogoUrl(team: any): string | null {
-  if (team?.logo) return team.logo;
-  // Try to extract team ID from the team object for ESPN CDN
-  if (team?.id) {
-    // ESPN logo CDN patterns
-    return `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`;
-  }
-  return null;
+type TeamData = ESPNEvent["competitions"][number]["competitors"][number]["team"];
+
+function getSportSegment(leagueKey: string) {
+  if (["nba", "wnba", "ncaab"].includes(leagueKey)) return "basketball";
+  if (leagueKey.startsWith("mlb")) return "baseball";
+  if (leagueKey === "nhl") return "hockey";
+  if (leagueKey === "ufc" || leagueKey === "boxing" || leagueKey === "wwe") return "mma";
+  return "soccer";
 }
 
-function TeamLogo({ team, color, side }: { team: any; color: string; side: "away" | "home" }) {
-  const [imgError, setImgError] = useState(false);
-  const logoUrl = getTeamLogoUrl(team);
+function getTeamLogoCandidates(team: TeamData | undefined, leagueKey: string): string[] {
+  if (!team) return [];
+  const sport = getSportSegment(leagueKey);
+  const candidates = [team.logo];
+
+  if (team.id) {
+    candidates.push(`https://a.espncdn.com/i/teamlogos/${sport}/500/${team.id}.png`);
+    candidates.push(`https://a.espncdn.com/i/teamlogos/${sport}/500-dark/${team.id}.png`);
+  }
+
+  return candidates.filter(Boolean) as string[];
+}
+
+function getLeagueLogoCandidates(leagueInfo: EventCardProps["leagueInfo"]): string[] {
+  const fallbackByKey: Record<string, string> = {
+    "eng.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png",
+    "esp.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/15.png",
+    "ger.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/10.png",
+    "ita.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/12.png",
+    "fra.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/9.png",
+    "uefa.champions": "https://a.espncdn.com/i/leaguelogos/soccer/500/2.png",
+    "uefa.europa": "https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png",
+  };
+
+  return [leagueInfo.logo, fallbackByKey[leagueInfo.key]].filter(Boolean) as string[];
+}
+
+function TeamLogo({ team, color, leagueKey }: { team: TeamData | undefined; color: string; leagueKey: string }) {
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const logos = getTeamLogoCandidates(team, leagueKey);
+  const logoUrl = logos[candidateIndex];
   const abbr = (team?.abbreviation || team?.shortDisplayName || "?").slice(0, 3);
 
-  if (logoUrl && !imgError) {
+  if (logoUrl) {
     return (
       <img
         src={logoUrl}
         alt={team?.displayName || ""}
         className="w-full h-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
-        onError={() => setImgError(true)}
+        onError={() => setCandidateIndex((prev) => prev + 1)}
       />
     );
   }
 
-  // Stylized fallback with team color
   return (
     <div
       className="w-12 h-12 rounded-full flex items-center justify-center font-display text-lg text-white/90 border border-white/10"
@@ -87,6 +113,9 @@ export function EventCard({
   const homeColor = homeTeam?.color ? `#${homeTeam.color}` : "#ef4444";
 
   const viewerCount = hasLink && isLive ? Math.floor(Math.random() * 50 + 10) : hasLink ? Math.floor(Math.random() * 30 + 1) : 0;
+  const leagueLogos = getLeagueLogoCandidates(leagueInfo);
+  const [leagueLogoIndex, setLeagueLogoIndex] = useState(0);
+  const leagueLogoUrl = leagueLogos[leagueLogoIndex];
 
   return (
     <div
@@ -136,17 +165,17 @@ export function EventCard({
         <div className="flex items-center justify-center gap-2 flex-1 py-2">
           {/* Away team logo */}
           <div className="flex-shrink-0 w-14 h-14 sm:w-[68px] sm:h-[68px] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-            <TeamLogo team={away?.team} color={awayColor} side="away" />
+            <TeamLogo team={away?.team} color={awayColor} leagueKey={leagueInfo.key} />
           </div>
 
           {/* Center: League logo + Score/VS */}
           <div className="flex flex-col items-center gap-1 min-w-[55px]">
-            {leagueInfo.logo && (
+            {leagueLogoUrl && (
               <img
-                src={leagueInfo.logo}
+                src={leagueLogoUrl}
                 alt={leagueInfo.name}
                 className="w-7 h-7 sm:w-8 sm:h-8 object-contain opacity-70 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                onError={() => setLeagueLogoIndex((prev) => prev + 1)}
               />
             )}
             {isLive ? (
@@ -161,14 +190,14 @@ export function EventCard({
                 <span className="text-white/15 text-xs">-</span>
                 <span className="font-display text-xl text-white/50">{home?.score ?? "0"}</span>
               </div>
-            ) : !leagueInfo.logo ? (
+            ) : !leagueLogoUrl ? (
               <span className="text-[10px] font-bold text-white/15 tracking-widest">VS</span>
             ) : null}
           </div>
 
           {/* Home team logo */}
           <div className="flex-shrink-0 w-14 h-14 sm:w-[68px] sm:h-[68px] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-            <TeamLogo team={home?.team} color={homeColor} side="home" />
+            <TeamLogo team={home?.team} color={homeColor} leagueKey={leagueInfo.key} />
           </div>
         </div>
 
