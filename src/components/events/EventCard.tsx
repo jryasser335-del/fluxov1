@@ -141,112 +141,122 @@ export function EventCard({
   return (
     <div
       className={cn(
-        "group relative rounded-xl overflow-hidden transition-all duration-300",
+        "group relative rounded-2xl overflow-hidden transition-all duration-500 ease-out",
         isLive
-          ? "ring-1 ring-primary/30 shadow-[0_0_25px_-5px] shadow-primary/20"
-          : "ring-1 ring-white/[0.06] hover:ring-white/[0.15]",
-        hasLink ? "cursor-pointer hover:scale-[1.02] hover:shadow-xl" : "opacity-80"
+          ? "ring-1 ring-primary/40 shadow-[0_0_30px_-5px] shadow-primary/25"
+          : "ring-1 ring-white/[0.06] hover:ring-white/[0.12]",
+        hasLink ? "cursor-pointer hover:scale-[1.02] hover:-translate-y-1 hover:shadow-2xl hover:shadow-black/40" : "opacity-70"
       )}
       onClick={hasLink ? onClick : undefined}
     >
-      {/* Split gradient background like ppv.cx */}
+      {/* Split gradient background */}
       <div className="absolute inset-0">
         <div
-          className="absolute inset-0 opacity-60 group-hover:opacity-80 transition-opacity duration-500"
+          className="absolute inset-0 opacity-50 group-hover:opacity-70 transition-opacity duration-700"
           style={{
-            background: `linear-gradient(to right, ${awayColor}90 0%, ${awayColor}40 35%, #0a0a0a 50%, ${homeColor}40 65%, ${homeColor}90 100%)`
+            background: `linear-gradient(135deg, ${awayColor}60 0%, #08080800 40%, #08080800 60%, ${homeColor}60 100%)`
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/40 to-black/90" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-black/90" />
+        {/* Subtle noise texture */}
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`
+        }} />
       </div>
 
-      {/* Live indicator top bar */}
+      {/* Live indicator — animated gradient bar */}
       {isLive && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary via-accent to-primary" />
-      )}
-
-      {/* Countdown for pre-match events */}
-      {isPre && hasLink && (
-        <div className="absolute top-2.5 right-2.5 z-10">
-          <EventCountdown targetDate={comp?.date || event.date} compact />
-        </div>
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent animate-gradient-shift" style={{ backgroundSize: '200% 100%' }} />
       )}
 
       {/* Favorite */}
       <button
         onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
         className={cn(
-          "absolute top-2.5 left-2.5 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all",
+          "absolute top-3 left-3 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm",
           isFavorite
-            ? "bg-red-500/20 text-red-400"
-            : "bg-black/40 text-white/20 opacity-0 group-hover:opacity-100"
+            ? "bg-red-500/25 text-red-400 scale-100"
+            : "bg-black/40 text-white/20 opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100"
         )}
       >
         <Heart className={cn("w-3.5 h-3.5", isFavorite && "fill-current")} />
       </button>
 
-      <div className="relative flex flex-col p-4 pb-3 min-h-[200px] sm:min-h-[220px]">
-        {/* Team logos section - ppv.cx style: large logos face to face */}
-        <div className="flex items-center justify-center gap-1 flex-1 py-3">
+      <div className="relative flex flex-col min-h-[220px] sm:min-h-[240px]">
+        {/* Team logos section */}
+        <div className="flex items-center justify-center gap-1 flex-1 px-4 py-5">
           {/* Away team */}
-          <div className="flex-1 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+          <div className="flex-1 flex flex-col items-center gap-2 group-hover:scale-110 transition-transform duration-500 ease-out">
             <TeamLogo team={away?.team} color={awayColor} leagueKey={leagueInfo.key} />
+            <span className="text-[10px] font-semibold text-white/40 truncate max-w-[80px] text-center leading-tight">
+              {away?.team?.abbreviation || away?.team?.shortDisplayName || ""}
+            </span>
           </div>
 
-          {/* Center: League logo */}
-          <div className="flex flex-col items-center gap-1.5 px-2 min-w-[50px]">
+          {/* Center: Score/VS/League */}
+          <div className="flex flex-col items-center gap-2 px-2 min-w-[60px]">
             {leagueLogoUrl && (
               <img
                 src={leagueLogoUrl}
                 alt={leagueInfo.name}
-                className="w-8 h-8 sm:w-10 sm:h-10 object-contain opacity-80 drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
+                className="w-7 h-7 sm:w-9 sm:h-9 object-contain opacity-70 drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]"
                 onError={() => setLeagueLogoIndex((prev) => prev + 1)}
               />
             )}
             {isLive ? (
-              <div className="flex items-center gap-2">
-                <span className="font-display text-3xl sm:text-4xl text-white drop-shadow-lg">{away?.score ?? "0"}</span>
-                <span className="text-white/30 text-sm font-bold">-</span>
-                <span className="font-display text-3xl sm:text-4xl text-white drop-shadow-lg">{home?.score ?? "0"}</span>
+              <div className="flex items-center gap-2.5">
+                <span className="font-display text-3xl sm:text-4xl text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.2)]">{away?.score ?? "0"}</span>
+                <span className="text-white/20 text-xs">–</span>
+                <span className="font-display text-3xl sm:text-4xl text-white drop-shadow-[0_0_12px_rgba(255,255,255,0.2)]">{home?.score ?? "0"}</span>
               </div>
             ) : isFinal ? (
               <div className="flex items-center gap-2">
-                <span className="font-display text-2xl text-white/60">{away?.score ?? "0"}</span>
-                <span className="text-white/20 text-xs">-</span>
-                <span className="font-display text-2xl text-white/60">{home?.score ?? "0"}</span>
+                <span className="font-display text-2xl text-white/50">{away?.score ?? "0"}</span>
+                <span className="text-white/15 text-xs">–</span>
+                <span className="font-display text-2xl text-white/50">{home?.score ?? "0"}</span>
               </div>
-            ) : !leagueLogoUrl ? (
-              <span className="text-xs font-bold text-white/20 tracking-widest">VS</span>
-            ) : null}
+            ) : (
+              <span className="font-display text-lg text-white/15 tracking-[0.3em]">VS</span>
+            )}
           </div>
 
           {/* Home team */}
-          <div className="flex-1 flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+          <div className="flex-1 flex flex-col items-center gap-2 group-hover:scale-110 transition-transform duration-500 ease-out">
             <TeamLogo team={home?.team} color={homeColor} leagueKey={leagueInfo.key} />
+            <span className="text-[10px] font-semibold text-white/40 truncate max-w-[80px] text-center leading-tight">
+              {home?.team?.abbreviation || home?.team?.shortDisplayName || ""}
+            </span>
           </div>
         </div>
 
+        {/* Countdown for upcoming matches — prominent */}
+        {isPre && (
+          <div className="flex justify-center pb-2">
+            <EventCountdown targetDate={comp?.date || event.date} compact />
+          </div>
+        )}
+
         {/* Footer info */}
-        <div className="mt-auto pt-2 border-t border-white/[0.06]">
-          <h3 className="text-[13px] sm:text-sm font-bold text-white leading-tight truncate mb-1">
-            {away?.team?.displayName || "TBD"} vs. {home?.team?.displayName || "TBD"}
+        <div className="mt-auto px-4 pb-3 pt-2 border-t border-white/[0.04]">
+          <h3 className="text-[12px] sm:text-[13px] font-semibold text-white/80 leading-tight truncate mb-1.5">
+            {away?.team?.displayName || "TBD"} vs {home?.team?.displayName || "TBD"}
           </h3>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-               <span className={cn(
-                 "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
-                 isLive ? "bg-primary/25 text-primary" : "bg-primary/15 text-primary"
-               )}>
-                 {leagueInfo.sub || leagueInfo.name}
-               </span>
-               {isLive && (
-                 <div className="flex items-center gap-1">
-                   <Radio className="w-2.5 h-2.5 text-primary animate-pulse" />
-                   <span className="text-[8px] font-bold text-primary uppercase">LIVE</span>
-                 </div>
-               )}
+              <span className={cn(
+                "px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider",
+                isLive ? "bg-primary/20 text-primary" : "bg-white/[0.06] text-white/40"
+              )}>
+                {leagueInfo.sub || leagueInfo.name}
+              </span>
+              {isLive && (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary/10">
+                  <Radio className="w-2.5 h-2.5 text-primary animate-pulse" />
+                  <span className="text-[8px] font-bold text-primary uppercase tracking-wider">LIVE</span>
+                </div>
+              )}
             </div>
-            <span className="text-[10px] text-white/30 font-medium">
+            <span className="text-[10px] text-white/25 font-medium font-mono">
               {isPre ? clockTxt : isFinal ? clockTxt : ""}
             </span>
           </div>

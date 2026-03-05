@@ -14,9 +14,10 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Outfit', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
         display: ['Bebas Neue', 'Oswald', 'sans-serif'],
         tech: ['Space Grotesk', 'sans-serif'],
+        mono: ['JetBrains Mono', 'SF Mono', 'monospace'],
       },
       colors: {
         border: "hsl(var(--border))",

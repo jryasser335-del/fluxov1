@@ -338,31 +338,34 @@ export function EventsView() {
 
   return (
     <div className="space-y-0">
-      {/* Top bar with search */}
-      <div className="flex items-center justify-between gap-3 mb-4">
+      {/* Top bar */}
+      <div className="flex items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-3">
-          <img src={fluxoLogo} alt="FluxoTV" className="w-9 h-9 rounded-xl" />
-          <span className="font-display text-xl font-bold text-white tracking-wide hidden sm:block">FLUXO</span>
+          <img src={fluxoLogo} alt="FluxoTV" className="w-10 h-10 rounded-xl shadow-lg shadow-primary/10" />
+          <div className="hidden sm:block">
+            <span className="font-display text-2xl text-white tracking-wider">FLUXO</span>
+            <span className="font-display text-2xl text-primary tracking-wider">TV</span>
+          </div>
         </div>
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/25" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search..."
-            className="pl-10 h-10 rounded-xl border-white/[0.08] bg-white/[0.04] text-white placeholder:text-white/30"
+            placeholder="Search events..."
+            className="pl-10 h-10 rounded-xl border-white/[0.06] bg-white/[0.03] text-white placeholder:text-white/25 focus:ring-primary/30 focus:border-primary/30 transition-all"
           />
         </div>
         <div className="flex items-center gap-2">
           {stats.live > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/15 border border-red-500/30">
-              <Radio className="w-3 h-3 text-red-400 animate-pulse" />
-              <span className="text-xs font-bold text-red-400">{stats.live} Live</span>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 backdrop-blur-sm">
+              <Radio className="w-3 h-3 text-primary animate-pulse" />
+              <span className="text-xs font-bold text-primary">{stats.live} Live</span>
             </div>
           )}
           <button
             onClick={() => { loadAllEvents(); fetchEventLinks(); }}
-            className="h-10 w-10 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white/50 hover:text-white hover:bg-white/[0.08] transition-all"
+            className="h-10 w-10 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.12] transition-all duration-300"
           >
             <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
           </button>
@@ -370,16 +373,16 @@ export function EventsView() {
       </div>
 
       {/* Sport category tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide mb-2">
+      <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide mb-3">
         {SPORT_TABS.map((tab) => (
           <button
             key={tab.value}
             onClick={() => setActiveSport(tab.value)}
             className={cn(
-              "flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all duration-200",
+              "flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap transition-all duration-300",
               activeSport === tab.value
-                ? "bg-primary text-white shadow-lg shadow-primary/30"
-                : "bg-white/[0.06] text-white/60 hover:bg-white/[0.1] hover:text-white border border-white/[0.08]"
+                ? "bg-primary text-white shadow-lg shadow-primary/25 scale-[1.02]"
+                : "bg-white/[0.04] text-white/50 hover:bg-white/[0.08] hover:text-white/80 border border-white/[0.06] hover:border-white/[0.1]"
             )}
           >
             <span className="text-sm">{tab.emoji}</span>
