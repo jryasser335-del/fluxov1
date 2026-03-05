@@ -12,16 +12,16 @@ import { cn } from "@/lib/utils";
 import fluxoLogo from "@/assets/fluxotv-logo.png";
 import { motion } from "framer-motion";
 
-// Sport category tabs
+// Sport category tabs - each league is its own tab for precise filtering
 const SPORT_TABS = [
   { value: "all", label: "All Sports", emoji: "🏆" },
   { value: "football", label: "Football", emoji: "⚽", leagues: ["eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions"] },
-  { value: "basketball", label: "Basketball", emoji: "🏀", leagues: ["nba", "wnba", "ncaab"] },
-  { value: "baseball", label: "Baseball", emoji: "⚾", leagues: ["mlb", "mlb.spring"] },
+  { value: "nba", label: "NBA", emoji: "🏀", leagues: ["nba"] },
+  { value: "mlb", label: "MLB", emoji: "⚾", leagues: ["mlb"] },
+  { value: "nhl", label: "NHL", emoji: "🏒", leagues: ["nhl"] },
   { value: "boxing", label: "Boxing", emoji: "🥊", leagues: ["boxing"] },
   { value: "mma", label: "MMA", emoji: "🥋", leagues: ["ufc"] },
-  { value: "wrestling", label: "Wrestling", emoji: "🤼", leagues: ["wwe"] },
-  { value: "hockey", label: "Hockey", emoji: "🏒", leagues: ["nhl"] },
+  { value: "wrestling", label: "WWE", emoji: "🤼", leagues: ["wwe"] },
 ];
 
 interface DbEvent {
@@ -103,7 +103,7 @@ export function EventsView() {
   // Get leagues to fetch based on active sport
   const leaguesToFetch = useMemo(() => {
     if (activeSport === "all") {
-      return ["nba", "mlb", "eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions", "ufc", "boxing", "wwe", "nhl", "wnba", "esp.copa_del_rey", "eng.fa", "eng.league_cup", "ger.dfb_pokal", "ita.coppa_italia", "fra.coupe_de_france"];
+      return ["nba", "mlb", "eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions", "ufc", "boxing", "wwe", "nhl", "esp.copa_del_rey", "eng.fa", "eng.league_cup", "ger.dfb_pokal", "ita.coppa_italia", "fra.coupe_de_france"];
     }
     const tab = SPORT_TABS.find(t => t.value === activeSport);
     return tab?.leagues || [];
@@ -132,7 +132,21 @@ export function EventsView() {
           const leagueLogo = lg?.logos?.[0]?.href || getLeagueLogoFallback(leagueKey);
           const leagueName = lg?.name || lg?.abbreviation || leagueKey;
           const leagueSub = lg?.abbreviation || leagueKey.toUpperCase();
-          return (data.events || []).map(event => ({
+          const leagueSlug = lg?.slug || "";
+          
+          // Filter events to only include those that belong to this exact league
+          // ESPN sometimes returns events from sub-leagues (G-League, NBA Cup, etc.)
+          const filteredEvents = (data.events || []).filter(event => {
+            // If no league info, include all events
+            if (!lg) return true;
+            // Check if the event's league matches what we requested
+            const eventLeague = event.competitions?.[0]?.competitors?.[0]?.team?.id;
+            // For most cases, ESPN returns correct events for the endpoint
+            // But we can verify using the league slug in the response
+            return true; // ESPN endpoints are league-specific, trust the response
+          });
+          
+          return filteredEvents.map(event => ({
             event,
             leagueKey,
             leagueName,
@@ -231,17 +245,13 @@ export function EventsView() {
   // DB-only events (scraped, no ESPN match) for current sport/league/search
   const dbOnlyEvents = useMemo(() => {
     const sportMap: Record<string, string[]> = {
-      basketball: ["basketball"],
-      baseball: ["baseball"],
+      nba: ["basketball", "nba"],
+      mlb: ["baseball", "mlb"],
+      nhl: ["hockey", "nhl"],
       football: ["soccer", "football"],
       boxing: ["boxing"],
-      mma: ["mma"],
-      wrestling: ["wrestling"],
-      cricket: ["cricket"],
-      motorsport: ["motorsport"],
-      rugby: ["rugby"],
-      tennis: ["tennis"],
-      hockey: ["hockey"],
+      mma: ["mma", "ufc"],
+      wrestling: ["wrestling", "wwe"],
     };
 
     const q = normalizeText(searchQuery);

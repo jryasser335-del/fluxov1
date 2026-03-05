@@ -76,6 +76,8 @@ export interface ESPNEvent {
 export interface ESPNResponse {
   events: ESPNEvent[];
   leagues?: {
+    id?: string;
+    slug?: string;
     name: string;
     abbreviation: string;
     logos?: { href: string }[];
