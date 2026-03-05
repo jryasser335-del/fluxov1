@@ -518,9 +518,9 @@ async function fetchTeamLogo(teamName: string): Promise<string | null> {
     );
     if (!res.ok) { teamLogoCache.set(cacheKey, null); return null; }
     const data = await res.json();
-    const badge = data?.badge || null;
-    teamLogoCache.set(cacheKey, badge);
-    return badge;
+    const logo = data?.logo || null;
+    teamLogoCache.set(cacheKey, logo);
+    return logo;
   } catch {
     teamLogoCache.set(cacheKey, null);
     return null;
