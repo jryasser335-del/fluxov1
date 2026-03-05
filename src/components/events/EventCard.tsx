@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 interface EventCardProps {
   event: ESPNEvent;
-  leagueInfo: { name: string; sub: string };
+  leagueInfo: { name: string; sub: string; logo?: string };
   hasLink: boolean;
   isFavorite: boolean;
   isFeatured?: boolean;
@@ -47,13 +47,12 @@ export function EventCard({
   const awayColor = awayTeam?.color ? `#${awayTeam.color}` : "#3b82f6";
   const homeColor = homeTeam?.color ? `#${homeTeam.color}` : "#ef4444";
 
-  // Simulated viewer count
   const viewerCount = hasLink && isLive ? Math.floor(Math.random() * 50 + 10) : hasLink ? Math.floor(Math.random() * 30 + 1) : 0;
 
   return (
     <div
       className={cn(
-        "group relative rounded-xl overflow-hidden transition-all duration-300 aspect-[16/9]",
+        "group relative rounded-xl overflow-hidden transition-all duration-300",
         isLive
           ? "ring-1 ring-red-500/40 shadow-[0_0_15px_-5px] shadow-red-500/30"
           : "ring-1 ring-white/[0.06] hover:ring-white/[0.12]",
@@ -61,20 +60,20 @@ export function EventCard({
       )}
       onClick={hasLink ? onClick : undefined}
     >
-      {/* Background gradient from team colors */}
+      {/* Dark gradient background with subtle team colors */}
       <div className="absolute inset-0">
         <div
-          className="absolute inset-0 opacity-50 group-hover:opacity-70 transition-opacity duration-500"
+          className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity duration-500"
           style={{
-            background: `linear-gradient(135deg, ${awayColor}50 0%, #0a0a0a 40%, #0a0a0a 60%, ${homeColor}50 100%)`
+            background: `linear-gradient(135deg, ${awayColor}35 0%, #0a0a0a 40%, #0a0a0a 60%, ${homeColor}35 100%)`
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/60 to-black/90" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-black/85" />
       </div>
 
       {/* Viewer badge */}
       {hasLink && viewerCount > 0 && (
-        <div className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/90">
+        <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/90">
           <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
           <span className="text-[10px] font-bold text-white">{viewerCount}</span>
         </div>
@@ -84,7 +83,7 @@ export function EventCard({
       <button
         onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
         className={cn(
-          "absolute top-2 left-2 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all",
+          "absolute top-2.5 left-2.5 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all",
           isFavorite
             ? "bg-red-500/20 text-red-400"
             : "bg-black/40 text-white/20 opacity-0 group-hover:opacity-100"
@@ -93,68 +92,79 @@ export function EventCard({
         <Heart className={cn("w-3.5 h-3.5", isFavorite && "fill-current")} />
       </button>
 
-      <div className="relative h-full flex flex-col justify-between p-4">
-        {/* Team logos centered */}
-        <div className="flex items-center justify-center gap-3 flex-1">
-          {/* Away logo */}
-          <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+      <div className="relative flex flex-col p-4 pb-3 min-h-[180px] sm:min-h-[200px]">
+        {/* Team logos with league logo in center - BINTV style */}
+        <div className="flex items-center justify-center gap-2 flex-1 py-2">
+          {/* Away team logo */}
+          <div className="flex-shrink-0 w-14 h-14 sm:w-[68px] sm:h-[68px] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
             {away?.team?.logo ? (
               <img
                 src={away.team.logo}
                 alt={away.team.displayName}
-                className="w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+                className="w-full h-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
+                onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden"); }}
+              />
+            ) : null}
+            <div className={cn(
+              "w-11 h-11 rounded-full flex items-center justify-center font-display text-xl text-white/80",
+              away?.team?.logo ? "hidden" : ""
+            )} style={{ background: `${awayColor}40` }}>
+              {(away?.team?.abbreviation || away?.team?.shortDisplayName || "?").slice(0, 3)}
+            </div>
+          </div>
+
+          {/* Center: League logo + Score/VS */}
+          <div className="flex flex-col items-center gap-1 min-w-[55px]">
+            {leagueInfo.logo && (
+              <img
+                src={leagueInfo.logo}
+                alt={leagueInfo.name}
+                className="w-7 h-7 sm:w-8 sm:h-8 object-contain opacity-70 drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
               />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white/40 font-display text-lg">
-                {(away?.team?.abbreviation || "?")[0]}
-              </div>
             )}
-          </div>
-
-          {/* Score or VS */}
-          <div className="flex flex-col items-center gap-0.5 min-w-[60px]">
             {isLive ? (
-              <div className="flex items-center gap-2">
-                <span className="font-display text-3xl text-white">{away?.score ?? "0"}</span>
-                <span className="text-white/20 text-sm">-</span>
-                <span className="font-display text-3xl text-white">{home?.score ?? "0"}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-display text-2xl sm:text-3xl text-white">{away?.score ?? "0"}</span>
+                <span className="text-white/20 text-xs">-</span>
+                <span className="font-display text-2xl sm:text-3xl text-white">{home?.score ?? "0"}</span>
               </div>
             ) : isFinal ? (
-              <div className="flex items-center gap-2">
-                <span className="font-display text-2xl text-white/50">{away?.score ?? "0"}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="font-display text-xl text-white/50">{away?.score ?? "0"}</span>
                 <span className="text-white/15 text-xs">-</span>
-                <span className="font-display text-2xl text-white/50">{home?.score ?? "0"}</span>
+                <span className="font-display text-xl text-white/50">{home?.score ?? "0"}</span>
               </div>
-            ) : (
-              <span className="text-xs font-bold text-white/15 tracking-widest">VS</span>
-            )}
+            ) : !leagueInfo.logo ? (
+              <span className="text-[10px] font-bold text-white/15 tracking-widest">VS</span>
+            ) : null}
           </div>
 
-          {/* Home logo */}
-          <div className="flex-shrink-0 w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+          {/* Home team logo */}
+          <div className="flex-shrink-0 w-14 h-14 sm:w-[68px] sm:h-[68px] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
             {home?.team?.logo ? (
               <img
                 src={home.team.logo}
                 alt={home.team.displayName}
-                className="w-full h-full object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
-                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                className="w-full h-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
+                onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden"); }}
               />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white/40 font-display text-lg">
-                {(home?.team?.abbreviation || "?")[0]}
-              </div>
-            )}
+            ) : null}
+            <div className={cn(
+              "w-11 h-11 rounded-full flex items-center justify-center font-display text-xl text-white/80",
+              home?.team?.logo ? "hidden" : ""
+            )} style={{ background: `${homeColor}40` }}>
+              {(home?.team?.abbreviation || home?.team?.shortDisplayName || "?").slice(0, 3)}
+            </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div>
-          {/* Badges */}
+        {/* Footer - BINTV style */}
+        <div className="mt-auto">
           <div className="flex items-center gap-1.5 mb-1">
             <span className={cn(
               "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider",
-              isLive ? "bg-red-500/20 text-red-400" : "bg-primary/20 text-primary"
+              isLive ? "bg-red-500/25 text-red-400" : "bg-primary/20 text-primary"
             )}>
               {leagueInfo.sub || leagueInfo.name}
             </span>
@@ -166,12 +176,9 @@ export function EventCard({
             )}
           </div>
 
-          {/* Title */}
           <h3 className="text-[12px] sm:text-[13px] font-semibold text-white leading-tight truncate">
             {away?.team?.displayName || "TBD"} vs. {home?.team?.displayName || "TBD"}
           </h3>
-
-          {/* Subtitle */}
           <p className="text-[10px] text-white/25 mt-0.5 truncate">
             {isPre ? clockTxt : isFinal ? clockTxt : leagueInfo.name}
           </p>

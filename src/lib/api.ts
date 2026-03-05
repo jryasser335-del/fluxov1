@@ -77,6 +77,7 @@ export interface ESPNResponse {
   leagues?: {
     name: string;
     abbreviation: string;
+    logos?: { href: string }[];
   }[];
 }
 
@@ -95,6 +96,7 @@ const ESPN_SPORT_MAP: Record<string, string> = {
   nhl: "hockey/nhl",
   // Baseball
   mlb: "baseball/mlb",
+  "mlb.spring": "baseball/mlb",
   // MMA / Boxing
   ufc: "mma/ufc",
   bellator: "mma/bellator",
@@ -112,6 +114,8 @@ const ESPN_SPORT_MAP: Record<string, string> = {
   // Golf
   pga: "golf/pga",
   lpga: "golf/lpga",
+  // WWE
+  wwe: "mma/wwe",
 };
 
 export async function fetchESPNScoreboard(leagueKey: string): Promise<ESPNResponse> {
