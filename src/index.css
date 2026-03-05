@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,900&family=Space+Grotesk:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -75,9 +75,12 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background: #080808;
+    font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+    background: #060608;
     background-attachment: fixed;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   /* Add subtle noise texture */
@@ -95,11 +98,20 @@
 @layer utilities {
   .font-display {
     font-family: 'Bebas Neue', 'Oswald', sans-serif;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
   }
 
   .font-tech {
     font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .font-mono-premium {
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    font-feature-settings: 'tnum' on, 'lnum' on;
+  }
+
+  .font-body {
+    font-family: 'Outfit', 'Inter', system-ui, sans-serif;
   }
 
   .glass-panel {
