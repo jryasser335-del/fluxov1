@@ -68,20 +68,41 @@ async function searchESPN(teamName: string): Promise<string | null> {
   return null;
 }
 
-// Fallback: TheSportsDB (free, good coverage)
-async function searchTheSportsDB(teamName: string): Promise<string | null> {
-  try {
-    const res = await fetch(
-      `https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`,
-      { headers: { "User-Agent": "Mozilla/5.0" } }
-    );
-    if (!res.ok) return null;
-    const data = await res.json();
-    const team = data?.teams?.[0];
-    return team?.strBadge || team?.strLogo || null;
-  } catch {
-    return null;
+// Fallback: ESPN scoreboard APIs for specific sports
+async function searchESPNScoreboard(teamName: string): Promise<string | null> {
+  const q = normalize(teamName);
+  const sports = [
+    "soccer/eng.1", "soccer/esp.1", "soccer/ger.1", "soccer/ita.1", "soccer/fra.1",
+    "soccer/uefa.champions", "soccer/uefa.europa", "soccer/mex.1", "soccer/bra.1",
+    "soccer/arg.1", "soccer/ned.1", "soccer/por.1", "soccer/usa.1",
+    "basketball/nba", "basketball/wnba",
+    "baseball/mlb", "hockey/nhl", "football/nfl",
+  ];
+  for (const sport of sports) {
+    try {
+      const res = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard`,
+        { headers: { "User-Agent": "Mozilla/5.0" } }
+      );
+      if (!res.ok) continue;
+      const data = await res.json();
+      for (const ev of data?.events || []) {
+        for (const comp of ev?.competitions || []) {
+          for (const c of comp?.competitors || []) {
+            const t = c?.team;
+            if (!t) continue;
+            const name = normalize(t.displayName || "");
+            const short = normalize(t.shortDisplayName || "");
+            const abbr = normalize(t.abbreviation || "");
+            if (name === q || name.includes(q) || q.includes(name) || short === q || abbr === q) {
+              return t.logo || (t.logos?.[0]?.href) || null;
+            }
+          }
+        }
+      }
+    } catch { /* skip */ }
   }
+  return null;
 }
 
 serve(async (req) => {
@@ -107,10 +128,10 @@ serve(async (req) => {
       });
     }
 
-    // Try ESPN first, then TheSportsDB as fallback
+    // Try ESPN search first, then ESPN scoreboard as fallback
     let logo = await searchESPN(teamName);
     if (!logo) {
-      logo = await searchTheSportsDB(teamName);
+      logo = await searchESPNScoreboard(teamName);
     }
 
     cache.set(cacheKey, { logo, ts: Date.now() });
