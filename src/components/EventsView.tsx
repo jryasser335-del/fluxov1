@@ -48,7 +48,7 @@ export function EventsView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [espnEvents, setEspnEvents] = useState<ESPNEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [leagueInfo, setLeagueInfo] = useState({ name: "", sub: "" });
+  const [leagueInfo, setLeagueInfo] = useState({ name: "", sub: "", logo: "" });
   const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("fluxoFavEvents");
@@ -113,7 +113,8 @@ export function EventsView() {
       const data = await fetchESPNScoreboard(activeLeague);
       setEspnEvents(data.events || []);
       const lg = data.leagues?.[0];
-      setLeagueInfo({ name: lg?.name || lg?.abbreviation || activeLeague, sub: lg?.abbreviation || "" });
+      const leagueLogo = lg?.logos?.[0]?.href || "";
+      setLeagueInfo({ name: lg?.name || lg?.abbreviation || activeLeague, sub: lg?.abbreviation || "", logo: leagueLogo });
     } catch {
       setEspnEvents([]);
     }
