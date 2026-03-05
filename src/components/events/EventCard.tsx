@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Heart, Radio } from "lucide-react";
 import { ESPNEvent } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 import { EventCountdown } from "./EventCountdown";
 import { motion } from "framer-motion";
 
@@ -49,7 +50,7 @@ async function searchTeamLogoFromESPN(teamName: string): Promise<string | null> 
   const key = teamName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
   if (teamSearchCache.has(key)) return teamSearchCache.get(key) || null;
 
-  const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "tizmocegplamrmpfxvdu";
+  
   const queries = Array.from(new Set([
     teamName,
     teamName.replace(/\b(Baseball|Basketball|Football|Hockey|Rugby)\b/gi, "").trim(),
@@ -58,9 +59,10 @@ async function searchTeamLogoFromESPN(teamName: string): Promise<string | null> 
 
   for (const q of queries) {
     try {
-      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/team-logo-search?t=${encodeURIComponent(q)}`);
-      if (!res.ok) continue;
-      const data = await res.json();
+      const { data, error } = await supabase.functions.invoke("team-logo-search", {
+        body: { t: q },
+      });
+      if (error) continue;
       const logo = data?.logo || null;
       if (logo) {
         teamSearchCache.set(key, logo);
