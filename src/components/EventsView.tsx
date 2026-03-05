@@ -512,11 +512,13 @@ async function fetchTeamLogo(teamName: string): Promise<string | null> {
   if (teamLogoCache.has(cacheKey)) return teamLogoCache.get(cacheKey) || null;
 
   try {
-    const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`);
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'tizmocegplamrmpfxvdu';
+    const res = await fetch(
+      `https://${projectId}.supabase.co/functions/v1/team-logo-search?t=${encodeURIComponent(teamName)}`
+    );
     if (!res.ok) { teamLogoCache.set(cacheKey, null); return null; }
     const data = await res.json();
-    const team = data?.teams?.[0];
-    const badge = team?.strBadge || team?.strLogo || null;
+    const badge = data?.badge || null;
     teamLogoCache.set(cacheKey, badge);
     return badge;
   } catch {
