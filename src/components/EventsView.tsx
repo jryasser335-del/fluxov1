@@ -244,25 +244,45 @@ export function EventsView() {
 
   // DB-only events (scraped, no ESPN match) for current sport/league/search
   const dbOnlyEvents = useMemo(() => {
-    const sportMap: Record<string, string[]> = {
-      nba: ["basketball", "nba"],
-      mlb: ["baseball", "mlb"],
-      nhl: ["hockey", "nhl"],
-      football: ["soccer", "football"],
-      boxing: ["boxing"],
-      mma: ["mma", "ufc"],
-      wrestling: ["wrestling", "wwe"],
+    // Map tabs to DB sport keywords AND specific league keywords
+    const sportMap: Record<string, { sports: string[]; leagues?: string[] }> = {
+      nba: { sports: ["basketball"], leagues: ["nba"] },
+      mlb: { sports: ["baseball"], leagues: ["mlb"] },
+      nhl: { sports: ["hockey"], leagues: ["nhl"] },
+      football: { sports: ["soccer", "football"], leagues: ["premier", "laliga", "la liga", "bundesliga", "serie a", "ligue 1", "champions"] },
+      boxing: { sports: ["boxing"] },
+      mma: { sports: ["mma", "ufc"] },
+      wrestling: { sports: ["wrestling", "wwe"] },
     };
 
     const q = normalizeText(searchQuery);
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
     return dbEvents.filter((d) => {
       if (!d.stream_url) return false;
 
+      // Only today's events
+      if (d.event_date) {
+        const eventDay = d.event_date.slice(0, 10);
+        if (eventDay !== todayStr) return false;
+      }
+
       if (activeSport !== "all") {
-        const sportNames = sportMap[activeSport] || [];
+        const config = sportMap[activeSport];
+        if (!config) return false;
         const eventSport = normalizeText(d.sport || "");
-        if (!sportNames.some((s) => eventSport.includes(s))) return false;
+        const eventLeague = normalizeText(d.league || "");
+        const eventName = normalizeText(d.name || "");
+        
+        // Must match sport
+        if (!config.sports.some((s) => eventSport.includes(s))) return false;
+        
+        // If tab has specific leagues, must also match league
+        if (config.leagues) {
+          const allText = `${eventLeague} ${eventName}`;
+          if (!config.leagues.some((l) => allText.includes(l))) return false;
+        }
       }
 
       if (activeLeagueFilter) {
@@ -405,20 +425,9 @@ export function EventsView() {
         ))}
       </div>
 
-      {/* Sub-league filter (shows "All" + each league with event counts) */}
-      {availableLeagues.length > 1 && (
+      {/* Sub-league filter - only for "all" and "football" tabs */}
+      {(activeSport === "all" || activeSport === "football") && availableLeagues.length > 1 && (
         <div className="flex gap-1.5 overflow-x-auto pb-3 scrollbar-hide mb-1">
-          <button
-            onClick={() => setActiveLeagueFilter(null)}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
-              activeLeagueFilter === null
-                ? "bg-white/[0.12] text-white border border-white/[0.15]"
-                : "text-white/40 hover:text-white/70 hover:bg-white/[0.05]"
-            )}
-          >
-            Todas ({allEnrichedEvents.length})
-          </button>
           {availableLeagues.map((league) => {
             const count = leagueCounts.get(league.value) || 0;
             return (
