@@ -117,6 +117,13 @@ const ESPN_SPORT_MAP: Record<string, string> = {
   lpga: "golf/lpga",
   // WWE
   wwe: "mma/wwe",
+  // Cups
+  "esp.copa_del_rey": "soccer/esp.copa_del_rey",
+  "eng.fa": "soccer/eng.fa",
+  "eng.league_cup": "soccer/eng.league_cup",
+  "ger.dfb_pokal": "soccer/ger.dfb_pokal",
+  "ita.coppa_italia": "soccer/ita.coppa_italia",
+  "fra.coupe_de_france": "soccer/fra.coupe_de_france",
 };
 
 export async function fetchESPNScoreboard(leagueKey: string): Promise<ESPNResponse> {
