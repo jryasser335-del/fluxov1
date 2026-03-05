@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Heart, Radio } from "lucide-react";
 import { ESPNEvent } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -11,6 +12,44 @@ interface EventCardProps {
   onToggleFavorite: () => void;
   onClick: () => void;
   formatTime: (iso: string) => string;
+}
+
+// Generate a logo URL from ESPN's CDN using team ID
+function getTeamLogoUrl(team: any): string | null {
+  if (team?.logo) return team.logo;
+  // Try to extract team ID from the team object for ESPN CDN
+  if (team?.id) {
+    // ESPN logo CDN patterns
+    return `https://a.espncdn.com/i/teamlogos/soccer/500/${team.id}.png`;
+  }
+  return null;
+}
+
+function TeamLogo({ team, color, side }: { team: any; color: string; side: "away" | "home" }) {
+  const [imgError, setImgError] = useState(false);
+  const logoUrl = getTeamLogoUrl(team);
+  const abbr = (team?.abbreviation || team?.shortDisplayName || "?").slice(0, 3);
+
+  if (logoUrl && !imgError) {
+    return (
+      <img
+        src={logoUrl}
+        alt={team?.displayName || ""}
+        className="w-full h-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
+        onError={() => setImgError(true)}
+      />
+    );
+  }
+
+  // Stylized fallback with team color
+  return (
+    <div
+      className="w-12 h-12 rounded-full flex items-center justify-center font-display text-lg text-white/90 border border-white/10"
+      style={{ background: `${color}50` }}
+    >
+      {abbr}
+    </div>
+  );
 }
 
 export function EventCard({
@@ -93,24 +132,11 @@ export function EventCard({
       </button>
 
       <div className="relative flex flex-col p-4 pb-3 min-h-[180px] sm:min-h-[200px]">
-        {/* Team logos with league logo in center - BINTV style */}
+        {/* Team logos with league logo in center */}
         <div className="flex items-center justify-center gap-2 flex-1 py-2">
           {/* Away team logo */}
           <div className="flex-shrink-0 w-14 h-14 sm:w-[68px] sm:h-[68px] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-            {away?.team?.logo ? (
-              <img
-                src={away.team.logo}
-                alt={away.team.displayName}
-                className="w-full h-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
-                onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden"); }}
-              />
-            ) : null}
-            <div className={cn(
-              "w-11 h-11 rounded-full flex items-center justify-center font-display text-xl text-white/80",
-              away?.team?.logo ? "hidden" : ""
-            )} style={{ background: `${awayColor}40` }}>
-              {(away?.team?.abbreviation || away?.team?.shortDisplayName || "?").slice(0, 3)}
-            </div>
+            <TeamLogo team={away?.team} color={awayColor} side="away" />
           </div>
 
           {/* Center: League logo + Score/VS */}
@@ -142,24 +168,11 @@ export function EventCard({
 
           {/* Home team logo */}
           <div className="flex-shrink-0 w-14 h-14 sm:w-[68px] sm:h-[68px] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-            {home?.team?.logo ? (
-              <img
-                src={home.team.logo}
-                alt={home.team.displayName}
-                className="w-full h-full object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
-                onError={(e) => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).nextElementSibling?.classList.remove("hidden"); }}
-              />
-            ) : null}
-            <div className={cn(
-              "w-11 h-11 rounded-full flex items-center justify-center font-display text-xl text-white/80",
-              home?.team?.logo ? "hidden" : ""
-            )} style={{ background: `${homeColor}40` }}>
-              {(home?.team?.abbreviation || home?.team?.shortDisplayName || "?").slice(0, 3)}
-            </div>
+            <TeamLogo team={home?.team} color={homeColor} side="home" />
           </div>
         </div>
 
-        {/* Footer - BINTV style */}
+        {/* Footer */}
         <div className="mt-auto">
           <div className="flex items-center gap-1.5 mb-1">
             <span className={cn(

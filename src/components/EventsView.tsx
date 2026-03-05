@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { fetchESPNScoreboard, ESPNEvent } from "@/lib/api";
+import { fetchESPNScoreboard, ESPNEvent, ESPNResponse } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,7 +9,7 @@ import { Search, RefreshCw, Radio, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-// Sport category tabs like BINTV
+// Sport category tabs
 const SPORT_TABS = [
   { value: "all", label: "All Sports", emoji: "🏆" },
   { value: "basketball", label: "Basketball", emoji: "🏀", leagues: ["nba", "wnba", "ncaab"] },
@@ -22,7 +22,7 @@ const SPORT_TABS = [
   { value: "motorsport", label: "Motorsport", emoji: "🏎️", leagues: [] },
   { value: "rugby", label: "Rugby", emoji: "🏉", leagues: [] },
   { value: "tennis", label: "Tennis", emoji: "🎾", leagues: [] },
-  { value: "hockey", label: "Hockey", emoji: "🏒", leagues: [] },
+  { value: "hockey", label: "Hockey", emoji: "🏒", leagues: ["nhl"] },
 ];
 
 interface DbEvent {
@@ -41,14 +41,22 @@ interface DbEvent {
   event_date: string;
 }
 
+// Extended event with league metadata
+interface EnrichedEvent {
+  event: ESPNEvent;
+  leagueKey: string;
+  leagueName: string;
+  leagueSub: string;
+  leagueLogo: string;
+}
+
 export function EventsView() {
   const { openPlayer } = usePlayerModal();
   const [activeSport, setActiveSport] = useState("all");
-  const [activeLeague, setActiveLeague] = useState("nba");
+  const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null); // null = "All" within sport
   const [searchQuery, setSearchQuery] = useState("");
-  const [espnEvents, setEspnEvents] = useState<ESPNEvent[]>([]);
+  const [allEnrichedEvents, setAllEnrichedEvents] = useState<EnrichedEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [leagueInfo, setLeagueInfo] = useState({ name: "", sub: "", logo: "" });
   const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("fluxoFavEvents");
@@ -63,13 +71,75 @@ export function EventsView() {
     if (!error && data) setDbEvents(data as DbEvent[]);
   }, []);
 
+  // Get leagues to fetch based on active sport
+  const leaguesToFetch = useMemo(() => {
+    if (activeSport === "all") {
+      // Fetch the most popular leagues
+      return ["nba", "mlb", "eng.1", "esp.1", "uefa.champions", "ufc", "boxing", "wwe", "nhl", "wnba"];
+    }
+    const tab = SPORT_TABS.find(t => t.value === activeSport);
+    return tab?.leagues || [];
+  }, [activeSport]);
+
+  // Get available sub-league options for current sport tab
+  const currentTab = SPORT_TABS.find(t => t.value === activeSport);
+  const availableLeagues = useMemo(() => {
+    if (activeSport === "all") return LEAGUE_OPTIONS;
+    return LEAGUE_OPTIONS.filter(l => currentTab?.leagues?.includes(l.value));
+  }, [activeSport, currentTab]);
+
+  // Fetch ALL leagues for the current sport simultaneously
+  const loadAllEvents = useCallback(async () => {
+    if (leaguesToFetch.length === 0) {
+      setAllEnrichedEvents([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const results = await Promise.allSettled(
+        leaguesToFetch.map(async (leagueKey) => {
+          const data = await fetchESPNScoreboard(leagueKey);
+          const lg = data.leagues?.[0];
+          const leagueLogo = lg?.logos?.[0]?.href || "";
+          const leagueName = lg?.name || lg?.abbreviation || leagueKey;
+          const leagueSub = lg?.abbreviation || leagueKey.toUpperCase();
+          return (data.events || []).map(event => ({
+            event,
+            leagueKey,
+            leagueName,
+            leagueSub,
+            leagueLogo,
+          }));
+        })
+      );
+
+      const enriched: EnrichedEvent[] = [];
+      const seenIds = new Set<string>();
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          for (const item of result.value) {
+            if (!seenIds.has(item.event.id)) {
+              seenIds.add(item.event.id);
+              enriched.push(item);
+            }
+          }
+        }
+      }
+      setAllEnrichedEvents(enriched);
+    } catch {
+      setAllEnrichedEvents([]);
+    }
+    setLoading(false);
+  }, [leaguesToFetch]);
+
   // Build eventLinks map
   const eventLinks = useMemo(() => {
     const linksMap = new Map<string, { url1: string; url2?: string; url3?: string }>();
-    if (dbEvents.length === 0 || espnEvents.length === 0) return linksMap;
+    if (dbEvents.length === 0 || allEnrichedEvents.length === 0) return linksMap;
     const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
-    for (const espnEvent of espnEvents) {
+    for (const { event: espnEvent } of allEnrichedEvents) {
       const byId = dbEvents.find(d => d.espn_id && d.espn_id === espnEvent.id);
       if (byId?.stream_url) {
         linksMap.set(espnEvent.id, { url1: byId.stream_url, url2: byId.stream_url_2 || undefined, url3: byId.stream_url_3 || undefined });
@@ -98,28 +168,7 @@ export function EventsView() {
       }
     }
     return linksMap;
-  }, [dbEvents, espnEvents]);
-
-  // Get current sport tab's leagues
-  const currentTab = SPORT_TABS.find(t => t.value === activeSport);
-  const availableLeagues = useMemo(() => {
-    if (activeSport === "all") return LEAGUE_OPTIONS;
-    return LEAGUE_OPTIONS.filter(l => currentTab?.leagues?.includes(l.value));
-  }, [activeSport, currentTab]);
-
-  const loadEvents = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await fetchESPNScoreboard(activeLeague);
-      setEspnEvents(data.events || []);
-      const lg = data.leagues?.[0];
-      const leagueLogo = lg?.logos?.[0]?.href || "";
-      setLeagueInfo({ name: lg?.name || lg?.abbreviation || activeLeague, sub: lg?.abbreviation || "", logo: leagueLogo });
-    } catch {
-      setEspnEvents([]);
-    }
-    setLoading(false);
-  }, [activeLeague]);
+  }, [dbEvents, allEnrichedEvents]);
 
   useEffect(() => {
     fetchEventLinks();
@@ -130,22 +179,18 @@ export function EventsView() {
     return () => { supabase.removeChannel(channel); };
   }, [fetchEventLinks]);
 
-  useEffect(() => { loadEvents(); }, [loadEvents]);
+  useEffect(() => { loadAllEvents(); }, [loadAllEvents]);
 
   useEffect(() => {
-    const hasLive = espnEvents.some(e => e.competitions?.[0]?.status?.type?.state === "in");
-    const interval = setInterval(() => { loadEvents(); fetchEventLinks(); }, hasLive ? 30000 : 60000);
+    const hasLive = allEnrichedEvents.some(e => e.event.competitions?.[0]?.status?.type?.state === "in");
+    const interval = setInterval(() => { loadAllEvents(); fetchEventLinks(); }, hasLive ? 30000 : 60000);
     return () => clearInterval(interval);
-  }, [espnEvents, loadEvents, fetchEventLinks]);
+  }, [allEnrichedEvents, loadAllEvents, fetchEventLinks]);
 
-  // When sport tab changes, auto-select first league
+  // Reset league filter when sport changes
   useEffect(() => {
-    if (activeSport === "all") {
-      setActiveLeague("nba");
-    } else if (currentTab?.leagues?.length) {
-      setActiveLeague(currentTab.leagues[0]);
-    }
-  }, [activeSport, currentTab]);
+    setActiveLeagueFilter(null);
+  }, [activeSport]);
 
   const toggleFavorite = (eventId: string) => {
     setFavorites((prev) => {
@@ -176,29 +221,40 @@ export function EventsView() {
     return dbEvents.filter(d => d.stream_url && sportNames.some(s => (d.sport || "").toLowerCase() === s.toLowerCase()));
   }, [dbEvents, activeSport]);
 
-  const filteredEspnEvents = useMemo(() => {
-    let list = espnEvents;
+  // Filter enriched events by sub-league and search
+  const filteredEvents = useMemo(() => {
+    let list = allEnrichedEvents;
+    
+    // Filter by sub-league if selected
+    if (activeLeagueFilter) {
+      list = list.filter(e => e.leagueKey === activeLeagueFilter);
+    }
+
+    // Filter by search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter((e) => {
+      list = list.filter(({ event: e }) => {
         const comp = e.competitions?.[0];
         const teams = comp?.competitors || [];
-        return teams.some((t) => (t.team?.displayName || "").toLowerCase().includes(q)) ||
+        return teams.some(t => (t.team?.displayName || "").toLowerCase().includes(q)) ||
           e.name?.toLowerCase().includes(q);
       });
     }
+
+    // Sort: live first, then pre, then post
     const rank = (state: string) => (state === "in" ? 0 : state === "pre" ? 1 : 2);
     list.sort((a, b) => {
-      const stateA = a.competitions?.[0]?.status?.type?.state || "";
-      const stateB = b.competitions?.[0]?.status?.type?.state || "";
+      const stateA = a.event.competitions?.[0]?.status?.type?.state || "";
+      const stateB = b.event.competitions?.[0]?.status?.type?.state || "";
       return rank(stateA) - rank(stateB);
     });
-    return list;
-  }, [espnEvents, searchQuery]);
 
-  const handleEventClick = (event: ESPNEvent) => {
-    const link = eventLinks.get(event.id);
-    const comp = event.competitions?.[0];
+    return list;
+  }, [allEnrichedEvents, activeLeagueFilter, searchQuery]);
+
+  const handleEventClick = (enriched: EnrichedEvent) => {
+    const link = eventLinks.get(enriched.event.id);
+    const comp = enriched.event.competitions?.[0];
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
     const home = teams.find((c) => c.homeAway === "home") || teams[1];
@@ -219,14 +275,23 @@ export function EventsView() {
   };
 
   const stats = useMemo(() => {
-    const live = espnEvents.filter(e => e.competitions?.[0]?.status?.type?.state === "in").length;
-    const withLinks = espnEvents.filter(e => eventLinks.has(e.id)).length;
-    return { total: espnEvents.length, live, withLinks };
-  }, [espnEvents, eventLinks]);
+    const live = filteredEvents.filter(e => e.event.competitions?.[0]?.status?.type?.state === "in").length;
+    const withLinks = filteredEvents.filter(e => eventLinks.has(e.event.id)).length;
+    return { total: filteredEvents.length, live, withLinks };
+  }, [filteredEvents, eventLinks]);
+
+  // Count events per league for badges
+  const leagueCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of allEnrichedEvents) {
+      counts.set(e.leagueKey, (counts.get(e.leagueKey) || 0) + 1);
+    }
+    return counts;
+  }, [allEnrichedEvents]);
 
   return (
     <div className="space-y-0">
-      {/* BINTV-style top bar with search */}
+      {/* Top bar with search */}
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
           <img src="/pwa-192x192.png" alt="FluxoTV" className="w-9 h-9 rounded-xl" />
@@ -249,7 +314,7 @@ export function EventsView() {
             </div>
           )}
           <button
-            onClick={() => { loadEvents(); fetchEventLinks(); }}
+            onClick={() => { loadAllEvents(); fetchEventLinks(); }}
             className="h-10 w-10 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white/50 hover:text-white hover:bg-white/[0.08] transition-all"
           >
             <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
@@ -257,7 +322,7 @@ export function EventsView() {
         </div>
       </div>
 
-      {/* Sport category tabs - horizontal scroll like BINTV */}
+      {/* Sport category tabs */}
       <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-hide mb-2">
         {SPORT_TABS.map((tab) => (
           <button
@@ -276,34 +341,48 @@ export function EventsView() {
         ))}
       </div>
 
-      {/* Sub-league selector (if sport has multiple leagues) */}
+      {/* Sub-league filter (shows "All" + each league with event counts) */}
       {availableLeagues.length > 1 && (
         <div className="flex gap-1.5 overflow-x-auto pb-3 scrollbar-hide mb-1">
-          {availableLeagues.map((league) => (
-            <button
-              key={league.value}
-              onClick={() => setActiveLeague(league.value)}
-              className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
-                activeLeague === league.value
-                  ? "bg-white/[0.12] text-white border border-white/[0.15]"
-                  : "text-white/40 hover:text-white/70 hover:bg-white/[0.05]"
-              )}
-            >
-              {league.label}
-            </button>
-          ))}
+          <button
+            onClick={() => setActiveLeagueFilter(null)}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
+              activeLeagueFilter === null
+                ? "bg-white/[0.12] text-white border border-white/[0.15]"
+                : "text-white/40 hover:text-white/70 hover:bg-white/[0.05]"
+            )}
+          >
+            Todas ({allEnrichedEvents.length})
+          </button>
+          {availableLeagues.map((league) => {
+            const count = leagueCounts.get(league.value) || 0;
+            return (
+              <button
+                key={league.value}
+                onClick={() => setActiveLeagueFilter(league.value)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all",
+                  activeLeagueFilter === league.value
+                    ? "bg-white/[0.12] text-white border border-white/[0.15]"
+                    : "text-white/40 hover:text-white/70 hover:bg-white/[0.05]"
+                )}
+              >
+                {league.label} {count > 0 && `(${count})`}
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* Events grid - 4 columns like BINTV */}
+      {/* Events grid */}
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <SkeletonEventCard key={i} />
           ))}
         </div>
-      ) : filteredEspnEvents.length === 0 && dbOnlyEvents.length === 0 ? (
+      ) : filteredEvents.length === 0 && dbOnlyEvents.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mb-4">
             <span className="text-3xl">🏟️</span>
@@ -313,24 +392,23 @@ export function EventsView() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredEspnEvents.map((event, index) => (
-            <div key={event.id} className="animate-card-entrance" style={{ animationDelay: `${index * 30}ms` }}>
+          {filteredEvents.map((enriched, index) => (
+            <div key={enriched.event.id} className="animate-card-entrance" style={{ animationDelay: `${index * 30}ms` }}>
               <EventCard
-                event={event}
-                leagueInfo={leagueInfo}
-                hasLink={eventLinks.has(event.id)}
-                isFavorite={favorites.has(event.id)}
-                onToggleFavorite={() => toggleFavorite(event.id)}
-                onClick={() => handleEventClick(event)}
+                event={enriched.event}
+                leagueInfo={{ name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
+                hasLink={eventLinks.has(enriched.event.id)}
+                isFavorite={favorites.has(enriched.event.id)}
+                onToggleFavorite={() => toggleFavorite(enriched.event.id)}
+                onClick={() => handleEventClick(enriched)}
                 formatTime={formatTime}
               />
             </div>
           ))}
-          {/* DB-only events that didn't match ESPN */}
+          {/* DB-only events */}
           {dbOnlyEvents.filter(d => {
-            // Exclude ones already shown via ESPN matching
             const norm = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-            return !espnEvents.some(e => {
+            return !allEnrichedEvents.some(({ event: e }) => {
               const comp = e.competitions?.[0];
               const competitors = comp?.competitors || [];
               const home = competitors.find(c => c.homeAway === "home");
@@ -344,7 +422,7 @@ export function EventsView() {
             <div
               key={`db-${dbEvent.name}-${index}`}
               className="animate-card-entrance cursor-pointer"
-              style={{ animationDelay: `${(filteredEspnEvents.length + index) * 30}ms` }}
+              style={{ animationDelay: `${(filteredEvents.length + index) * 30}ms` }}
               onClick={() => handleDbEventClick(dbEvent)}
             >
               <DbEventCard event={dbEvent} />
@@ -364,7 +442,7 @@ export function EventsView() {
   );
 }
 
-// Simple card for DB-only events (scraped, not in ESPN)
+// Simple card for DB-only events
 function DbEventCard({ event }: { event: { name: string; team_home: string | null; team_away: string | null; sport: string | null; league: string | null; is_live: boolean; stream_url: string | null } }) {
   return (
     <div className={cn(
@@ -375,7 +453,6 @@ function DbEventCard({ event }: { event: { name: string; team_home: string | nul
       <div className="absolute inset-0 bg-gradient-to-b from-[#0d1117]/60 via-[#0d1117]/80 to-[#0d1117]/95" />
       
       <div className="relative p-5">
-        {/* Sport badge */}
         <div className="flex items-center gap-2 mb-4">
           <span className={cn(
             "px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
@@ -391,7 +468,6 @@ function DbEventCard({ event }: { event: { name: string; team_home: string | nul
           )}
         </div>
 
-        {/* Team names */}
         <h3 className="text-sm font-bold text-white leading-tight mb-1">
           {event.team_home || "TBD"} vs. {event.team_away || "TBD"}
         </h3>
@@ -399,7 +475,6 @@ function DbEventCard({ event }: { event: { name: string; team_home: string | nul
           <p className="text-[10px] text-white/30">{event.league}</p>
         )}
 
-        {/* Signal indicator */}
         {event.stream_url && (
           <div className="flex items-center gap-1 mt-3 pt-3 border-t border-white/[0.06]">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
