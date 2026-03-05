@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { fetchESPNScoreboard, ESPNEvent, ESPNResponse } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
@@ -503,26 +503,43 @@ export function EventsView() {
   );
 }
 
-// Team logo cache
-const teamLogoCache = new Map<string, string | null>();
+// Team logo cache with TTL (avoid persisting null forever)
+const TEAM_LOGO_TTL_OK = 24 * 60 * 60 * 1000;
+const TEAM_LOGO_TTL_NULL = 2 * 60 * 1000;
+const teamLogoCache = new Map<string, { logo: string | null; ts: number }>();
 
 async function fetchTeamLogo(teamName: string): Promise<string | null> {
   if (!teamName || teamName.length < 2) return null;
   const cacheKey = teamName.toLowerCase().trim();
-  if (teamLogoCache.has(cacheKey)) return teamLogoCache.get(cacheKey) || null;
+  const cached = teamLogoCache.get(cacheKey);
+  if (cached) {
+    const ttl = cached.logo ? TEAM_LOGO_TTL_OK : TEAM_LOGO_TTL_NULL;
+    if (Date.now() - cached.ts < ttl) return cached.logo;
+  }
 
   try {
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'tizmocegplamrmpfxvdu';
-    const res = await fetch(
-      `https://${projectId}.supabase.co/functions/v1/team-logo-search?t=${encodeURIComponent(teamName)}`
-    );
-    if (!res.ok) { teamLogoCache.set(cacheKey, null); return null; }
-    const data = await res.json();
-    const logo = data?.logo || null;
-    teamLogoCache.set(cacheKey, logo);
-    return logo;
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "tizmocegplamrmpfxvdu";
+    const candidates = Array.from(new Set([
+      teamName,
+      teamName.replace(/\b(Baseball|Basketball|Football|Hockey|Rugby)\b/gi, "").trim(),
+      teamName.replace(/\b(Fc|CF|SC|SK|AC|Club)\b/gi, "").trim(),
+    ].filter(Boolean)));
+
+    for (const candidate of candidates) {
+      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/team-logo-search?t=${encodeURIComponent(candidate)}`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const logo = data?.logo || null;
+      if (logo) {
+        teamLogoCache.set(cacheKey, { logo, ts: Date.now() });
+        return logo;
+      }
+    }
+
+    teamLogoCache.set(cacheKey, { logo: null, ts: Date.now() });
+    return null;
   } catch {
-    teamLogoCache.set(cacheKey, null);
+    teamLogoCache.set(cacheKey, { logo: null, ts: Date.now() });
     return null;
   }
 }
@@ -530,12 +547,15 @@ async function fetchTeamLogo(teamName: string): Promise<string | null> {
 function TeamBadge({ name, fallback }: { name: string | null; fallback: string }) {
   const [logo, setLogo] = useState<string | null>(null);
   const [error, setError] = useState(false);
-  const attempted = useRef(false);
 
   useEffect(() => {
-    if (!name || attempted.current) return;
-    attempted.current = true;
-    fetchTeamLogo(name).then(url => { if (url) setLogo(url); });
+    let cancelled = false;
+    if (!name) return;
+    setError(false);
+    fetchTeamLogo(name).then((url) => {
+      if (!cancelled) setLogo(url || null);
+    });
+    return () => { cancelled = true; };
   }, [name]);
 
   if (logo && !error) {
