@@ -18,10 +18,6 @@ const SPORT_TABS = [
   { value: "boxing", label: "Boxing", emoji: "🥊", leagues: ["boxing"] },
   { value: "mma", label: "MMA", emoji: "🥋", leagues: ["ufc"] },
   { value: "wrestling", label: "Wrestling", emoji: "🤼", leagues: ["wwe"] },
-  { value: "cricket", label: "Cricket", emoji: "🏏", leagues: [] },
-  { value: "motorsport", label: "Motorsport", emoji: "🏎️", leagues: [] },
-  { value: "rugby", label: "Rugby", emoji: "🏉", leagues: [] },
-  { value: "tennis", label: "Tennis", emoji: "🎾", leagues: [] },
   { value: "hockey", label: "Hockey", emoji: "🏒", leagues: ["nhl"] },
 ];
 
