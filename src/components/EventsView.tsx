@@ -518,7 +518,6 @@ async function fetchTeamLogo(teamName: string): Promise<string | null> {
   }
 
   try {
-    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || "tizmocegplamrmpfxvdu";
     const candidates = Array.from(new Set([
       teamName,
       teamName.replace(/\b(Baseball|Basketball|Football|Hockey|Rugby)\b/gi, "").trim(),
@@ -526,9 +525,10 @@ async function fetchTeamLogo(teamName: string): Promise<string | null> {
     ].filter(Boolean)));
 
     for (const candidate of candidates) {
-      const res = await fetch(`https://${projectId}.supabase.co/functions/v1/team-logo-search?t=${encodeURIComponent(candidate)}`);
-      if (!res.ok) continue;
-      const data = await res.json();
+      const { data, error } = await supabase.functions.invoke("team-logo-search", {
+        body: { t: candidate },
+      });
+      if (error) continue;
       const logo = data?.logo || null;
       if (logo) {
         teamLogoCache.set(cacheKey, { logo, ts: Date.now() });
