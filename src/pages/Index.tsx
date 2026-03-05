@@ -68,8 +68,12 @@ const Index = () => {
           </AnimatePresence>
         </main>
 
-        <nav className="fixed bottom-0 left-0 right-0 z-50 bg-black/90 backdrop-blur-2xl border-t border-white/[0.04]">
-          <div className="max-w-[600px] mx-auto flex items-center justify-around px-4 py-2 safe-area-pb">
+        <nav className="fixed bottom-0 left-0 right-0 z-50">
+          {/* Nav background with frosted glass */}
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-3xl border-t border-white/[0.04]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+          
+          <div className="relative max-w-[600px] mx-auto flex items-center justify-around px-4 py-2.5 safe-area-pb">
             {([
               { view: "eventos" as ViewType, icon: Trophy, label: "Live" },
               { view: "peliculas" as ViewType, icon: Film, label: "Películas" },
@@ -81,14 +85,14 @@ const Index = () => {
                 className={cn(
                   "relative flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold transition-all duration-300",
                   activeView === view
-                    ? "text-primary-foreground"
-                    : "text-white/40 hover:text-white/70"
+                    ? "text-white"
+                    : "text-white/30 hover:text-white/60"
                 )}
               >
                 {activeView === view && (
                   <motion.div
                     layoutId="nav-pill"
-                    className="absolute inset-0 bg-primary rounded-2xl shadow-lg shadow-primary/25"
+                    className="absolute inset-0 bg-gradient-to-r from-primary to-[hsl(200,100%,50%)] rounded-2xl shadow-xl shadow-primary/20"
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   />
                 )}
@@ -101,7 +105,7 @@ const Index = () => {
             {isAdmin && (
               <Link
                 to="/admin"
-                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold text-white/30 hover:text-white/60 transition-all duration-300"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-semibold text-white/20 hover:text-white/50 transition-all duration-300"
               >
                 <Settings className="w-4 h-4" />
               </Link>
