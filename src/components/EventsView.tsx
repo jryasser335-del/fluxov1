@@ -12,9 +12,9 @@ import { cn } from "@/lib/utils";
 // Sport category tabs
 const SPORT_TABS = [
   { value: "all", label: "All Sports", emoji: "🏆" },
+  { value: "football", label: "Football", emoji: "⚽", leagues: ["eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions"] },
   { value: "basketball", label: "Basketball", emoji: "🏀", leagues: ["nba", "wnba", "ncaab"] },
   { value: "baseball", label: "Baseball", emoji: "⚾", leagues: ["mlb", "mlb.spring"] },
-  { value: "football", label: "Football", emoji: "⚽", leagues: ["eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions", "uefa.europa", "mex.1", "arg.1", "bra.1", "mls", "conmebol.libertadores"] },
   { value: "boxing", label: "Boxing", emoji: "🥊", leagues: ["boxing"] },
   { value: "mma", label: "MMA", emoji: "🥋", leagues: ["ufc"] },
   { value: "wrestling", label: "Wrestling", emoji: "🤼", leagues: ["wwe"] },
@@ -100,8 +100,7 @@ export function EventsView() {
   // Get leagues to fetch based on active sport
   const leaguesToFetch = useMemo(() => {
     if (activeSport === "all") {
-      // Fetch the most popular leagues
-      return ["nba", "mlb", "eng.1", "esp.1", "uefa.champions", "ufc", "boxing", "wwe", "nhl", "wnba"];
+      return ["nba", "mlb", "eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions", "ufc", "boxing", "wwe", "nhl", "wnba", "esp.copa_del_rey", "eng.fa", "eng.league_cup", "ger.dfb_pokal", "ita.coppa_italia", "fra.coupe_de_france"];
     }
     const tab = SPORT_TABS.find(t => t.value === activeSport);
     return tab?.leagues || [];

@@ -33,6 +33,11 @@ interface MoviesViewProps {
   searchQuery: string;
 }
 
+// Auto-generate cinezo.net URL for any TMDB movie
+function getCinezoUrl(tmdbId: number): string {
+  return `https://www.cinezo.net/movie/${tmdbId}`;
+}
+
 // Carousel component for horizontal scrolling
 function MovieCarousel({ 
   title, 
@@ -67,7 +72,6 @@ function MovieCarousel({
       </div>
       
       <div className="relative group">
-        {/* Left arrow */}
         <button
           onClick={() => scroll('left')}
           className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/80 border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black"
@@ -75,7 +79,6 @@ function MovieCarousel({
           <ChevronLeft className="w-5 h-5 text-white" />
         </button>
         
-        {/* Carousel */}
         <div 
           ref={scrollRef}
           className="flex gap-3 overflow-x-auto scrollbar-hide scroll-smooth pb-2"
@@ -83,20 +86,20 @@ function MovieCarousel({
         >
           {movies.map((movie) => {
             const link = mediaLinks.get(movie.id);
+            const streamUrl = link?.stream_url || getCinezoUrl(movie.id);
             return (
               <div key={movie.id} className="flex-shrink-0 w-[160px]">
                 <MediaCard 
                   item={movie} 
                   type="movie" 
-                  streamUrl={link?.stream_url}
-                  platform={link?.platform}
+                  streamUrl={streamUrl}
+                  platform={link?.platform || "cinezo"}
                 />
               </div>
             );
           })}
         </div>
 
-        {/* Right arrow */}
         <button
           onClick={() => scroll('right')}
           className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-black/80 border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black"
@@ -297,9 +300,6 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
     return result;
   }, [allMovies, searchQuery]);
 
-  const platformLabel = platform === "all" ? "Todas" : STREAMING_PLATFORMS.find(p => p.value === platform)?.label || platform;
-
-  // When searching, show grid mode
   const isSearching = searchQuery.trim().length > 0;
 
   return (
@@ -317,18 +317,18 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
           No se pudo cargar TMDB.
         </div>
       ) : isSearching ? (
-        // Search results grid
         <Section title="Resultados" emoji="🔍" badge={`${filteredMovies.length} películas`}>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
             {filteredMovies.map((movie) => {
               const link = mediaLinks.get(movie.id);
+              const streamUrl = link?.stream_url || getCinezoUrl(movie.id);
               return (
                 <MediaCard 
                   key={movie.id} 
                   item={movie} 
                   type="movie" 
-                  streamUrl={link?.stream_url}
-                  platform={link?.platform || (platform === "all" ? null : platform)}
+                  streamUrl={streamUrl}
+                  platform={link?.platform || "cinezo"}
                 />
               );
             })}
@@ -365,13 +365,14 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
             <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
               {filteredMovies.slice(20).map((movie) => {
                 const link = mediaLinks.get(movie.id);
+                const streamUrl = link?.stream_url || getCinezoUrl(movie.id);
                 return (
                   <MediaCard 
                     key={movie.id} 
                     item={movie} 
                     type="movie" 
-                    streamUrl={link?.stream_url}
-                    platform={link?.platform || (platform === "all" ? null : platform)}
+                    streamUrl={streamUrl}
+                    platform={link?.platform || "cinezo"}
                   />
                 );
               })}
