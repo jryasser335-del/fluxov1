@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.check-links]
 verify_jwt = false
+
+[functions.team-logo-search]
+verify_jwt = false
