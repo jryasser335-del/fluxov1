@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { fetchESPNScoreboard, ESPNEvent, ESPNResponse } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./events/EventCard";
-import { HeroBanner } from "./events/HeroBanner";
+
 import { SkeletonEventCard } from "./Skeleton";
 import { Search, RefreshCw, Radio, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -338,23 +338,7 @@ export function EventsView() {
     return counts;
   }, [allEnrichedEvents]);
 
-  // Pick featured/hero event: first live event with link, or first live, or first with link
-  const heroEvent = useMemo(() => {
-    if (searchQuery.trim() || activeLeagueFilter) return null;
-    const liveWithLink = filteredEvents.find(e =>
-      e.event.competitions?.[0]?.status?.type?.state === "in" && eventLinks.has(e.event.id)
-    );
-    if (liveWithLink) return liveWithLink;
-    const anyLive = filteredEvents.find(e => e.event.competitions?.[0]?.status?.type?.state === "in");
-    if (anyLive) return anyLive;
-    return null;
-  }, [filteredEvents, eventLinks, searchQuery, activeLeagueFilter]);
-
-  // Filtered events without hero
-  const gridEvents = useMemo(() => {
-    if (!heroEvent) return filteredEvents;
-    return filteredEvents.filter(e => e.event.id !== heroEvent.event.id);
-  }, [filteredEvents, heroEvent]);
+  const gridEvents = filteredEvents;
 
   return (
     <div className="space-y-0">
@@ -445,15 +429,6 @@ export function EventsView() {
         </div>
       )}
 
-      {/* Hero banner */}
-      {!loading && heroEvent && (
-        <HeroBanner
-          event={heroEvent.event}
-          leagueInfo={{ key: heroEvent.leagueKey, name: heroEvent.leagueName, sub: heroEvent.leagueSub, logo: heroEvent.leagueLogo }}
-          hasLink={eventLinks.has(heroEvent.event.id)}
-          onClick={() => handleEventClick(heroEvent)}
-        />
-      )}
 
       {/* Events grid */}
       {loading ? (
@@ -462,7 +437,7 @@ export function EventsView() {
             <SkeletonEventCard key={i} />
           ))}
         </div>
-      ) : gridEvents.length === 0 && dbOnlyEvents.length === 0 && !heroEvent ? (
+      ) : gridEvents.length === 0 && dbOnlyEvents.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mb-4">
             <span className="text-3xl">🏟️</span>
@@ -528,7 +503,59 @@ export function EventsView() {
   );
 }
 
-// DB-only event card with team initials
+// Team logo cache
+const teamLogoCache = new Map<string, string | null>();
+
+async function fetchTeamLogo(teamName: string): Promise<string | null> {
+  if (!teamName || teamName.length < 2) return null;
+  const cacheKey = teamName.toLowerCase().trim();
+  if (teamLogoCache.has(cacheKey)) return teamLogoCache.get(cacheKey) || null;
+
+  try {
+    const res = await fetch(`https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=${encodeURIComponent(teamName)}`);
+    if (!res.ok) { teamLogoCache.set(cacheKey, null); return null; }
+    const data = await res.json();
+    const team = data?.teams?.[0];
+    const badge = team?.strBadge || team?.strLogo || null;
+    teamLogoCache.set(cacheKey, badge);
+    return badge;
+  } catch {
+    teamLogoCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+function TeamBadge({ name, fallback }: { name: string | null; fallback: string }) {
+  const [logo, setLogo] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+  const attempted = useRef(false);
+
+  useEffect(() => {
+    if (!name || attempted.current) return;
+    attempted.current = true;
+    fetchTeamLogo(name).then(url => { if (url) setLogo(url); });
+  }, [name]);
+
+  if (logo && !error) {
+    return (
+      <img
+        src={logo}
+        alt={name || ""}
+        className="w-14 h-14 object-contain drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)]"
+        onError={() => setError(true)}
+        loading="lazy"
+      />
+    );
+  }
+
+  return (
+    <div className="w-14 h-14 rounded-full flex items-center justify-center font-display text-xl text-white/80 border border-white/10 bg-white/[0.06]">
+      {fallback}
+    </div>
+  );
+}
+
+// DB-only event card with real team logos
 function DbEventCard({ event }: { event: { name: string; team_home: string | null; team_away: string | null; sport: string | null; league: string | null; is_live: boolean; stream_url: string | null } }) {
   const homeInitials = (event.team_home || "?").slice(0, 3).toUpperCase();
   const awayInitials = (event.team_away || "?").slice(0, 3).toUpperCase();
@@ -544,20 +571,15 @@ function DbEventCard({ event }: { event: { name: string; team_home: string | nul
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/90" />
       
       <div className="relative flex flex-col min-h-[200px]">
-        {/* Live bar */}
         {event.is_live && (
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent animate-gradient-shift" style={{ backgroundSize: '200% 100%' }} />
         )}
 
-        {/* Team initials face-off */}
+        {/* Team logos face-off */}
         <div className="flex items-center justify-center gap-4 flex-1 px-4 py-6">
-          <div className="w-14 h-14 rounded-full flex items-center justify-center font-display text-xl text-white/80 border border-white/10 bg-white/[0.06]">
-            {awayInitials}
-          </div>
+          <TeamBadge name={event.team_away} fallback={awayInitials} />
           <span className="font-display text-lg text-white/15 tracking-[0.3em]">VS</span>
-          <div className="w-14 h-14 rounded-full flex items-center justify-center font-display text-xl text-white/80 border border-white/10 bg-white/[0.06]">
-            {homeInitials}
-          </div>
+          <TeamBadge name={event.team_home} fallback={homeInitials} />
         </div>
 
         {/* Footer */}
