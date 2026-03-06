@@ -39,7 +39,7 @@ const CATEGORY_FILTERS = [
   { label: "General", value: "general" },
 ];
 
-export function ChannelsView() {
+export function ChannelsView({ initialTab = "247" }: { initialTab?: "247" | "normal" }) {
   const { openPlayer } = usePlayerModal();
   const [dbChannels, setDbChannels] = useState<DbChannel[]>([]);
   const [channels247, setChannels247] = useState<ExternalChannel[]>([]);
@@ -50,7 +50,7 @@ export function ChannelsView() {
   const [retrying, setRetrying] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
-  const [activeTab, setActiveTab] = useState<"247" | "normal">("247");
+  const [activeTab, setActiveTab] = useState<"247" | "normal">(initialTab);
 
   // Fetch DB channels
   const fetchDbChannels = useCallback(async () => {
