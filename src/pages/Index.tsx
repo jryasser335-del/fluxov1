@@ -4,15 +4,14 @@ import { PlayerModal } from "@/components/PlayerModal";
 import { EventsView } from "@/components/EventsView";
 import { MoviesView } from "@/components/MoviesView";
 import { MultiStreamView } from "@/components/MultiStreamView";
-import { ChannelsView } from "@/components/ChannelsView";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { cn } from "@/lib/utils";
-import { Trophy, Film, LayoutGrid, Settings, Radio, Tv } from "lucide-react";
+import { Trophy, Film, LayoutGrid, Settings } from "lucide-react";
 import { useAppAuth } from "@/hooks/useAppAuth";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-type ViewType = "eventos" | "peliculas" | "multistream" | "channels247" | "channelsiptv";
+type ViewType = "eventos" | "peliculas" | "multistream";
 
 const pageVariants = {
   initial: { opacity: 0, y: 12, scale: 0.99 },
@@ -67,30 +66,6 @@ const Index = () => {
                 <MultiStreamView />
               </motion.div>
             )}
-            {activeView === "channels247" && (
-              <motion.div
-                key="channels247"
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <ChannelsView initialTab="247" />
-              </motion.div>
-            )}
-            {activeView === "channelsiptv" && (
-              <motion.div
-                key="channelsiptv"
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <ChannelsView initialTab="normal" />
-              </motion.div>
-            )}
           </AnimatePresence>
         </main>
 
@@ -104,8 +79,6 @@ const Index = () => {
               { view: "eventos" as ViewType, icon: Trophy, label: "Live" },
               { view: "peliculas" as ViewType, icon: Film, label: "Películas" },
               { view: "multistream" as ViewType, icon: LayoutGrid, label: "Multi" },
-              { view: "channels247" as ViewType, icon: Radio, label: "24/7" },
-              { view: "channelsiptv" as ViewType, icon: Tv, label: "IPTV" },
             ]).map(({ view, icon: Icon, label }) => (
               <button
                 key={view}
