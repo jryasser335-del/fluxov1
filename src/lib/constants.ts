@@ -20,6 +20,7 @@ export const LEAGUE_OPTIONS = [
   { value: "ncaab", label: "🏀 NCAA Basketball" },
   { value: "mlb", label: "⚾ MLB" },
   { value: "mlb.spring", label: "⚾ MLB Spring Training" },
+  { value: "baseball.wbc", label: "⚾ World Baseball Classic" },
   
   // European Soccer - Top Leagues
   { value: "eng.1", label: "🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League" },
