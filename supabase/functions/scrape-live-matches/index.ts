@@ -113,104 +113,6 @@ async function resolveStreamUrl(source: string, id: string): Promise<string | nu
   return null;
 }
 
-// ── Sportsurge (community aggregator) ──
-const SPORTSURGE_BASES = [
-  "https://v3.sportsurge.best",
-  "https://sportsurge.io",
-  "https://sportsurge.club",
-  "https://sportsurge.net",
-];
-
-async function fetchSportsurge(): Promise<SupEvent[]> {
-  for (const base of SPORTSURGE_BASES) {
-    try {
-      // Sportsurge exposes an API for live streams
-      const response = await fetchWithTimeout(`${base}/api/events`, 8000, {
-        Referer: base,
-        Origin: base,
-      });
-      if (!response?.ok) continue;
-      const ct = response.headers.get("content-type") || "";
-      if (!ct.includes("json")) continue;
-      const data = await response.json();
-      const events: SupEvent[] = [];
-
-      const items = Array.isArray(data) ? data : data.events || data.streams || [];
-      for (const item of items) {
-        const title = item.title || item.name || item.event_name || "";
-        if (!title) continue;
-        const streams = item.streams || item.links || [];
-        // Get the first working embed URL
-        let embedUrl = "";
-        if (Array.isArray(streams) && streams.length > 0) {
-          const best = streams.find((s: any) => s.hd || s.quality === "HD") || streams[0];
-          embedUrl = best.url || best.embed_url || best.link || best.iframe || "";
-        } else if (item.url || item.embed_url || item.iframe) {
-          embedUrl = item.url || item.embed_url || item.iframe;
-        }
-        if (!embedUrl) continue;
-
-        const category = (item.category || item.sport || "football").toLowerCase();
-        const teams = parseTeams(title);
-        events.push({
-          title,
-          category: ALLOWED_CATEGORIES.has(category) ? category : "football",
-          embedUrl,
-          teamHome: teams?.home || item.team_home || null,
-          teamAway: teams?.away || item.team_away || null,
-        });
-      }
-      console.log(`Sportsurge (${base}): Found ${events.length} events`);
-      if (events.length > 0) return events;
-    } catch (e) {
-      console.error(`Sportsurge ${base} failed:`, e.message);
-      continue;
-    }
-  }
-
-  // Fallback: try scraping the HTML page for stream links
-  for (const base of SPORTSURGE_BASES) {
-    try {
-      const response = await fetchWithTimeout(base, 8000);
-      if (!response?.ok) continue;
-      const html = await response.text();
-      // Extract event data from embedded JSON in page
-      const jsonMatch = html.match(/window\.__NUXT__\s*=\s*({.*?});?\s*<\/script>/s) ||
-                        html.match(/window\.__DATA__\s*=\s*({.*?});?\s*<\/script>/s) ||
-                        html.match(/"events"\s*:\s*(\[.*?\])/s);
-      if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[1]);
-          const items = Array.isArray(parsed) ? parsed : parsed.events || [];
-          const events: SupEvent[] = [];
-          for (const item of items) {
-            const title = item.title || item.name || "";
-            const embedUrl = item.url || item.embed || item.iframe || "";
-            if (!title || !embedUrl) continue;
-            const teams = parseTeams(title);
-            events.push({
-              title,
-              category: (item.category || "football").toLowerCase(),
-              embedUrl,
-              teamHome: teams?.home || null,
-              teamAway: teams?.away || null,
-            });
-          }
-          if (events.length > 0) {
-            console.log(`Sportsurge HTML (${base}): Found ${events.length} events`);
-            return events;
-          }
-        } catch { /* parse failed */ }
-      }
-    } catch (e) {
-      console.error(`Sportsurge HTML ${base} failed:`, e.message);
-    }
-  }
-
-  console.log("Sportsurge: No events found from any domain");
-  return [];
-}
-
 // ── PPV.to (only reliable supplementary source) ──
 async function fetchPPV(): Promise<SupEvent[]> {
   try {
@@ -295,13 +197,12 @@ Deno.serve(async (req) => {
     const validRecords = records.filter((r) => r.source_admin || r.source_delta || r.source_echo || r.source_golf);
     console.log(`Resolved ${validRecords.length}/${records.length} matches with stream URLs`);
 
-    // ── 3. PPV + Sportsurge supplementary (parallel) ──
-    const [ppv, sportsurge] = await Promise.all([fetchPPV(), fetchSportsurge()]);
-    const allSupplementary = [...ppv, ...sportsurge];
+    // ── 3. PPV supplementary ──
+    const ppv = await fetchPPV();
     let supplementaryAdded = 0;
     let supplementaryEnriched = 0;
 
-    for (const sup of allSupplementary) {
+    for (const sup of ppv) {
       if (!sup.embedUrl) continue;
 
       const existingIdx = validRecords.findIndex((r) => {
@@ -326,7 +227,7 @@ Deno.serve(async (req) => {
       } else if (sup.category !== "other" && sup.teamHome) {
         const slugId = sup.embedUrl.replace(/[^a-z0-9]/gi, "-").slice(-40);
         validRecords.push({
-          match_id: `surge-${slugId}`,
+          match_id: `sup-${slugId}`,
           match_title: sup.title, category: sup.category,
           team_home: sup.teamHome, team_away: sup.teamAway,
           source_admin: null, source_delta: null, source_echo: null,
@@ -351,8 +252,7 @@ Deno.serve(async (req) => {
         success: true, count: validRecords.length,
         matchesFound: qualityMatches.length,
         streamsResolved: validRecords.length - supplementaryAdded,
-        ppv: ppv.length, sportsurge: sportsurge.length,
-        supplementaryAdded, supplementaryEnriched,
+        ppv: ppv.length, supplementaryAdded, supplementaryEnriched,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
