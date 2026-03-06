@@ -354,9 +354,31 @@ export function EventCard({
                   </div>
                 )}
               </div>
-              <span className="text-[10px] text-white/20 font-medium font-mono-premium tracking-wide">
-                {isPre ? clockTxt : isFinal ? clockTxt : ""}
-              </span>
+              <div className="flex items-center gap-2">
+                {/* Stream status indicator */}
+                {hasLink && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px] shadow-emerald-400/50 animate-pulse" />
+                    <span className="text-[8px] font-semibold text-emerald-400/80">ON</span>
+                  </div>
+                )}
+                {!hasLink && !isPre && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                    <span className="text-[8px] font-semibold text-white/20">OFF</span>
+                  </div>
+                )}
+                {/* Real viewer count */}
+                {viewerCount > 0 && (
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/[0.06]">
+                    <Eye className="w-2.5 h-2.5 text-white/40" />
+                    <span className="text-[8px] font-bold text-white/50">{viewerCount}</span>
+                  </div>
+                )}
+                <span className="text-[10px] text-white/20 font-medium font-mono-premium tracking-wide">
+                  {isPre ? clockTxt : isFinal ? clockTxt : ""}
+                </span>
+              </div>
             </div>
           </div>
         </div>
