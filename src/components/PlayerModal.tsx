@@ -57,6 +57,8 @@ export function PlayerModal() {
 
   const sleepTimer = useSleepTimer();
 
+  const isPendingMessage = !urls.url1 || urls.url1 === "";
+
   // Real viewer counter - join presence when stream is open
   const eventKey = isOpen && urls.url1 ? btoa(urls.url1).slice(0, 32) : null;
   useJoinViewerPresence(eventKey, isOpen && !isPendingMessage);
