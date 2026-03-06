@@ -410,22 +410,19 @@ export function PlayerModal() {
 
         {/* ── SERVER TABS: Always visible when multiple options ── */}
         {hasMultipleOptions && (
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[55] flex items-center gap-2 p-1.5 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 shadow-lg">
+          <div className="absolute top-3 left-3 z-[55] flex items-center gap-1.5 p-1 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 shadow-lg">
             {availableOptions.map((opt) => (
               <button
                 key={opt.num}
                 onClick={(e) => { e.stopPropagation(); switchSource(opt.num); }}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 relative touch-manipulation",
+                  "px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all duration-200 touch-manipulation",
                   activeOption === opt.num
-                    ? "bg-red-600 text-white shadow-lg shadow-red-600/30 ring-2 ring-red-400/50"
-                    : "bg-white/10 text-white/60 hover:bg-white/20 hover:text-white active:bg-white/30"
+                    ? "bg-red-600 text-white shadow-lg shadow-red-600/30"
+                    : "text-white/50 hover:text-white hover:bg-white/10 active:bg-white/20"
                 )}
               >
-                {opt.label}
-                {activeOption === opt.num && (
-                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-red-400 rounded-full" />
-                )}
+                {opt.num}
               </button>
             ))}
           </div>
