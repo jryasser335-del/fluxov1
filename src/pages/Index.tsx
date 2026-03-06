@@ -67,6 +67,30 @@ const Index = () => {
                 <MultiStreamView />
               </motion.div>
             )}
+            {activeView === "channels247" && (
+              <motion.div
+                key="channels247"
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <ChannelsView initialTab="247" />
+              </motion.div>
+            )}
+            {activeView === "channelsiptv" && (
+              <motion.div
+                key="channelsiptv"
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <ChannelsView initialTab="normal" />
+              </motion.div>
+            )}
           </AnimatePresence>
         </main>
 
