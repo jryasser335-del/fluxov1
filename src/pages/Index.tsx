@@ -104,6 +104,8 @@ const Index = () => {
               { view: "eventos" as ViewType, icon: Trophy, label: "Live" },
               { view: "peliculas" as ViewType, icon: Film, label: "Películas" },
               { view: "multistream" as ViewType, icon: LayoutGrid, label: "Multi" },
+              { view: "channels247" as ViewType, icon: Radio, label: "24/7" },
+              { view: "channelsiptv" as ViewType, icon: Tv, label: "IPTV" },
             ]).map(({ view, icon: Icon, label }) => (
               <button
                 key={view}
