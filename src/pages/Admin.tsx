@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/hooks/useAuth";
+import { useAppAuth } from "@/hooks/useAppAuth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LogOut, Loader2, Tv, Trophy, Users, ArrowLeft, Sparkles, Shield, Zap, Satellite } from "lucide-react";
@@ -10,23 +10,24 @@ import { AdminUsers } from "@/components/admin/AdminUsers";
 import { AdminScraper } from "@/components/admin/AdminScraper";
 
 export default function Admin() {
-  const { user, isAdmin, isLoading, signOut } = useAuth();
+  const { appUser, logout } = useAppAuth();
+  const isAdmin = appUser?.isAdmin ?? false;
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      navigate("/auth");
-    } else if (!isLoading && user && !isAdmin) {
+    if (!appUser) {
+      navigate("/");
+    } else if (!isAdmin) {
       navigate("/");
     }
-  }, [user, isAdmin, isLoading, navigate]);
+  }, [appUser, isAdmin, navigate]);
 
   const handleSignOut = async () => {
-    await signOut();
+    logout();
     navigate("/");
   };
 
-  if (isLoading) {
+  if (!appUser) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="relative">

@@ -1,7 +1,7 @@
 import { Trophy, Settings, LayoutGrid } from "lucide-react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
+import { useAppAuth } from "@/hooks/useAppAuth";
 
 export type ViewType = "eventos" | "multistream";
 
@@ -27,7 +27,8 @@ const navItems: { view: ViewType; label: string; icon: React.ReactNode; color: s
 ];
 
 export function Sidebar({ activeView, onViewChange }: SidebarProps) {
-  const { isAdmin } = useAuth();
+  const { appUser } = useAppAuth();
+  const isAdmin = appUser?.isAdmin ?? false;
 
   return (
     <>
