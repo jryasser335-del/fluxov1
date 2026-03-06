@@ -457,8 +457,8 @@ export function EventsView() {
           })}
         </div>
 
-        {/* Sub-league filter - only for football tab */}
-        {activeSport === "football" && availableLeagues.length > 1 && (
+        {/* Sub-league filter - for tabs with multiple leagues */}
+        {(activeSport === "football" || activeSport === "mlb") && availableLeagues.length > 1 && (
           <div className="flex gap-1.5 overflow-x-auto pb-3 scrollbar-hide">
             {availableLeagues.map((league) => {
               const count = leagueCounts.get(league.value) || 0;
