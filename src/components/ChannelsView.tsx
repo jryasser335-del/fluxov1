@@ -328,20 +328,22 @@ export function ChannelsView({ initialTab = "247" }: { initialTab?: "247" | "nor
               No se encontraron canales IPTV
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {filteredNormal.slice(0, 100).map((ch, i) => (
-                <ExternalChannelCard
-                  key={`iptv-${i}-${ch.name}`}
-                  channel={ch}
-                  onClick={() => handleExternalClick(ch)}
-                />
-              ))}
-              {filteredNormal.length > 100 && (
-                <div className="col-span-full text-center py-4 text-muted-foreground text-xs">
-                  Mostrando 100 de {filteredNormal.length} canales. Usa el buscador para filtrar.
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {filteredNormal.slice(0, visibleCount).map((ch, i) => (
+                  <ExternalChannelCard
+                    key={`iptv-${i}-${ch.name}`}
+                    channel={ch}
+                    onClick={() => handleExternalClick(ch)}
+                  />
+                ))}
+              </div>
+              {visibleCount < filteredNormal.length && (
+                <div ref={loadMoreRef} className="col-span-full text-center py-6 text-muted-foreground text-xs">
+                  Cargando más canales... ({Math.min(visibleCount, filteredNormal.length)} de {filteredNormal.length})
                 </div>
               )}
-            </div>
+            </>
           )}
         </Section>
       )}
