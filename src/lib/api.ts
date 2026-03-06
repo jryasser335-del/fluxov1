@@ -99,7 +99,7 @@ const ESPN_SPORT_MAP: Record<string, string> = {
   nhl: "hockey/nhl",
   // Baseball
   mlb: "baseball/mlb",
-  "baseball.wbc": "baseball/wbc",
+  "baseball.wbc": "baseball/world-baseball-classic",
   // MMA / Boxing
   ufc: "mma/ufc",
   bellator: "mma/bellator",
