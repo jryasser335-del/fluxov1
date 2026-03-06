@@ -13,6 +13,7 @@ interface EventCardProps {
   hasLink: boolean;
   isFavorite: boolean;
   isFeatured?: boolean;
+  streamUrl?: string; // For viewer count key
   onToggleFavorite: () => void;
   onClick: () => void;
   formatTime: (iso: string) => string;
@@ -172,11 +173,15 @@ export function EventCard({
   leagueInfo,
   hasLink,
   isFavorite,
+  streamUrl,
   onToggleFavorite,
   onClick,
   formatTime,
 }: EventCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  // Viewer count via Realtime Presence
+  const viewerKey = streamUrl ? btoa(streamUrl).slice(0, 32) : null;
+  const viewerCount = useViewerCount(viewerKey);
   const comp = event.competitions?.[0];
   const status = comp?.status?.type;
   const isLive = status?.state === "in";
