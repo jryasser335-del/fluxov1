@@ -51,7 +51,8 @@ export function ChannelsView({ initialTab = "247" }: { initialTab?: "247" | "nor
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeTab, setActiveTab] = useState<"247" | "normal">(initialTab);
-
+  const [visibleCount, setVisibleCount] = useState(60);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   // Fetch DB channels
   const fetchDbChannels = useCallback(async () => {
     try {
