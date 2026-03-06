@@ -295,12 +295,13 @@ Deno.serve(async (req) => {
     const validRecords = records.filter((r) => r.source_admin || r.source_delta || r.source_echo || r.source_golf);
     console.log(`Resolved ${validRecords.length}/${records.length} matches with stream URLs`);
 
-    // ── 3. PPV supplementary ──
-    const ppv = await fetchPPV();
+    // ── 3. PPV + Sportsurge supplementary (parallel) ──
+    const [ppv, sportsurge] = await Promise.all([fetchPPV(), fetchSportsurge()]);
+    const allSupplementary = [...ppv, ...sportsurge];
     let supplementaryAdded = 0;
     let supplementaryEnriched = 0;
 
-    for (const sup of ppv) {
+    for (const sup of allSupplementary) {
       if (!sup.embedUrl) continue;
 
       const existingIdx = validRecords.findIndex((r) => {
@@ -325,7 +326,7 @@ Deno.serve(async (req) => {
       } else if (sup.category !== "other" && sup.teamHome) {
         const slugId = sup.embedUrl.replace(/[^a-z0-9]/gi, "-").slice(-40);
         validRecords.push({
-          match_id: `sup-${slugId}`,
+          match_id: `surge-${slugId}`,
           match_title: sup.title, category: sup.category,
           team_home: sup.teamHome, team_away: sup.teamAway,
           source_admin: null, source_delta: null, source_echo: null,
@@ -350,7 +351,8 @@ Deno.serve(async (req) => {
         success: true, count: validRecords.length,
         matchesFound: qualityMatches.length,
         streamsResolved: validRecords.length - supplementaryAdded,
-        ppv: ppv.length, supplementaryAdded, supplementaryEnriched,
+        ppv: ppv.length, sportsurge: sportsurge.length,
+        supplementaryAdded, supplementaryEnriched,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
