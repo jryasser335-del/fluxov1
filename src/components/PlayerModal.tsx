@@ -393,10 +393,10 @@ export function PlayerModal() {
       </button>
 
       <div ref={containerRef} className="relative w-full h-full overflow-hidden">
-        {/* ── HEADER: Title + Stream Tabs ── */}
+        {/* ── HEADER: Title ── */}
         <div className={cn("absolute top-0 left-0 right-0 z-50 transition-all duration-300", showControls ? "opacity-100" : "opacity-0 pointer-events-none")} style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 70%, transparent 100%)' }}>
           <div className="px-4 md:px-6 pt-3 pb-2 pr-16">
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-3">
               {isLiveContent && (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/30 shrink-0">
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
@@ -405,31 +405,31 @@ export function PlayerModal() {
               )}
               <h2 className="font-display text-sm md:text-lg text-white truncate">{title}</h2>
             </div>
-
-            {/* Stream server tabs with active indicator */}
-            {hasMultipleOptions && (
-              <div className="flex items-center gap-2">
-                {availableOptions.map((opt) => (
-                  <button
-                    key={opt.num}
-                    onClick={(e) => { e.stopPropagation(); switchSource(opt.num); }}
-                    className={cn(
-                      "px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 relative",
-                      activeOption === opt.num
-                        ? "bg-red-600 text-white shadow-lg shadow-red-600/30 ring-2 ring-red-400/50"
-                        : "bg-white/10 text-white/60 hover:bg-white/20 hover:text-white border border-white/10"
-                    )}
-                  >
-                    {opt.label}
-                    {activeOption === opt.num && (
-                      <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-red-400 rounded-full" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </div>
+
+        {/* ── SERVER TABS: Always visible when multiple options ── */}
+        {hasMultipleOptions && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-[55] flex items-center gap-2 p-1.5 rounded-xl bg-black/70 backdrop-blur-md border border-white/10 shadow-lg">
+            {availableOptions.map((opt) => (
+              <button
+                key={opt.num}
+                onClick={(e) => { e.stopPropagation(); switchSource(opt.num); }}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-xs font-bold transition-all duration-200 relative touch-manipulation",
+                  activeOption === opt.num
+                    ? "bg-red-600 text-white shadow-lg shadow-red-600/30 ring-2 ring-red-400/50"
+                    : "bg-white/10 text-white/60 hover:bg-white/20 hover:text-white active:bg-white/30"
+                )}
+              >
+                {opt.label}
+                {activeOption === opt.num && (
+                  <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-red-400 rounded-full" />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* ── VIDEO AREA ── */}
         <div className="w-full h-full">
