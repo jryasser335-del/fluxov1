@@ -2,12 +2,13 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { 
   X, Play, Pause, Maximize2, Minimize2, Volume2, VolumeX, 
   Rewind, FastForward, Settings, Share2, PictureInPicture2, Clock,
-  BarChart3, Moon, Cast, Music, Signal, Radio, AlertTriangle
+  BarChart3, Moon, Cast, Music, Signal, Radio, AlertTriangle, Eye
 } from "lucide-react";
 import Hls from "hls.js";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { useWatchHistory } from "@/hooks/useWatchHistory";
 import { useSleepTimer } from "@/hooks/useSleepTimer";
+import { useJoinViewerPresence, useViewerCount } from "@/hooks/useViewerCount";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { StreamStats } from "./player/StreamStats";
@@ -57,6 +58,11 @@ export function PlayerModal() {
   const sleepTimer = useSleepTimer();
 
   const isPendingMessage = !urls.url1 || urls.url1 === "";
+
+  // Real viewer counter - join presence when stream is open
+  const eventKey = isOpen && urls.url1 ? btoa(urls.url1).slice(0, 32) : null;
+  useJoinViewerPresence(eventKey, isOpen && !isPendingMessage);
+  const viewerCount = useViewerCount(eventKey);
 
   const getCurrentUrl = useCallback(() => {
     if (activeOption === 2 && urls.url2) return urls.url2;
@@ -404,6 +410,12 @@ export function PlayerModal() {
                 </div>
               )}
               <h2 className="font-display text-sm md:text-lg text-white truncate">{title}</h2>
+              {viewerCount > 0 && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 shrink-0 ml-auto">
+                  <Eye className="w-3 h-3 text-white/60" />
+                  <span className="text-[10px] font-bold text-white/70">{viewerCount}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
