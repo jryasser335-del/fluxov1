@@ -78,7 +78,7 @@ const Index = () => {
             {([
               { view: "eventos" as ViewType, icon: Trophy, label: "Live" },
               { view: "peliculas" as ViewType, icon: Film, label: "Películas" },
-              { view: "multistream" as ViewType, icon: LayoutGrid, label: "Schedule" },
+              { view: "multistream" as ViewType, icon: LayoutGrid, label: "Multi" },
             ]).map(({ view, icon: Icon, label }) => (
               <button
                 key={view}
