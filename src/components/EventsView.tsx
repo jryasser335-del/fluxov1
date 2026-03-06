@@ -22,7 +22,7 @@ const SPORT_TABS = [
     "conmebol.libertadores", "mls"
   ]},
   { value: "nba", label: "NBA", emoji: "🏀", leagues: ["nba"] },
-  { value: "mlb", label: "MLB", emoji: "⚾", leagues: ["mlb", "mlb.spring", "baseball.wbc"] },
+  { value: "mlb", label: "MLB", emoji: "⚾", leagues: ["mlb", "baseball.wbc"] },
   { value: "nhl", label: "NHL", emoji: "🏒", leagues: ["nhl"] },
   { value: "boxing", label: "Boxing", emoji: "🥊", leagues: ["boxing"] },
   { value: "mma", label: "MMA", emoji: "🥋", leagues: ["ufc"] },
