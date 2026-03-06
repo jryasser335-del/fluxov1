@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Plus, X, Maximize2, Minimize2, Grid2X2, LayoutGrid, Tv, Search, Trophy, Radio, Play } from "lucide-react";
+import { Plus, X, Maximize2, Minimize2, Grid2X2, LayoutGrid, Tv, Search, Trophy, Radio, Play, Zap, Monitor } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface StreamSlot {
   id: number;
@@ -101,44 +102,82 @@ export function MultiStreamView() {
   };
 
   return (
-    <div className={cn("min-h-screen p-4 md:p-6", isFullscreen && "fixed inset-0 z-50 bg-black")}>
+    <div className={cn("min-h-screen", isFullscreen && "fixed inset-0 z-50 bg-black p-3")}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-5">
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between mb-4"
+      >
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500/20 to-red-600/10 border border-red-500/30 flex items-center justify-center">
-            <Tv className="w-5 h-5 text-red-400" />
+          <div className="relative">
+            <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-cyan-500/20 via-blue-500/15 to-purple-500/10 border border-cyan-500/20 flex items-center justify-center backdrop-blur-sm">
+              <Monitor className="w-5 h-5 text-cyan-400" />
+            </div>
+            <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-cyan-400 border-2 border-background animate-pulse" />
           </div>
           <div>
-            <h1 className="text-lg font-display font-bold text-white">Multi Stream</h1>
-            <p className="text-[11px] text-white/40">Ve múltiples partidos simultáneamente</p>
+            <h1 className="text-xl font-display font-black text-white tracking-tight">Multi Stream</h1>
+            <div className="flex items-center gap-1.5">
+              <Zap className="w-3 h-3 text-cyan-400" />
+              <p className="text-[11px] text-white/40 font-medium">Múltiples partidos en simultáneo</p>
+            </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-0.5 p-1 rounded-xl bg-white/5 border border-white/10">
-            <button onClick={() => setLayout(2)} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all", layout === 2 ? "bg-red-600 text-white" : "text-white/50 hover:text-white hover:bg-white/5")}>
-              <Grid2X2 className="w-3.5 h-3.5" /> 2
-            </button>
-            <button onClick={() => setLayout(4)} className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all", layout === 4 ? "bg-red-600 text-white" : "text-white/50 hover:text-white hover:bg-white/5")}>
-              <LayoutGrid className="w-3.5 h-3.5" /> 4
-            </button>
+          {/* Layout toggle */}
+          <div className="flex items-center p-1 rounded-xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-sm">
+            {([2, 4] as const).map((n) => (
+              <button
+                key={n}
+                onClick={() => setLayout(n)}
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-300",
+                  layout === n
+                    ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/20"
+                    : "text-white/40 hover:text-white/70 hover:bg-white/[0.06]"
+                )}
+              >
+                {n === 2 ? <Grid2X2 className="w-3.5 h-3.5" /> : <LayoutGrid className="w-3.5 h-3.5" />}
+                {n}
+              </button>
+            ))}
           </div>
-          <button onClick={() => setIsFullscreen(!isFullscreen)} className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-all">
+
+          {/* Active counter pill */}
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-[11px] text-white/50">
+            <div className={cn("w-2 h-2 rounded-full", activeSlots.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-white/20")} />
+            <span className="font-semibold">{activeSlots.length}/{layout}</span>
+          </div>
+
+          {/* Fullscreen */}
+          <button
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="h-9 w-9 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.08] hover:border-cyan-500/20 transition-all duration-300"
+          >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
           </button>
         </div>
-      </div>
+      </motion.div>
 
       {/* Grid */}
-      <div className={cn("grid gap-3", layout === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2", isFullscreen && "h-[calc(100vh-80px)]")}>
-        {displaySlots.map((slot) => (
-          <div
+      <div className={cn(
+        "grid gap-2.5",
+        layout === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2",
+        isFullscreen && "h-[calc(100vh-80px)]"
+      )}>
+        {displaySlots.map((slot, index) => (
+          <motion.div
             key={slot.id}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: index * 0.08, duration: 0.3 }}
             className={cn(
-              "relative rounded-2xl overflow-hidden border transition-all duration-300",
+              "relative rounded-2xl overflow-hidden transition-all duration-300 group",
               slot.isActive
-                ? "border-white/15 bg-black shadow-lg shadow-black/50"
-                : "border-white/[0.08] border-dashed bg-[#0d1117] hover:bg-white/[0.03] hover:border-white/15",
+                ? "border border-white/[0.1] bg-black ring-1 ring-cyan-500/10 shadow-xl shadow-black/40"
+                : "border border-dashed border-white/[0.08] bg-gradient-to-br from-white/[0.02] to-transparent hover:border-cyan-500/20 hover:from-cyan-500/[0.03]",
               "aspect-video"
             )}
           >
@@ -152,85 +191,138 @@ export function MultiStreamView() {
                   referrerPolicy="no-referrer-when-downgrade"
                 />
 
-                {/* Title overlay */}
-                <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+                {/* Top overlay */}
+                <div className="absolute top-0 left-0 right-0 p-2.5 bg-gradient-to-b from-black/90 via-black/50 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <div className="flex items-center gap-2">
                     {slot.isLive && (
-                      <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-red-500/80">
-                        <Radio className="w-2.5 h-2.5 text-white" />
-                        <span className="text-[8px] font-bold text-white uppercase">Live</span>
+                      <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500 shadow-lg shadow-red-500/30">
+                        <Radio className="w-2.5 h-2.5 text-white animate-pulse" />
+                        <span className="text-[9px] font-black text-white uppercase tracking-wider">En Vivo</span>
                       </div>
                     )}
                     <span className="text-[11px] font-bold text-white truncate">{slot.title}</span>
                     {slot.league && (
-                      <span className="text-[9px] text-white/40 truncate hidden sm:block">• {slot.league}</span>
+                      <span className="text-[9px] text-white/50 truncate hidden sm:block px-1.5 py-0.5 rounded bg-white/10">
+                        {slot.league}
+                      </span>
                     )}
                   </div>
                 </div>
 
-                <button onClick={() => handleRemoveStream(slot.id)} className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-black/60 hover:bg-red-500/80 border border-white/15 flex items-center justify-center text-white transition-all z-10">
+                {/* Slot number indicator */}
+                <div className="absolute bottom-2 left-2 w-6 h-6 rounded-lg bg-black/60 border border-white/10 flex items-center justify-center pointer-events-none">
+                  <span className="text-[10px] font-black text-white/60">{slot.id}</span>
+                </div>
+
+                <button
+                  onClick={() => handleRemoveStream(slot.id)}
+                  className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-black/70 hover:bg-red-500 border border-white/10 hover:border-red-400 flex items-center justify-center text-white/60 hover:text-white transition-all z-10 opacity-0 group-hover:opacity-100"
+                >
                   <X className="w-3.5 h-3.5" />
                 </button>
               </>
             ) : (
-              <>
+              <AnimatePresence mode="wait">
                 {showEventPicker === slot.id ? (
-                  <div className="absolute inset-0 flex flex-col p-3 bg-[#0d1117] overflow-hidden">
-                    <div className="relative mb-2">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-                      <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Buscar partido..." className="pl-10 h-9 bg-white/5 border-white/10 text-sm" autoFocus />
+                  <motion.div
+                    key="picker"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 flex flex-col p-3 bg-[#080c14] overflow-hidden"
+                  >
+                    <div className="relative mb-2.5">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-400/50" />
+                      <Input
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Buscar partido..."
+                        className="pl-10 h-9 bg-white/[0.04] border-cyan-500/10 focus:border-cyan-500/30 text-sm rounded-xl"
+                        autoFocus
+                      />
                     </div>
+
                     <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
                       {loading ? (
-                        <div className="flex items-center justify-center h-20"><div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" /></div>
+                        <div className="flex items-center justify-center h-20">
+                          <div className="w-5 h-5 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+                        </div>
                       ) : filteredEvents.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-20 text-white/30"><Trophy className="w-5 h-5 mb-1" /><span className="text-[11px]">No hay partidos</span></div>
+                        <div className="flex flex-col items-center justify-center h-20 text-white/25">
+                          <Trophy className="w-5 h-5 mb-1.5 text-white/15" />
+                          <span className="text-[11px] font-medium">No hay partidos disponibles</span>
+                        </div>
                       ) : (
                         filteredEvents.map((event) => (
-                          <button key={event.id} onClick={() => handleSelectEvent(slot.id, event)} className="w-full p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:border-red-500/30 transition-all text-left group">
+                          <button
+                            key={event.id}
+                            onClick={() => handleSelectEvent(slot.id, event)}
+                            className="w-full p-2.5 rounded-xl bg-white/[0.02] hover:bg-cyan-500/[0.06] border border-white/[0.05] hover:border-cyan-500/20 transition-all text-left group/item"
+                          >
                             <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500/15 to-red-600/5 border border-red-500/15 flex items-center justify-center shrink-0">
-                                <Play className="w-3.5 h-3.5 text-red-400" />
+                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/10 to-blue-500/5 border border-cyan-500/10 flex items-center justify-center shrink-0 group-hover/item:border-cyan-500/25 transition-colors">
+                                <Play className="w-3.5 h-3.5 text-cyan-400" />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5">
                                   <span className="text-[12px] font-bold text-white truncate">{event.name}</span>
-                                  {event.is_live && (<span className="px-1 py-0.5 rounded bg-red-500/20 text-[8px] font-bold text-red-400 uppercase shrink-0">Live</span>)}
+                                  {event.is_live && (
+                                    <span className="px-1.5 py-0.5 rounded-md bg-red-500/15 border border-red-500/20 text-[8px] font-black text-red-400 uppercase shrink-0">
+                                      Live
+                                    </span>
+                                  )}
                                 </div>
-                                <div className="flex items-center gap-1.5 text-[10px] text-white/30">
-                                  {event.league && <span>{event.league}</span>}
-                                  <span>•</span>
+                                <div className="flex items-center gap-1.5 text-[10px] text-white/30 mt-0.5">
+                                  {event.league && <span className="text-cyan-400/50">{event.league}</span>}
+                                  {event.league && <span>•</span>}
                                   <span>{new Date(event.event_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
                               </div>
-                              <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                              <div className="w-2 h-2 rounded-full bg-emerald-400/80 shrink-0 group-hover/item:shadow-lg group-hover/item:shadow-emerald-400/20 transition-shadow" />
                             </div>
                           </button>
                         ))
                       )}
                     </div>
-                    <button onClick={() => { setShowEventPicker(null); setSearchQuery(""); }} className="mt-2 w-full py-2 rounded-xl bg-white/5 text-white/50 text-xs font-medium hover:bg-white/10 transition-all">Cancelar</button>
-                  </div>
-                ) : (
-                  <button onClick={() => setShowEventPicker(slot.id)} className="absolute inset-0 flex flex-col items-center justify-center gap-2.5 group">
-                    <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center group-hover:bg-white/[0.08] group-hover:border-red-500/20 transition-all">
-                      <Plus className="w-7 h-7 text-white/30 group-hover:text-red-400 transition-colors" />
-                    </div>
-                    <span className="text-xs font-medium text-white/30 group-hover:text-white/50 transition-colors">Añadir Partido</span>
-                    <span className="text-[10px] text-white/15">{availableEvents.length - selectedEventIds.filter(Boolean).length} disponibles</span>
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        ))}
-      </div>
 
-      {/* Counter */}
-      <div className="mt-4 flex items-center justify-center">
-        <div className="px-4 py-1.5 rounded-full bg-white/[0.03] border border-white/[0.06] text-[11px] text-white/40">
-          {activeSlots.length} de {layout} activos
-        </div>
+                    <button
+                      onClick={() => { setShowEventPicker(null); setSearchQuery(""); }}
+                      className="mt-2 w-full py-2 rounded-xl bg-white/[0.04] border border-white/[0.06] text-white/40 text-xs font-semibold hover:bg-white/[0.08] hover:text-white/60 transition-all"
+                    >
+                      Cancelar
+                    </button>
+                  </motion.div>
+                ) : (
+                  <motion.button
+                    key="empty"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    onClick={() => setShowEventPicker(slot.id)}
+                    className="absolute inset-0 flex flex-col items-center justify-center gap-3 group/add"
+                  >
+                    {/* Slot number */}
+                    <div className="absolute top-3 left-3 w-6 h-6 rounded-lg bg-white/[0.04] border border-white/[0.06] flex items-center justify-center">
+                      <span className="text-[10px] font-black text-white/20">{slot.id}</span>
+                    </div>
+
+                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-cyan-500/[0.06] to-blue-500/[0.03] border border-dashed border-cyan-500/15 flex items-center justify-center group-hover/add:border-cyan-500/30 group-hover/add:from-cyan-500/[0.1] transition-all duration-300">
+                      <Plus className="w-7 h-7 text-white/20 group-hover/add:text-cyan-400 transition-colors duration-300" />
+                    </div>
+                    <div className="text-center">
+                      <span className="block text-xs font-semibold text-white/25 group-hover/add:text-white/50 transition-colors">
+                        Añadir Stream
+                      </span>
+                      <span className="block text-[10px] text-white/15 mt-0.5">
+                        {availableEvents.length - selectedEventIds.filter(Boolean).length} disponibles
+                      </span>
+                    </div>
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            )}
+          </motion.div>
+        ))}
       </div>
     </div>
   );
