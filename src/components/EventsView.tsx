@@ -22,7 +22,7 @@ const SPORT_TABS = [
     "conmebol.libertadores", "mls"
   ]},
   { value: "nba", label: "NBA", emoji: "🏀", leagues: ["nba"] },
-  { value: "mlb", label: "MLB", emoji: "⚾", leagues: ["mlb"] },
+  { value: "mlb", label: "MLB", emoji: "⚾", leagues: ["mlb", "mlb.spring", "baseball.wbc"] },
   { value: "nhl", label: "NHL", emoji: "🏒", leagues: ["nhl"] },
   { value: "boxing", label: "Boxing", emoji: "🥊", leagues: ["boxing"] },
   { value: "mma", label: "MMA", emoji: "🥋", leagues: ["ufc"] },
@@ -248,7 +248,7 @@ export function EventsView() {
     // Map tabs to DB sport keywords AND specific league keywords
     const sportMap: Record<string, { sports: string[]; leagues?: string[] }> = {
       nba: { sports: ["basketball"], leagues: ["nba"] },
-      mlb: { sports: ["baseball"], leagues: ["mlb"] },
+      mlb: { sports: ["baseball"], leagues: ["mlb", "world baseball classic", "wbc", "clasico mundial"] },
       nhl: { sports: ["hockey"], leagues: ["nhl"] },
       football: { sports: ["soccer", "football"], leagues: ["premier", "laliga", "la liga", "bundesliga", "serie a", "ligue 1", "champions", "europa", "copa del rey", "fa cup", "carabao", "efl", "dfb", "coppa italia", "coupe de france", "eredivisie", "liga portugal", "super lig", "liga mx", "argentina", "brasileirao", "libertadores", "mls"] },
       boxing: { sports: ["boxing"] },
