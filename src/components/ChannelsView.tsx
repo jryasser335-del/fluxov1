@@ -351,6 +351,8 @@ export function ChannelsView({ initialTab = "247" }: { initialTab?: "247" | "nor
   );
 }
 
+const LOGO_PROXY = `https://tizmocegplamrmpfxvdu.supabase.co/functions/v1/logo-proxy?url=`;
+
 // ── External Channel Card ──
 function ExternalChannelCard({
   channel,
@@ -384,7 +386,7 @@ function ExternalChannelCard({
         <div className="relative w-14 h-14 rounded-xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:border-white/[0.12] transition-colors">
           {channel.logo && !imgError ? (
             <img
-              src={channel.logo}
+              src={`${LOGO_PROXY}${encodeURIComponent(channel.logo)}`}
               alt={channel.name}
               className="w-full h-full object-contain p-2 transition-transform group-hover:scale-105"
               loading="lazy"
