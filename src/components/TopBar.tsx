@@ -2,7 +2,7 @@ import { Search, Bell } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ViewType } from "./Sidebar";
 import { HistoryButton } from "./HistoryButton";
-import { useAuth } from "@/hooks/useAuth";
+import { useAppAuth } from "@/hooks/useAppAuth";
 import { Link } from "react-router-dom";
 
 interface TopBarProps {
@@ -17,7 +17,8 @@ const viewConfig: Record<ViewType, { title: string; subtitle: string; icon: stri
 };
 
 export function TopBar({ activeView, searchValue, onSearchChange }: TopBarProps) {
-  const { isAdmin } = useAuth();
+  const { appUser } = useAppAuth();
+  const isAdmin = appUser?.isAdmin ?? false;
   const config = viewConfig[activeView];
 
   const getPlaceholder = () => {

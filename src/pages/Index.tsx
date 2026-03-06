@@ -7,7 +7,7 @@ import { MultiStreamView } from "@/components/MultiStreamView";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { cn } from "@/lib/utils";
 import { Trophy, Film, LayoutGrid, Settings } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAppAuth } from "@/hooks/useAppAuth";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -22,7 +22,8 @@ const pageVariants = {
 const Index = () => {
   const [activeView, setActiveView] = useState<ViewType>("eventos");
   const [movieSearch, setMovieSearch] = useState("");
-  const { isAdmin } = useAuth();
+  const { appUser } = useAppAuth();
+  const isAdmin = appUser?.isAdmin ?? false;
 
   return (
     <>
