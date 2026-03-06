@@ -118,6 +118,25 @@ export function ChannelsView({ initialTab = "247" }: { initialTab?: "247" | "nor
     }
   };
 
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(60);
+  }, [searchQuery, activeCategory, activeTab]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisibleCount((prev) => prev + 60);
+        }
+      },
+      { rootMargin: "400px" }
+    );
+    if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [loadingExternal]);
+
   // Filter channels
   const filtered247 = useMemo(() => {
     let list = channels247;
