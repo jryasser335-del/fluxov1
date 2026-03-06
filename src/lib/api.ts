@@ -130,11 +130,18 @@ const ESPN_SPORT_MAP: Record<string, string> = {
 
 export async function fetchESPNScoreboard(leagueKey: string): Promise<ESPNResponse> {
   const today = new Date();
-  const date = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, "0")}${String(today.getDate()).padStart(2, "0")}`;
+  const formatDate = (d: Date) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const date = formatDate(today);
   
   // Check if it's a known sport, otherwise assume soccer
   const sport = ESPN_SPORT_MAP[leagueKey] || `soccer/${leagueKey}`;
-  const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard?dates=${date}`;
+
+  // WBC can shift by timezone on ESPN feeds, so fetch a small date window
+  const datesParam = leagueKey === "baseball.wbc"
+    ? `${formatDate(new Date(today.getTime() - 24 * 60 * 60 * 1000))}-${formatDate(new Date(today.getTime() + 24 * 60 * 60 * 1000))}`
+    : date;
+
+  const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard?dates=${datesParam}`;
   
   const res = await fetch(url);
   if (!res.ok) throw new Error("ESPN error");
