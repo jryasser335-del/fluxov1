@@ -515,6 +515,7 @@ export function EventsView() {
                 leagueInfo={{ key: enriched.leagueKey, name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
                 hasLink={eventLinks.has(enriched.event.id)}
                 isFavorite={favorites.has(enriched.event.id)}
+                streamUrl={eventLinks.get(enriched.event.id)?.url1}
                 onToggleFavorite={() => toggleFavorite(enriched.event.id)}
                 onClick={() => handleEventClick(enriched)}
                 formatTime={formatTime}

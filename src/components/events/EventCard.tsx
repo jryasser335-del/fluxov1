@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
-import { Heart, Radio } from "lucide-react";
+import { Heart, Radio, Eye, Wifi, WifiOff } from "lucide-react";
 import { ESPNEvent } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { EventCountdown } from "./EventCountdown";
+import { useViewerCount } from "@/hooks/useViewerCount";
 import { motion } from "framer-motion";
 
 interface EventCardProps {
@@ -12,6 +13,7 @@ interface EventCardProps {
   hasLink: boolean;
   isFavorite: boolean;
   isFeatured?: boolean;
+  streamUrl?: string; // For viewer count key
   onToggleFavorite: () => void;
   onClick: () => void;
   formatTime: (iso: string) => string;
@@ -171,11 +173,15 @@ export function EventCard({
   leagueInfo,
   hasLink,
   isFavorite,
+  streamUrl,
   onToggleFavorite,
   onClick,
   formatTime,
 }: EventCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  // Viewer count via Realtime Presence
+  const viewerKey = streamUrl ? btoa(streamUrl).slice(0, 32) : null;
+  const viewerCount = useViewerCount(viewerKey);
   const comp = event.competitions?.[0];
   const status = comp?.status?.type;
   const isLive = status?.state === "in";
@@ -348,9 +354,31 @@ export function EventCard({
                   </div>
                 )}
               </div>
-              <span className="text-[10px] text-white/20 font-medium font-mono-premium tracking-wide">
-                {isPre ? clockTxt : isFinal ? clockTxt : ""}
-              </span>
+              <div className="flex items-center gap-2">
+                {/* Stream status indicator */}
+                {hasLink && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px] shadow-emerald-400/50 animate-pulse" />
+                    <span className="text-[8px] font-semibold text-emerald-400/80">ON</span>
+                  </div>
+                )}
+                {!hasLink && !isPre && (
+                  <div className="flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                    <span className="text-[8px] font-semibold text-white/20">OFF</span>
+                  </div>
+                )}
+                {/* Real viewer count */}
+                {viewerCount > 0 && (
+                  <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white/[0.06]">
+                    <Eye className="w-2.5 h-2.5 text-white/40" />
+                    <span className="text-[8px] font-bold text-white/50">{viewerCount}</span>
+                  </div>
+                )}
+                <span className="text-[10px] text-white/20 font-medium font-mono-premium tracking-wide">
+                  {isPre ? clockTxt : isFinal ? clockTxt : ""}
+                </span>
+              </div>
             </div>
           </div>
         </div>
