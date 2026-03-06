@@ -410,6 +410,12 @@ export function PlayerModal() {
                 </div>
               )}
               <h2 className="font-display text-sm md:text-lg text-white truncate">{title}</h2>
+              {viewerCount > 0 && (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 shrink-0 ml-auto">
+                  <Eye className="w-3 h-3 text-white/60" />
+                  <span className="text-[10px] font-bold text-white/70">{viewerCount}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

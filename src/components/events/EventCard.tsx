@@ -1,9 +1,10 @@
 import { useState, useMemo, useEffect } from "react";
-import { Heart, Radio } from "lucide-react";
+import { Heart, Radio, Eye, Wifi, WifiOff } from "lucide-react";
 import { ESPNEvent } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { EventCountdown } from "./EventCountdown";
+import { useViewerCount } from "@/hooks/useViewerCount";
 import { motion } from "framer-motion";
 
 interface EventCardProps {
