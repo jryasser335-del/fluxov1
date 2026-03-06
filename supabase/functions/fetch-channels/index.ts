@@ -183,13 +183,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // Support both GET params and POST body
     const url = new URL(req.url);
-    const type = url.searchParams.get("type") || "all"; // "247", "normal", "all"
-    const category = url.searchParams.get("category") || "";
-    const country = url.searchParams.get("country") || "";
-    const search = url.searchParams.get("search") || "";
-    const limit = parseInt(url.searchParams.get("limit") || "5000");
-    const offset = parseInt(url.searchParams.get("offset") || "0");
+    let body: Record<string, any> = {};
+    if (req.method === "POST") {
+      try { body = await req.json() || {}; } catch { body = {}; }
+    }
+    const type = body.type || url.searchParams.get("type") || "all";
+    const category = body.category || url.searchParams.get("category") || "";
+    const country = body.country || url.searchParams.get("country") || "";
+    const search = body.search || url.searchParams.get("search") || "";
+    const limit = parseInt(body.limit || url.searchParams.get("limit") || "10000");
+    const offset = parseInt(body.offset || url.searchParams.get("offset") || "0");
 
     let channels247: Channel[] = [];
     let channelsNormal: Channel[] = [];
