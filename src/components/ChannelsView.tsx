@@ -73,7 +73,7 @@ export function ChannelsView({ initialTab = "247" }: { initialTab?: "247" | "nor
     setLoadingExternal(true);
     try {
       const { data, error: fnError } = await supabase.functions.invoke("fetch-channels", {
-        body: null,
+        body: { type: "all", limit: 10000 },
       });
       if (fnError) throw new Error(fnError.message);
       if (data?.success) {
