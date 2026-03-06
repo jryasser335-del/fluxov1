@@ -4,14 +4,15 @@ import { PlayerModal } from "@/components/PlayerModal";
 import { EventsView } from "@/components/EventsView";
 import { MoviesView } from "@/components/MoviesView";
 import { MultiStreamView } from "@/components/MultiStreamView";
+import { ChannelsView } from "@/components/ChannelsView";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { cn } from "@/lib/utils";
-import { Trophy, Film, LayoutGrid, Settings } from "lucide-react";
+import { Trophy, Film, LayoutGrid, Settings, Radio, Tv } from "lucide-react";
 import { useAppAuth } from "@/hooks/useAppAuth";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-type ViewType = "eventos" | "peliculas" | "multistream";
+type ViewType = "eventos" | "peliculas" | "multistream" | "channels247" | "channelsiptv";
 
 const pageVariants = {
   initial: { opacity: 0, y: 12, scale: 0.99 },
