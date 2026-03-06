@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { Section } from "./Section";
@@ -51,7 +51,8 @@ export function ChannelsView({ initialTab = "247" }: { initialTab?: "247" | "nor
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeTab, setActiveTab] = useState<"247" | "normal">(initialTab);
-
+  const [visibleCount, setVisibleCount] = useState(60);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   // Fetch DB channels
   const fetchDbChannels = useCallback(async () => {
     try {
@@ -72,7 +73,7 @@ export function ChannelsView({ initialTab = "247" }: { initialTab?: "247" | "nor
     setLoadingExternal(true);
     try {
       const { data, error: fnError } = await supabase.functions.invoke("fetch-channels", {
-        body: null,
+        body: { type: "all", limit: 10000 },
       });
       if (fnError) throw new Error(fnError.message);
       if (data?.success) {
@@ -116,6 +117,25 @@ export function ChannelsView({ initialTab = "247" }: { initialTab?: "247" | "nor
       openPlayer(channel.name, { url1: channel.stream_url });
     }
   };
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(60);
+  }, [searchQuery, activeCategory, activeTab]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisibleCount((prev) => prev + 60);
+        }
+      },
+      { rootMargin: "400px" }
+    );
+    if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+    return () => observer.disconnect();
+  }, [loadingExternal]);
 
   // Filter channels
   const filtered247 = useMemo(() => {
@@ -308,26 +328,30 @@ export function ChannelsView({ initialTab = "247" }: { initialTab?: "247" | "nor
               No se encontraron canales IPTV
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {filteredNormal.slice(0, 100).map((ch, i) => (
-                <ExternalChannelCard
-                  key={`iptv-${i}-${ch.name}`}
-                  channel={ch}
-                  onClick={() => handleExternalClick(ch)}
-                />
-              ))}
-              {filteredNormal.length > 100 && (
-                <div className="col-span-full text-center py-4 text-muted-foreground text-xs">
-                  Mostrando 100 de {filteredNormal.length} canales. Usa el buscador para filtrar.
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {filteredNormal.slice(0, visibleCount).map((ch, i) => (
+                  <ExternalChannelCard
+                    key={`iptv-${i}-${ch.name}`}
+                    channel={ch}
+                    onClick={() => handleExternalClick(ch)}
+                  />
+                ))}
+              </div>
+              {visibleCount < filteredNormal.length && (
+                <div ref={loadMoreRef} className="col-span-full text-center py-6 text-muted-foreground text-xs">
+                  Cargando más canales... ({Math.min(visibleCount, filteredNormal.length)} de {filteredNormal.length})
                 </div>
               )}
-            </div>
+            </>
           )}
         </Section>
       )}
     </div>
   );
 }
+
+const LOGO_PROXY = `https://tizmocegplamrmpfxvdu.supabase.co/functions/v1/logo-proxy?url=`;
 
 // ── External Channel Card ──
 function ExternalChannelCard({
@@ -362,7 +386,7 @@ function ExternalChannelCard({
         <div className="relative w-14 h-14 rounded-xl bg-gradient-to-br from-white/[0.08] to-white/[0.02] border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0 group-hover:border-white/[0.12] transition-colors">
           {channel.logo && !imgError ? (
             <img
-              src={channel.logo}
+              src={`${LOGO_PROXY}${encodeURIComponent(channel.logo)}`}
               alt={channel.name}
               className="w-full h-full object-contain p-2 transition-transform group-hover:scale-105"
               loading="lazy"
