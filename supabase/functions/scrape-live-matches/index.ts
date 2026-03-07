@@ -145,10 +145,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // ── 1. Fetch matches from Streamed.pk ──
+    // ── 1. Fetch matches from Streamed.pk and PPV in parallel ──
     const [matches, ppv] = await Promise.all([fetchStreamedMatches(), fetchPPV()]);
 
     const filteredMatches = matches.filter((m) => ALLOWED_CATEGORIES.has((m.category || "").toLowerCase()));
+    // Only keep matches with valid team names and known sources
     const qualityMatches = filteredMatches.filter((match) => {
       const homeName = match.teams?.home?.name?.trim();
       const awayName = match.teams?.away?.name?.trim();
@@ -156,10 +157,18 @@ Deno.serve(async (req) => {
       return match.sources?.some((s) => SOURCE_TO_COLUMN[s.source]);
     });
 
+    // Prioritize: popular matches first, limit total to avoid timeout
+    const sorted = qualityMatches.sort((a, b) => {
+      if ((a as any).popular && !(b as any).popular) return -1;
+      if (!(a as any).popular && (b as any).popular) return 1;
+      return 0;
+    });
+    const limitedMatches = sorted.slice(0, 200);
+
     // ── 2. Build embed URLs directly (no API resolution needed) ──
     const records: Record<string, any>[] = [];
 
-    for (const match of qualityMatches) {
+    for (const match of limitedMatches) {
       const record: Record<string, string | null> = {
         match_id: match.id,
         match_title: match.title,
@@ -170,7 +179,6 @@ Deno.serve(async (req) => {
         scanned_at: new Date().toISOString(),
       };
 
-      // Build embed URLs directly from source/id combos
       const columnsResolved = new Set<string>();
       for (const src of match.sources) {
         const col = SOURCE_TO_COLUMN[src.source];
@@ -182,9 +190,8 @@ Deno.serve(async (req) => {
       records.push(record);
     }
 
-    // Filter out records with zero URLs
     const validRecords = records.filter((r) => r.source_admin || r.source_delta || r.source_echo || r.source_golf);
-    console.log(`Built ${validRecords.length}/${records.length} matches with embed URLs`);
+    console.log(`Built ${validRecords.length}/${limitedMatches.length} matches with embed URLs`);
 
     // ── 3. Merge PPV supplementary links ──
     let supplementaryAdded = 0;
@@ -210,9 +217,7 @@ Deno.serve(async (req) => {
         const r = validRecords[existingIdx];
         if (!r.source_golf) { r.source_golf = sup.embedUrl; supplementaryEnriched++; }
         else if (!r.source_echo) { r.source_echo = sup.embedUrl; supplementaryEnriched++; }
-        else if (!r.source_delta) { r.source_delta = sup.embedUrl; supplementaryEnriched++; }
-        else if (!r.source_admin) { r.source_admin = sup.embedUrl; supplementaryEnriched++; }
-      } else if (sup.category !== "other" && sup.teamHome) {
+      } else if (sup.category !== "other" && sup.teamHome && validRecords.length < 250) {
         const slugId = sup.embedUrl.replace(/[^a-z0-9]/gi, "-").slice(-40);
         validRecords.push({
           match_id: `ppv-${slugId}`,
@@ -226,14 +231,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── 4. Save ──
+    // ── 4. Save in batches ──
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     await adminClient.from("live_scraped_links").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
-    if (validRecords.length > 0) {
-      const { error: insertError } = await adminClient.from("live_scraped_links").upsert(validRecords, { onConflict: "match_id" });
-      if (insertError) { console.error("Insert error:", insertError); throw new Error(insertError.message); }
+    let saved = 0;
+    const BATCH = 50;
+    for (let i = 0; i < validRecords.length; i += BATCH) {
+      const batch = validRecords.slice(i, i + BATCH);
+      const { error: insertError } = await adminClient.from("live_scraped_links").insert(batch);
+      if (insertError) { console.error("Batch insert error:", insertError.message); }
+      else { saved += batch.length; }
     }
+    console.log(`Saved ${saved}/${validRecords.length} records`);
 
     return new Response(
       JSON.stringify({
