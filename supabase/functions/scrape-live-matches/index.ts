@@ -163,7 +163,7 @@ Deno.serve(async (req) => {
       if (!(a as any).popular && (b as any).popular) return 1;
       return 0;
     });
-    const limitedMatches = sorted.slice(0, 200);
+    const limitedMatches = sorted.slice(0, 150);
 
     // ── 2. Build embed URLs directly (no API resolution needed) ──
     const records: Record<string, any>[] = [];
