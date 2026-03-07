@@ -28,7 +28,8 @@ const CATEGORY_TO_SPORT: Record<string, string> = {
 };
 
 function getRawLinks(scraped: any): string[] {
-  return [scraped.source_admin, scraped.source_echo, scraped.source_delta, scraped.source_golf].filter(Boolean);
+  // Priority: admin (alpha/bravo HD) > delta > echo > golf (PPV/supplementary)
+  return [scraped.source_admin, scraped.source_delta, scraped.source_echo, scraped.source_golf].filter(Boolean);
 }
 
 const TEAM_STOPWORDS = new Set([
