@@ -247,7 +247,7 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        success: true, count: validRecords.length,
+        success: true, count: saved,
         matchesFound: qualityMatches.length,
         ppv: ppv.length,
         supplementaryAdded, supplementaryEnriched,
