@@ -127,14 +127,16 @@ Deno.serve(async (req) => {
         matchedEventIds.add(event.id);
         const links = getRawLinks(match);
         if (links.length > 0) {
+          // Always set both pending and stream URLs for live/soon events
           const eventDate = new Date(event.event_date);
           const minsUntil = (eventDate.getTime() - now.getTime()) / 60000;
-          const isLiveOrSoon = minsUntil <= 30;
+          const isLiveOrSoon = minsUntil <= 30 || event.is_live;
 
           await supabase.from("events").update({
             pending_url: links[0] || null,
             pending_url_2: links[1] || null,
             pending_url_3: links[2] || null,
+            // Always promote to stream_url if event is live or starting soon
             ...(isLiveOrSoon ? {
               stream_url: links[0] || null,
               stream_url_2: links[1] || null,
