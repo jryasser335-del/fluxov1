@@ -9,7 +9,8 @@ const corsHeaders = {
 const STREAMED_BASES = [
   "https://streamed.pk",
   "https://streamed.su",
-  "https://streamed.one",
+  "https://streamed.best",
+  "https://streamed.top",
 ];
 
 const ALLOWED_CATEGORIES = new Set([
