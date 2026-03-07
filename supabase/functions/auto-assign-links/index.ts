@@ -149,7 +149,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2. Clean unmatched events with embedsports links
+    // 2. Promote pending → stream for live events missing stream_url
+    for (const event of activeEvents) {
+      if (matchedEventIds.has(event.id)) continue;
+      if (event.is_live && !event.stream_url && event.pending_url) {
+        await supabase.from("events").update({
+          stream_url: event.pending_url,
+          stream_url_2: event.pending_url_2 || null,
+          stream_url_3: event.pending_url_3 || null,
+        }).eq("id", event.id);
+        promoted++;
+      }
+    }
+
+    // 3. Clean unmatched events with embedsports links
     for (const event of activeEvents) {
       if (matchedEventIds.has(event.id)) continue;
       if (!event.pending_url && !event.stream_url) continue;
