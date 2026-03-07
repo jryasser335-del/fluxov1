@@ -116,8 +116,8 @@ function buildEmbedUrl(source: string, id: string, category: string): string {
 // ── PPV.to ──
 async function fetchPPV(): Promise<SupEvent[]> {
   try {
-    for (const url of ["https://api.ppv.to/api/streams", "https://api.ppv.land/api/streams"]) {
-      const response = await fetchWithTimeout(url, 10000);
+    for (const url of ["https://api.ppv.to/api/streams"]) {
+      const response = await fetchWithTimeout(url, 6000);
       if (!response?.ok) continue;
       const data = await response.json();
       if (!data.success || !data.streams) continue;
