@@ -28,8 +28,7 @@ const CATEGORY_TO_SPORT: Record<string, string> = {
 };
 
 function getRawLinks(scraped: any): string[] {
-  // Priority: admin (alpha/bravo HD) > delta > echo > golf (PPV/supplementary)
-  return [scraped.source_admin, scraped.source_delta, scraped.source_echo, scraped.source_golf].filter(Boolean);
+  return [scraped.source_admin, scraped.source_echo, scraped.source_delta, scraped.source_golf].filter(Boolean);
 }
 
 const TEAM_STOPWORDS = new Set([
@@ -127,16 +126,14 @@ Deno.serve(async (req) => {
         matchedEventIds.add(event.id);
         const links = getRawLinks(match);
         if (links.length > 0) {
-          // Always set both pending and stream URLs for live/soon events
           const eventDate = new Date(event.event_date);
           const minsUntil = (eventDate.getTime() - now.getTime()) / 60000;
-          const isLiveOrSoon = minsUntil <= 30 || event.is_live;
+          const isLiveOrSoon = minsUntil <= 30;
 
           await supabase.from("events").update({
             pending_url: links[0] || null,
             pending_url_2: links[1] || null,
             pending_url_3: links[2] || null,
-            // Always promote to stream_url if event is live or starting soon
             ...(isLiveOrSoon ? {
               stream_url: links[0] || null,
               stream_url_2: links[1] || null,
@@ -149,20 +146,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2. Promote pending → stream for live events missing stream_url
-    for (const event of activeEvents) {
-      if (matchedEventIds.has(event.id)) continue;
-      if (event.is_live && !event.stream_url && event.pending_url) {
-        await supabase.from("events").update({
-          stream_url: event.pending_url,
-          stream_url_2: event.pending_url_2 || null,
-          stream_url_3: event.pending_url_3 || null,
-        }).eq("id", event.id);
-        promoted++;
-      }
-    }
-
-    // 3. Clean unmatched events with embedsports links
+    // 2. Clean unmatched events with embedsports links
     for (const event of activeEvents) {
       if (matchedEventIds.has(event.id)) continue;
       if (!event.pending_url && !event.stream_url) continue;
