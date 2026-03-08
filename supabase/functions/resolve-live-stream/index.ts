@@ -12,20 +12,12 @@ const STREAMED_BASES = [
   "https://streamed.one",
 ];
 
-const PPV_CATEGORY_MAP: Record<string, string> = {
-  "Basketball": "basketball", "Football": "football", "Baseball": "baseball",
-  "Ice Hockey": "hockey", "Combat Sports": "fighting", "Wrestling": "wrestling",
-  "American Football": "football", "Cricket": "cricket",
-  "Motorsports": "motorsport", "Tennis": "tennis", "Rugby": "rugby",
-  "Boxing": "boxing", "MMA": "mma", "Soccer": "football",
-};
-
 const normalize = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
 function tokenize(name: string): string[] {
   const stopwords = new Set(["fc", "cf", "sc", "ac", "club", "the", "de", "la", "el", "vs", "v"]);
-  return normalize(name).split(/[^a-z0-9]+/).filter(t => t.length > 2 && !stopwords.has(t));
+  return normalize(name).split(/[^a-z0-9]+/).filter((t) => t.length > 2 && !stopwords.has(t));
 }
 
 function matchScore(a: string, b: string): number {
@@ -37,7 +29,18 @@ function matchScore(a: string, b: string): number {
   return overlap / Math.max(ta.size, tb.size);
 }
 
-async function fetchWithTimeout(url: string, timeoutMs = 6000): Promise<Response | null> {
+function buildLinks(urls: { url: string; source: string }[]) {
+  return {
+    url1: urls[0]?.url || null,
+    url2: urls[1]?.url || null,
+    url3: urls[2]?.url || null,
+    source1: urls[0]?.source || null,
+    source2: urls[1]?.source || null,
+    source3: urls[2]?.source || null,
+  };
+}
+
+async function fetchWithTimeout(url: string, timeoutMs = 4500): Promise<Response | null> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -47,106 +50,145 @@ async function fetchWithTimeout(url: string, timeoutMs = 6000): Promise<Response
     });
     clearTimeout(timeout);
     return res;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
-interface ResolvedLinks {
-  url1: string | null;
-  url2: string | null;
-  url3: string | null;
-  source1: string | null;
-  source2: string | null;
-  source3: string | null;
+async function findFastDbLinks(supabase: any, homeTeam: string, awayTeam: string, espnId?: string) {
+  // 1) Exact event by espn_id (fastest)
+  if (espnId) {
+    const { data: eventById } = await supabase
+      .from("events")
+      .select("stream_url, stream_url_2, stream_url_3")
+      .eq("espn_id", espnId)
+      .not("stream_url", "is", null)
+      .maybeSingle();
+
+    if (eventById?.stream_url) {
+      return buildLinks([
+        { url: eventById.stream_url, source: "events" },
+        ...(eventById.stream_url_2 ? [{ url: eventById.stream_url_2, source: "events" }] : []),
+        ...(eventById.stream_url_3 ? [{ url: eventById.stream_url_3, source: "events" }] : []),
+      ]);
+    }
+  }
+
+  // 2) Fuzzy match against live_scraped_links
+  const { data: scraped } = await supabase
+    .from("live_scraped_links")
+    .select("team_home, team_away, source_admin, source_delta, source_echo, source_golf")
+    .limit(300);
+
+  let best: any = null;
+  let bestScore = 0;
+
+  for (const row of scraped || []) {
+    if (!row.team_home || !row.team_away) continue;
+    const direct = (matchScore(homeTeam, row.team_home) + matchScore(awayTeam, row.team_away)) / 2;
+    const swapped = (matchScore(homeTeam, row.team_away) + matchScore(awayTeam, row.team_home)) / 2;
+    const score = Math.max(direct, swapped);
+    if (score > bestScore) {
+      bestScore = score;
+      best = row;
+    }
+  }
+
+  if (best && bestScore >= 0.55) {
+    const urls: { url: string; source: string }[] = [];
+    if (best.source_admin) urls.push({ url: best.source_admin, source: "ppv/streamed" });
+    if (best.source_delta) urls.push({ url: best.source_delta, source: "streamed" });
+    if (best.source_echo) urls.push({ url: best.source_echo, source: "streamed" });
+    if (best.source_golf) urls.push({ url: best.source_golf, source: "streamed" });
+    if (urls.length) return buildLinks(urls);
+  }
+
+  return null;
 }
 
-// Search Streamed.pk for a match
 async function findStreamedMatch(homeTeam: string, awayTeam: string): Promise<{ embedUrls: string[] }> {
   const embedUrls: string[] = [];
-  
+
   for (const base of STREAMED_BASES) {
     try {
-      const res = await fetchWithTimeout(`${base}/api/matches/all`, 8000);
+      const res = await fetchWithTimeout(`${base}/api/matches/all`, 4500);
       if (!res?.ok) continue;
       const matches = await res.json();
-      
-      // Find best match
+
       let bestMatch: any = null;
       let bestScore = 0;
-      
+
       for (const m of matches) {
         const mHome = m.teams?.home?.name || "";
         const mAway = m.teams?.away?.name || "";
         if (!mHome || !mAway) continue;
-        
+
         const direct = (matchScore(homeTeam, mHome) + matchScore(awayTeam, mAway)) / 2;
         const swapped = (matchScore(homeTeam, mAway) + matchScore(awayTeam, mHome)) / 2;
         const score = Math.max(direct, swapped);
-        
+
         if (score > bestScore) {
           bestScore = score;
           bestMatch = m;
         }
       }
-      
+
       if (bestMatch && bestScore >= 0.5) {
-        // Resolve HD sources
         const hdSources = ["alpha", "bravo", "charlie", "delta", "echo"];
         const sources = (bestMatch.sources || []).filter((s: any) => hdSources.includes(s.source));
-        
-        // Resolve up to 3 streams in parallel
-        const resolvePromises = sources.slice(0, 3).map(async (src: any) => {
-          for (const b of STREAMED_BASES) {
-            try {
-              const r = await fetchWithTimeout(`${b}/api/stream/${src.source}/${src.id}`, 5000);
+
+        const resolved = await Promise.all(
+          sources.slice(0, 3).map(async (src: any) => {
+            for (const b of STREAMED_BASES) {
+              const r = await fetchWithTimeout(`${b}/api/stream/${src.source}/${src.id}`, 3000);
               if (!r?.ok) continue;
               const streams = await r.json();
               if (Array.isArray(streams) && streams.length > 0) {
                 const hd = streams.find((s: any) => s.hd) || streams[0];
                 return hd.embedUrl || null;
               }
-            } catch { continue; }
-          }
-          return null;
-        });
-        
-        const resolved = await Promise.all(resolvePromises);
-        for (const url of resolved) {
-          if (url && !embedUrls.includes(url)) embedUrls.push(url);
-        }
+            }
+            return null;
+          }),
+        );
+
+        for (const url of resolved) if (url && !embedUrls.includes(url)) embedUrls.push(url);
       }
-      break; // Found matches from this base, no need to try others
-    } catch { continue; }
+      break;
+    } catch {
+      continue;
+    }
   }
-  
+
   return { embedUrls };
 }
 
-// Search PPV.to for a match
 async function findPPVMatch(homeTeam: string, awayTeam: string): Promise<string | null> {
   for (const url of ["https://api.ppv.to/api/streams", "https://api.ppv.land/api/streams"]) {
     try {
-      const res = await fetchWithTimeout(url, 6000);
+      const res = await fetchWithTimeout(url, 3500);
       if (!res?.ok) continue;
       const data = await res.json();
       if (!data.success || !data.streams) continue;
-      
+
       let bestUrl: string | null = null;
       let bestScore = 0;
-      
+
       for (const category of data.streams) {
         for (const stream of category.streams || []) {
           if (!stream.name || !stream.iframe || stream.always_live) continue;
-          
-          const direct = (matchScore(homeTeam, stream.name) + matchScore(awayTeam, stream.name)) / 2;
-          if (direct > bestScore) {
-            bestScore = direct;
+          const score = (matchScore(homeTeam, stream.name) + matchScore(awayTeam, stream.name)) / 2;
+          if (score > bestScore) {
+            bestScore = score;
             bestUrl = stream.iframe;
           }
         }
       }
-      
+
       if (bestUrl && bestScore >= 0.3) return bestUrl;
-    } catch { continue; }
+    } catch {
+      continue;
+    }
   }
   return null;
 }
@@ -156,82 +198,70 @@ Deno.serve(async (req) => {
 
   try {
     const { homeTeam, awayTeam, espnId, sport } = await req.json();
-    
     if (!homeTeam || !awayTeam) {
       return new Response(JSON.stringify({ error: "homeTeam and awayTeam required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+    // FAST PATH: return DB links first (usually <200ms)
+    const fastLinks = await findFastDbLinks(supabase, homeTeam, awayTeam, espnId);
+    if (fastLinks?.url1) {
+      return new Response(JSON.stringify({ success: true, links: fastLinks, fast: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     console.log(`Resolving streams for: ${homeTeam} vs ${awayTeam}`);
 
-    // Search both sources in parallel
+    // SLOW PATH: external providers
     const [ppvUrl, streamedResult] = await Promise.all([
       findPPVMatch(homeTeam, awayTeam),
       findStreamedMatch(homeTeam, awayTeam),
     ]);
 
-    // Build links: PPV first, then Streamed
     const allUrls: { url: string; source: string }[] = [];
     if (ppvUrl) allUrls.push({ url: ppvUrl, source: "ppv" });
-    for (const url of streamedResult.embedUrls) {
-      allUrls.push({ url, source: "streamed" });
-    }
+    for (const url of streamedResult.embedUrls) allUrls.push({ url, source: "streamed" });
 
-    const links: ResolvedLinks = {
-      url1: allUrls[0]?.url || null,
-      url2: allUrls[1]?.url || null,
-      url3: allUrls[2]?.url || null,
-      source1: allUrls[0]?.source || null,
-      source2: allUrls[1]?.source || null,
-      source3: allUrls[2]?.source || null,
-    };
+    const links = buildLinks(allUrls);
 
-    // If we found links and have an ESPN ID, save to DB for future use
     if (links.url1 && espnId) {
-      try {
-        const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-        
-        // Check if event exists
-        const { data: existing } = await supabase.from("events").select("id").eq("espn_id", espnId).maybeSingle();
-        
-        if (existing) {
-          await supabase.from("events").update({
-            stream_url: links.url1,
-            stream_url_2: links.url2,
-            stream_url_3: links.url3,
-            is_live: true,
-          }).eq("id", existing.id);
-        } else {
-          await supabase.from("events").insert({
-            espn_id: espnId,
-            name: `${homeTeam} vs ${awayTeam}`,
-            team_home: homeTeam,
-            team_away: awayTeam,
-            sport: sport || "Other",
-            stream_url: links.url1,
-            stream_url_2: links.url2,
-            stream_url_3: links.url3,
-            pending_url: links.url1,
-            event_date: new Date().toISOString(),
-            is_live: true,
-            is_active: true,
-          });
-        }
-      } catch (e) {
-        console.error("DB save error:", e.message);
+      const payload = {
+        stream_url: links.url1,
+        stream_url_2: links.url2,
+        stream_url_3: links.url3,
+        pending_url: links.url1,
+        is_live: true,
+        is_active: true,
+      };
+
+      const { data: existing } = await supabase.from("events").select("id").eq("espn_id", espnId).maybeSingle();
+      if (existing?.id) {
+        await supabase.from("events").update(payload).eq("id", existing.id);
+      } else {
+        await supabase.from("events").insert({
+          espn_id: espnId,
+          name: `${homeTeam} vs ${awayTeam}`,
+          team_home: homeTeam,
+          team_away: awayTeam,
+          sport: sport || "Other",
+          event_date: new Date().toISOString(),
+          ...payload,
+        });
       }
     }
 
-    console.log(`Resolved: ${allUrls.length} links for ${homeTeam} vs ${awayTeam}`);
-
-    return new Response(JSON.stringify({ success: true, links }), {
+    return new Response(JSON.stringify({ success: true, links, fast: false }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Resolve error:", error);
     return new Response(JSON.stringify({ success: false, error: error.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

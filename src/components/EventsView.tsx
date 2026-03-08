@@ -421,9 +421,15 @@ export function EventsView() {
     const sport = sportMap[enriched.leagueKey] || "Soccer";
 
     try {
-      const { data, error } = await supabase.functions.invoke("resolve-live-stream", {
+      const invoke = supabase.functions.invoke("resolve-live-stream", {
         body: { homeTeam, awayTeam, espnId: enriched.event.id, sport },
       });
+
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 12000),
+      );
+
+      const { data, error } = await Promise.race([invoke, timeout]) as Awaited<typeof invoke>;
 
       if (error) throw error;
 
