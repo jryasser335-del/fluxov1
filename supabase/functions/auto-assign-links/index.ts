@@ -28,7 +28,8 @@ const CATEGORY_TO_SPORT: Record<string, string> = {
 };
 
 function getRawLinks(scraped: any): string[] {
-  return [scraped.source_admin, scraped.source_echo, scraped.source_delta, scraped.source_golf].filter(Boolean);
+  // Priority: source_admin (PPV/HD) > source_delta > source_echo > source_golf
+  return [scraped.source_admin, scraped.source_delta, scraped.source_echo, scraped.source_golf].filter(Boolean);
 }
 
 const TEAM_STOPWORDS = new Set([
@@ -128,16 +129,19 @@ Deno.serve(async (req) => {
         if (links.length > 0) {
           const eventDate = new Date(event.event_date);
           const minsUntil = (eventDate.getTime() - now.getTime()) / 60000;
-          const isLiveOrSoon = minsUntil <= 30;
+          // ALWAYS promote for live events or events starting within 60 minutes
+          const isLiveOrSoon = minsUntil <= 60 || event.is_live;
 
           await supabase.from("events").update({
             pending_url: links[0] || null,
             pending_url_2: links[1] || null,
             pending_url_3: links[2] || null,
+            // Always promote to stream_url for live/soon events
             ...(isLiveOrSoon ? {
               stream_url: links[0] || null,
               stream_url_2: links[1] || null,
               stream_url_3: links[2] || null,
+              is_live: true,
             } : {}),
           }).eq("id", event.id);
           assigned++;
@@ -146,10 +150,11 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2. Clean unmatched events with embedsports links
+    // 2. Clean unmatched events with embedsports links (but NOT ppv/streamed links)
     for (const event of activeEvents) {
       if (matchedEventIds.has(event.id)) continue;
       if (!event.pending_url && !event.stream_url) continue;
+      // Don't clean PPV or streamed links - only clean old embedsports
       if (event.stream_url && !event.stream_url.includes("embedsports")) continue;
 
       await supabase.from("events").update({
@@ -160,7 +165,7 @@ Deno.serve(async (req) => {
       cleaned++;
     }
 
-    // 3. Create events for unmatched scraped links
+    // 3. Create events for unmatched scraped links - ALWAYS with stream_url promoted
     const newEvents: any[] = [];
     for (const scraped of scrapedLinks) {
       if (matchedScrapedIds.has(scraped.id)) continue;
@@ -185,6 +190,7 @@ Deno.serve(async (req) => {
         pending_url: links[0] || null,
         pending_url_2: links[1] || null,
         pending_url_3: links[2] || null,
+        // Always promote immediately
         stream_url: links[0] || null,
         stream_url_2: links[1] || null,
         stream_url_3: links[2] || null,
