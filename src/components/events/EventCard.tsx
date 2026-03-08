@@ -183,7 +183,7 @@ export function EventCard({
         {/* LIVE badge - top left */}
         {isLive && (
           <div className="absolute top-2.5 left-2.5 z-10">
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white bg-red-600 uppercase tracking-wide shadow-md">
+            <span className="px-2.5 py-0.5 rounded text-[10px] font-display text-white bg-red-600 uppercase tracking-[0.15em] shadow-md">
               LIVE
             </span>
           </div>
