@@ -98,11 +98,12 @@ const getLeagueLogoFallback = (leagueKey: string) => LEAGUE_LOGO_FALLBACKS[leagu
 export function EventsView() {
   const { openPlayer } = usePlayerModal();
   const [activeSport, setActiveSport] = useState("football");
-  const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null); // null = "All" within sport
+  const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [allEnrichedEvents, setAllEnrichedEvents] = useState<EnrichedEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
+  const [externalStreams, setExternalStreams] = useState<ExternalStream[]>([]);
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("fluxoFavEvents");
     return new Set(saved ? JSON.parse(saved) : []);
@@ -114,6 +115,19 @@ export function EventsView() {
       .select("espn_id, name, team_home, team_away, stream_url, stream_url_2, stream_url_3, pending_url, is_active, sport, league, is_live, event_date")
       .eq("is_active", true);
     if (!error && data) setDbEvents(data as DbEvent[]);
+  }, []);
+
+  // Bulk fetch all external streams on mount
+  const fetchExternalStreams = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-all-streams", { body: {} });
+      if (!error && data?.streams) {
+        setExternalStreams(data.streams as ExternalStream[]);
+        console.log(`📡 Pre-loaded ${data.streams.length} external streams`);
+      }
+    } catch (err) {
+      console.error("Failed to fetch external streams:", err);
+    }
   }, []);
 
   // Get leagues to fetch based on active sport
