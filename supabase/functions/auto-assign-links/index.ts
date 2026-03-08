@@ -28,7 +28,7 @@ const CATEGORY_TO_SPORT: Record<string, string> = {
 };
 
 function getRawLinks(scraped: any): string[] {
-  // Priority: admin (alpha/bravo HD) > delta > echo > golf (PPV/supplementary)
+  // Priority: admin (PPV.to primary) > delta (Watchfooty HD 1) > echo (Watchfooty HD 2) > golf (fallback)
   return [scraped.source_admin, scraped.source_delta, scraped.source_echo, scraped.source_golf].filter(Boolean);
 }
 
