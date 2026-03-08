@@ -259,7 +259,7 @@ export function EventCard({
 
         {/* Channel watermark bottom-center */}
         <div className="absolute bottom-1.5 left-0 right-0 text-center">
-          <span className="text-[9px] text-white/40 font-medium tracking-wide">
+          <span className="text-[8px] text-white/35 font-display tracking-[0.2em] uppercase">
             {leagueInfo.sub || leagueInfo.name}
           </span>
         </div>
