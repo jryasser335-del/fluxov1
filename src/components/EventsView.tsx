@@ -275,9 +275,14 @@ export function EventsView() {
 
       // 3) Match against pre-fetched external streams (PPV.to / Streamed)
       if (externalStreams.length > 0) {
-        const extMatch = findBestExternalMatch(externalStreams, homeName, awayName, homeShort, awayShort);
-        if (extMatch) {
-          linksMap.set(espnEvent.id, { url1: extMatch.iframe, viewers: extMatch.viewers || 0 });
+        const extMatches = findBestExternalMatches(externalStreams, homeName, awayName, homeShort, awayShort);
+        if (extMatches.length > 0) {
+          linksMap.set(espnEvent.id, {
+            url1: extMatches[0].iframe,
+            url2: extMatches[1]?.iframe,
+            url3: extMatches[2]?.iframe,
+            viewers: extMatches[0].viewers || 0,
+          });
         }
       }
     }
