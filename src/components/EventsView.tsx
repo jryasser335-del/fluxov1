@@ -603,7 +603,7 @@ export function EventsView() {
               <EventCard
                 event={enriched.event}
                 leagueInfo={{ key: enriched.leagueKey, name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
-                hasLink={eventLinks.has(enriched.event.id)}
+                hasLink={true}
                 isFavorite={favorites.has(enriched.event.id)}
                 onToggleFavorite={() => toggleFavorite(enriched.event.id)}
                 onClick={() => handleEventClick(enriched)}
