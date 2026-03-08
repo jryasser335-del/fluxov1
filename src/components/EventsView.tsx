@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./events/EventCard";
 
 import { SkeletonEventCard } from "./Skeleton";
-import { toast } from "sonner";
 import { Search, RefreshCw, Radio, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
