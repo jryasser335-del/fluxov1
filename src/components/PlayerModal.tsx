@@ -358,26 +358,62 @@ export function PlayerModal() {
   // ── PENDING MESSAGE ──
   if (isPendingMessage) {
     return (
-      <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/95 animate-in fade-in duration-200">
-        <button onClick={closePlayer} className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 border border-white/10 transition-all text-white/80 hover:text-white">
-          <X className="w-5 h-5" />
+      <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black animate-in fade-in duration-300">
+        {/* Ambient background effects */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.04] blur-[120px]" />
+          <div className="absolute top-1/4 right-1/4 w-[300px] h-[300px] rounded-full bg-[hsl(200,100%,50%)]/[0.03] blur-[100px]" />
+          <div className="absolute bottom-1/4 left-1/3 w-[250px] h-[250px] rounded-full bg-primary/[0.02] blur-[80px]" />
+          {/* Subtle grid pattern */}
+          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '40px 40px' }} />
+        </div>
+
+        <button onClick={closePlayer} className="absolute top-5 right-5 z-50 w-11 h-11 rounded-2xl flex items-center justify-center bg-white/[0.05] hover:bg-white/[0.12] border border-white/[0.08] hover:border-white/[0.15] backdrop-blur-xl transition-all duration-300 text-white/50 hover:text-white group">
+          <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
         </button>
-        <div className="flex flex-col items-center gap-6 text-center px-6 max-w-md">
+
+        <div className="relative flex flex-col items-center gap-8 text-center px-8 max-w-lg">
+          {/* Animated clock icon */}
           <div className="relative">
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary/20 to-purple-600/20 border border-primary/30 flex items-center justify-center">
-              <Clock className="w-10 h-10 text-primary animate-pulse" />
+            {/* Outer ring pulse */}
+            <div className="absolute -inset-6 rounded-full border border-primary/10 animate-[ping_3s_ease-in-out_infinite]" />
+            <div className="absolute -inset-3 rounded-full border border-primary/15" />
+            {/* Main circle */}
+            <div className="relative w-28 h-28 rounded-full flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(200 100% 50% / 0.1))' }}>
+              <div className="absolute inset-[2px] rounded-full bg-black/80 backdrop-blur-xl" />
+              <Clock className="relative w-11 h-11 text-primary drop-shadow-[0_0_20px_hsl(var(--primary)/0.5)]" />
             </div>
-            <div className="absolute -inset-4 rounded-full bg-primary/10 blur-2xl animate-pulse" />
+            {/* Glow */}
+            <div className="absolute -inset-8 rounded-full bg-primary/[0.08] blur-3xl" />
           </div>
-          <div>
-            <h3 className="text-xl font-display font-bold text-white mb-2">{title}</h3>
-            <p className="text-white/60 text-sm leading-relaxed">
-              El link estará disponible <span className="text-primary font-semibold">30 minutos</span> antes del inicio del partido.
+
+          {/* Title */}
+          <div className="space-y-3">
+            <h3 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-wide leading-tight drop-shadow-[0_0_30px_rgba(255,255,255,0.05)]">
+              {title}
+            </h3>
+            <div className="w-16 h-[2px] mx-auto rounded-full bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+            <p className="text-white/40 text-sm sm:text-base leading-relaxed font-body">
+              El link estará disponible <span className="text-primary font-semibold drop-shadow-[0_0_8px_hsl(var(--primary)/0.4)]">30 minutos</span> antes del inicio del partido.
             </p>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10">
-            <Radio className="w-4 h-4 text-primary animate-pulse" />
-            <span className="text-xs text-white/50">Esperando señal...</span>
+
+          {/* Status pill */}
+          <div className="relative group">
+            <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-primary/20 to-[hsl(200,100%,50%)]/10 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className="relative flex items-center gap-3 px-6 py-3 rounded-2xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-xl">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary shadow-lg shadow-primary/50" />
+              </span>
+              <span className="text-sm font-medium text-white/50 tracking-wide">Esperando señal</span>
+              <span className="flex gap-0.5">
+                <span className="w-1 h-1 rounded-full bg-white/20 animate-[pulse_1.5s_ease-in-out_infinite]" />
+                <span className="w-1 h-1 rounded-full bg-white/20 animate-[pulse_1.5s_ease-in-out_0.3s_infinite]" />
+                <span className="w-1 h-1 rounded-full bg-white/20 animate-[pulse_1.5s_ease-in-out_0.6s_infinite]" />
+              </span>
+            </div>
           </div>
         </div>
       </div>
