@@ -65,23 +65,39 @@ interface EnrichedEvent {
   leagueLogo: string;
 }
 
-function findBestExternalMatch(
+function findBestExternalMatches(
   streams: ExternalStream[],
   homeName: string,
   awayName: string,
   homeShort: string,
   awayShort: string,
-): ExternalStream | null {
-  let best: ExternalStream | null = null;
-  let bestScore = 0;
+): ExternalStream[] {
+  const scored: { stream: ExternalStream; score: number }[] = [];
   for (const s of streams) {
     const sName = s.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
     const homeMatch = [homeName, homeShort].some(n => n.length > 2 && sName.includes(n));
     const awayMatch = [awayName, awayShort].some(n => n.length > 2 && sName.includes(n));
     const score = (homeMatch ? 1 : 0) + (awayMatch ? 1 : 0);
-    if (score > bestScore) { bestScore = score; best = s; }
+    if (score >= 1) scored.push({ stream: s, score });
   }
-  return bestScore >= 1 ? best : null;
+  // Sort by score desc, then prefer different sources for diversity
+  scored.sort((a, b) => b.score - a.score);
+  const result: ExternalStream[] = [];
+  const usedSources = new Set<string>();
+  // First pass: pick best from each source
+  for (const { stream } of scored) {
+    if (result.length >= 3) break;
+    if (!usedSources.has(stream.source)) {
+      result.push(stream);
+      usedSources.add(stream.source);
+    }
+  }
+  // Second pass: fill remaining slots
+  for (const { stream } of scored) {
+    if (result.length >= 3) break;
+    if (!result.includes(stream)) result.push(stream);
+  }
+  return result;
 }
 
 const normalizeText = (s: string) =>
