@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { fetchESPNScoreboard, ESPNEvent, ESPNResponse } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
@@ -45,6 +45,17 @@ interface DbEvent {
   event_date: string;
 }
 
+interface ExternalStream {
+  id: string;
+  name: string;
+  category: string;
+  iframe: string;
+  poster?: string;
+  viewers?: number;
+  source: "ppv" | "streamed";
+  channels?: string;
+}
+
 // Extended event with league metadata
 interface EnrichedEvent {
   event: ESPNEvent;
@@ -54,8 +65,28 @@ interface EnrichedEvent {
   leagueLogo: string;
 }
 
+function findBestExternalMatch(
+  streams: ExternalStream[],
+  homeName: string,
+  awayName: string,
+  homeShort: string,
+  awayShort: string,
+): ExternalStream | null {
+  let best: ExternalStream | null = null;
+  let bestScore = 0;
+  for (const s of streams) {
+    const sName = s.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const homeMatch = [homeName, homeShort].some(n => n.length > 2 && sName.includes(n));
+    const awayMatch = [awayName, awayShort].some(n => n.length > 2 && sName.includes(n));
+    const score = (homeMatch ? 1 : 0) + (awayMatch ? 1 : 0);
+    if (score > bestScore) { bestScore = score; best = s; }
+  }
+  return bestScore >= 1 ? best : null;
+}
+
 const normalizeText = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
 
 const LEAGUE_LOGO_FALLBACKS: Record<string, string> = {
   "eng.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png",
@@ -87,11 +118,12 @@ const getLeagueLogoFallback = (leagueKey: string) => LEAGUE_LOGO_FALLBACKS[leagu
 export function EventsView() {
   const { openPlayer } = usePlayerModal();
   const [activeSport, setActiveSport] = useState("football");
-  const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null); // null = "All" within sport
+  const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [allEnrichedEvents, setAllEnrichedEvents] = useState<EnrichedEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
+  const [externalStreams, setExternalStreams] = useState<ExternalStream[]>([]);
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("fluxoFavEvents");
     return new Set(saved ? JSON.parse(saved) : []);
@@ -103,6 +135,19 @@ export function EventsView() {
       .select("espn_id, name, team_home, team_away, stream_url, stream_url_2, stream_url_3, pending_url, is_active, sport, league, is_live, event_date")
       .eq("is_active", true);
     if (!error && data) setDbEvents(data as DbEvent[]);
+  }, []);
+
+  // Bulk fetch all external streams on mount
+  const fetchExternalStreams = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-all-streams", { body: {} });
+      if (!error && data?.streams) {
+        setExternalStreams(data.streams as ExternalStream[]);
+        console.log(`📡 Pre-loaded ${data.streams.length} external streams`);
+      }
+    } catch (err) {
+      console.error("Failed to fetch external streams:", err);
+    }
   }, []);
 
   // Get leagues to fetch based on active sport
@@ -176,17 +221,19 @@ export function EventsView() {
     setLoading(false);
   }, [leaguesToFetch]);
 
-  // Build eventLinks map
+  // Build eventLinks map - now uses external streams for instant matching
   const eventLinks = useMemo(() => {
-    const linksMap = new Map<string, { url1: string; url2?: string; url3?: string }>();
-    if (dbEvents.length === 0 || allEnrichedEvents.length === 0) return linksMap;
+    const linksMap = new Map<string, { url1: string; url2?: string; url3?: string; viewers?: number }>();
 
     for (const { event: espnEvent } of allEnrichedEvents) {
+      // 1) Check DB by ESPN ID
       const byId = dbEvents.find(d => d.espn_id && d.espn_id === espnEvent.id);
       if (byId?.stream_url) {
         linksMap.set(espnEvent.id, { url1: byId.stream_url, url2: byId.stream_url_2 || undefined, url3: byId.stream_url_3 || undefined });
         continue;
       }
+
+      // 2) Fuzzy match DB events
       const comp = espnEvent.competitions?.[0];
       const competitors = comp?.competitors || [];
       const espnHome = competitors.find(c => c.homeAway === "home");
@@ -197,7 +244,7 @@ export function EventsView() {
       const homeShort = normalizeText(espnHome?.team?.shortDisplayName || "");
       const awayShort = normalizeText(espnAway?.team?.shortDisplayName || "");
 
-      const match = dbEvents.find(d => {
+      const dbMatch = dbEvents.find(d => {
         if (!d.stream_url) return false;
         const dAll = normalizeText(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""}`);
         const homeMatch = [homeName, homeShort].some(n => n.length > 2 && dAll.includes(n));
@@ -205,84 +252,39 @@ export function EventsView() {
         return homeMatch && awayMatch;
       });
 
-      if (match?.stream_url) {
-        linksMap.set(espnEvent.id, { url1: match.stream_url, url2: match.stream_url_2 || undefined, url3: match.stream_url_3 || undefined });
+      if (dbMatch?.stream_url) {
+        linksMap.set(espnEvent.id, { url1: dbMatch.stream_url, url2: dbMatch.stream_url_2 || undefined, url3: dbMatch.stream_url_3 || undefined });
+        continue;
+      }
+
+      // 3) Match against pre-fetched external streams (PPV.to / Streamed)
+      if (externalStreams.length > 0) {
+        const extMatch = findBestExternalMatch(externalStreams, homeName, awayName, homeShort, awayShort);
+        if (extMatch) {
+          linksMap.set(espnEvent.id, { url1: extMatch.iframe, viewers: extMatch.viewers || 0 });
+        }
       }
     }
     return linksMap;
-  }, [dbEvents, allEnrichedEvents]);
-
-  // Auto-resolve streams for live ESPN events without links
-  const resolvedEventsRef = useRef(new Set<string>());
-  const resolvingRef = useRef(new Set<string>());
-
-  useEffect(() => {
-    if (allEnrichedEvents.length === 0) return;
-
-    // Resolve ALL events without links (not just live ones)
-    // If PPV.to or Streamed.pk has it, we want it immediately
-    const withoutLinks = allEnrichedEvents.filter(({ event }) => {
-      if (eventLinks.has(event.id)) return false;
-      if (resolvedEventsRef.current.has(event.id)) return false;
-      if (resolvingRef.current.has(event.id)) return false;
-      return true;
-    });
-
-    if (withoutLinks.length === 0) return;
-
-    // Resolve up to 5 events at a time to avoid overloading
-    const batch = withoutLinks.slice(0, 5);
-
-    for (const { event, leagueKey } of batch) {
-      const comp = event.competitions?.[0];
-      const competitors = comp?.competitors || [];
-      const home = competitors.find(c => c.homeAway === "home") || competitors[1];
-      const away = competitors.find(c => c.homeAway === "away") || competitors[0];
-      const homeTeam = home?.team?.displayName;
-      const awayTeam = away?.team?.displayName;
-      if (!homeTeam || !awayTeam) continue;
-
-      resolvingRef.current.add(event.id);
-
-      // Determine sport for DB
-      const sportMap: Record<string, string> = {
-        nba: "Basketball", mlb: "Baseball", nhl: "Hockey",
-        ufc: "MMA", boxing: "Boxing", wwe: "Wrestling",
-      };
-      const sport = sportMap[leagueKey] || "Soccer";
-
-      supabase.functions.invoke("resolve-live-stream", {
-        body: { homeTeam, awayTeam, espnId: event.id, sport },
-      }).then(({ data }) => {
-        resolvingRef.current.delete(event.id);
-        resolvedEventsRef.current.add(event.id);
-        if (data?.success && data?.links?.url1) {
-          // Refresh DB events to pick up the newly saved links
-          fetchEventLinks();
-        }
-      }).catch(() => {
-        resolvingRef.current.delete(event.id);
-        resolvedEventsRef.current.add(event.id);
-      });
-    }
-  }, [allEnrichedEvents, eventLinks, fetchEventLinks]);
+  }, [dbEvents, allEnrichedEvents, externalStreams]);
 
   useEffect(() => {
     fetchEventLinks();
+    fetchExternalStreams();
     const channel = supabase
       .channel('events-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => fetchEventLinks())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchEventLinks]);
+  }, [fetchEventLinks, fetchExternalStreams]);
 
   useEffect(() => { loadAllEvents(); }, [loadAllEvents]);
 
   useEffect(() => {
     const hasLive = allEnrichedEvents.some(e => e.event.competitions?.[0]?.status?.type?.state === "in");
-    const interval = setInterval(() => { loadAllEvents(); fetchEventLinks(); }, hasLive ? 30000 : 60000);
+    const interval = setInterval(() => { loadAllEvents(); fetchEventLinks(); fetchExternalStreams(); }, hasLive ? 30000 : 60000);
     return () => clearInterval(interval);
-  }, [allEnrichedEvents, loadAllEvents, fetchEventLinks]);
+  }, [allEnrichedEvents, loadAllEvents, fetchEventLinks, fetchExternalStreams]);
 
   // Reset league filter when sport changes
   useEffect(() => {
@@ -387,63 +389,16 @@ export function EventsView() {
     return list;
   }, [allEnrichedEvents, activeLeagueFilter, searchQuery]);
 
-  const [resolvingEventId, setResolvingEventId] = useState<string | null>(null);
-
-  const handleEventClick = async (enriched: EnrichedEvent) => {
+  const handleEventClick = (enriched: EnrichedEvent) => {
     const existingLink = eventLinks.get(enriched.event.id);
+    if (!existingLink?.url1) return;
+
     const comp = enriched.event.competitions?.[0];
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
     const home = teams.find((c) => c.homeAway === "home") || teams[1];
-    const homeTeam = home?.team?.displayName;
-    const awayTeam = away?.team?.displayName;
-    const title = `${awayTeam || "Equipo"} vs ${homeTeam || "Equipo"}`;
-
-    if (existingLink?.url1) {
-      openPlayer(title, existingLink);
-      return;
-    }
-
-    if (!homeTeam || !awayTeam) return;
-    if (resolvingEventId) return; // prevent double clicks
-
-    setResolvingEventId(enriched.event.id);
-
-    const sportMap: Record<string, string> = {
-      nba: "Basketball", mlb: "Baseball", nhl: "Hockey",
-      ufc: "MMA", boxing: "Boxing", wwe: "Wrestling",
-    };
-    const sport = sportMap[enriched.leagueKey] || "Soccer";
-
-    try {
-      const invoke = supabase.functions.invoke("resolve-live-stream", {
-        body: { homeTeam, awayTeam, espnId: enriched.event.id, sport },
-      });
-
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), 15000),
-      );
-
-      const { data, error } = await Promise.race([invoke, timeout]) as Awaited<typeof invoke>;
-      if (error) throw error;
-
-      const resolvedLink = data?.links?.url1
-        ? {
-            url1: data.links.url1,
-            url2: data.links.url2 || undefined,
-            url3: data.links.url3 || undefined,
-          }
-        : null;
-
-      if (resolvedLink?.url1) {
-        openPlayer(title, resolvedLink);
-        fetchEventLinks();
-      }
-    } catch (err) {
-      console.error("Resolve error:", err);
-    } finally {
-      setResolvingEventId(null);
-    }
+    const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
+    openPlayer(title, existingLink);
   };
 
   const handleDbEventClick = (event: DbEvent) => {
@@ -613,20 +568,11 @@ export function EventsView() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              className="relative"
             >
-              {resolvingEventId === enriched.event.id && (
-                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 rounded-xl backdrop-blur-sm">
-                  <div className="flex flex-col items-center gap-2">
-                    <RefreshCw className="w-6 h-6 text-primary animate-spin" />
-                    <span className="text-xs text-white/80 font-medium">Conectando...</span>
-                  </div>
-                </div>
-              )}
               <EventCard
                 event={enriched.event}
                 leagueInfo={{ key: enriched.leagueKey, name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
-                hasLink={true}
+                hasLink={Boolean(eventLinks.get(enriched.event.id)?.url1)}
                 isFavorite={favorites.has(enriched.event.id)}
                 onToggleFavorite={() => toggleFavorite(enriched.event.id)}
                 onClick={() => handleEventClick(enriched)}
