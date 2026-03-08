@@ -568,6 +568,29 @@ export function EventsView() {
         )}
       </div>
 
+function findBestExternalMatch(
+  streams: ExternalStream[],
+  homeName: string,
+  awayName: string,
+  homeShort: string,
+  awayShort: string,
+): ExternalStream | null {
+  let best: ExternalStream | null = null;
+  let bestScore = 0;
+
+  for (const s of streams) {
+    const sName = normalizeText(s.name);
+    const homeMatch = [homeName, homeShort].some(n => n.length > 2 && sName.includes(n));
+    const awayMatch = [awayName, awayShort].some(n => n.length > 2 && sName.includes(n));
+    const score = (homeMatch ? 1 : 0) + (awayMatch ? 1 : 0);
+    if (score > bestScore) {
+      bestScore = score;
+      best = s;
+    }
+  }
+
+  return bestScore >= 1 ? best : null;
+}
 
       {/* Events grid */}
       {loading ? (
