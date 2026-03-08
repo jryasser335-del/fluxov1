@@ -68,15 +68,35 @@ async function fetchWatchfootyRecords(): Promise<Record<string, any>[]> {
       if (!response?.ok) continue;
       const ct = response.headers.get("content-type") || "";
       if (!ct.includes("json")) continue;
-      const matches = await response.json();
-      if (!Array.isArray(matches)) continue;
+      const data = await response.json();
+      
+      // Handle both flat array and nested league > matches structure
+      const items = Array.isArray(data) ? data : [];
+      const allMatches: any[] = [];
+      
+      for (const item of items) {
+        // If item has matches array, it's a league wrapper
+        if (Array.isArray(item.matches)) {
+          for (const m of item.matches) allMatches.push(m);
+        } else if (Array.isArray(item.events)) {
+          for (const m of item.events) allMatches.push(m);
+        } else {
+          // Direct match object
+          allMatches.push(item);
+        }
+      }
 
-      for (const m of matches) {
+      if (sport === "baseball") {
+        console.log(`Watchfooty ${sport}: ${items.length} items -> ${allMatches.length} matches (sample keys: ${allMatches[0] ? Object.keys(allMatches[0]).join(",") : "none"})`);
+      }
+
+      for (const m of allMatches) {
         const homeName = m.teams?.home?.name?.trim();
         const awayName = m.teams?.away?.name?.trim();
         if (!homeName || !awayName) continue;
 
         const matchId = m.id;
+        if (!matchId) continue;
         const homeSlug = slugify(homeName);
         const awaySlug = slugify(awayName);
         const slug = `${homeSlug}-${awaySlug}`;
@@ -91,9 +111,9 @@ async function fetchWatchfootyRecords(): Promise<Record<string, any>[]> {
           category: sport,
           team_home: homeName,
           team_away: awayName,
-          source_admin: null,     // PPV.to (assigned below)
-          source_delta: hdUrl,    // Watchfooty/Pikachusports HD
-          source_echo: omegaUrl,  // Watchfooty/Pikachusports Omega HD
+          source_admin: null,
+          source_delta: hdUrl,
+          source_echo: omegaUrl,
           source_golf: null,
           scanned_at: new Date().toISOString(),
         });
