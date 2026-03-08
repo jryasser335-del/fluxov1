@@ -183,7 +183,7 @@ export function EventCard({
         {/* LIVE badge - top left */}
         {isLive && (
           <div className="absolute top-2.5 left-2.5 z-10">
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold text-white bg-red-600 uppercase tracking-wide shadow-md">
+            <span className="px-2.5 py-0.5 rounded text-[10px] font-display text-white bg-red-600 uppercase tracking-[0.15em] shadow-md">
               LIVE
             </span>
           </div>
@@ -192,7 +192,7 @@ export function EventCard({
         {/* Time badge for scheduled */}
         {isPre && (
           <div className="absolute top-2.5 left-2.5 z-10">
-            <span className="px-2 py-0.5 rounded text-[10px] font-semibold text-white/90 bg-black/50 backdrop-blur-sm">
+            <span className="px-2.5 py-0.5 rounded text-[10px] font-mono-premium text-white/90 bg-black/50 backdrop-blur-sm tracking-wide">
               {timeText}
             </span>
           </div>
@@ -201,7 +201,7 @@ export function EventCard({
         {/* Viewers - top right */}
         {isLive && viewers > 0 && (
           <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded bg-black/40 backdrop-blur-sm">
-            <span className="text-[10px] font-semibold text-white">{viewers.toLocaleString()}</span>
+            <span className="text-[10px] font-mono-premium font-medium text-white tabular-nums">{viewers.toLocaleString()}</span>
             <Eye className="w-3 h-3 text-white/70" />
           </div>
         )}
@@ -259,31 +259,31 @@ export function EventCard({
 
         {/* Channel watermark bottom-center */}
         <div className="absolute bottom-1.5 left-0 right-0 text-center">
-          <span className="text-[9px] text-white/40 font-medium tracking-wide">
+          <span className="text-[8px] text-white/35 font-display tracking-[0.2em] uppercase">
             {leagueInfo.sub || leagueInfo.name}
           </span>
         </div>
       </div>
 
       {/* Info below card */}
-      <div className="bg-background px-1 pt-2 pb-1 space-y-0.5">
-        <h3 className="text-[12px] sm:text-[13px] font-semibold text-foreground leading-tight line-clamp-2">
-          {away?.team?.displayName || "TBD"} vs {home?.team?.displayName || "TBD"}
+      <div className="bg-background px-1.5 pt-2 pb-1.5 space-y-0.5">
+        <h3 className="text-[12px] sm:text-[13px] font-tech font-semibold text-foreground leading-tight line-clamp-2 tracking-tight">
+          {away?.team?.displayName || "TBD"} <span className="text-muted-foreground font-normal">vs</span> {home?.team?.displayName || "TBD"}
         </h3>
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-body text-muted-foreground">
             {leagueInfo.name}
           </span>
           {(isPre || isFinal) && (
             <>
-              <span className="text-[10px] text-muted-foreground/50">|</span>
-              <span className="text-[10px] text-muted-foreground">{timeText}</span>
+              <span className="text-[10px] text-muted-foreground/30">·</span>
+              <span className="text-[10px] font-mono-premium text-muted-foreground tabular-nums">{timeText}</span>
             </>
           )}
           {isLive && timeText && (
             <>
-              <span className="text-[10px] text-muted-foreground/50">|</span>
-              <span className="text-[10px] text-primary font-medium">{timeText}</span>
+              <span className="text-[10px] text-muted-foreground/30">·</span>
+              <span className="text-[10px] font-mono-premium text-primary font-medium tabular-nums">{timeText}</span>
             </>
           )}
         </div>
