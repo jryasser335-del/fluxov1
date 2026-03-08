@@ -219,22 +219,16 @@ export function EventsView() {
   useEffect(() => {
     if (allEnrichedEvents.length === 0) return;
 
-    const liveWithoutLinks = allEnrichedEvents.filter(({ event }) => {
-      const state = event.competitions?.[0]?.status?.type?.state;
-      if (state !== "in" && state !== "pre") return false;
-      // For pre events, only resolve if starting within 60 min
-      if (state === "pre") {
-        const eventDate = new Date(event.competitions?.[0]?.date || event.date);
-        const minsUntil = (eventDate.getTime() - Date.now()) / 60000;
-        if (minsUntil > 60) return false;
-      }
+    // Resolve ALL events without links (not just live ones)
+    // If PPV.to or Streamed.pk has it, we want it immediately
+    const withoutLinks = allEnrichedEvents.filter(({ event }) => {
       if (eventLinks.has(event.id)) return false;
       if (resolvedEventsRef.current.has(event.id)) return false;
       if (resolvingRef.current.has(event.id)) return false;
       return true;
     });
 
-    if (liveWithoutLinks.length === 0) return;
+    if (withoutLinks.length === 0) return;
 
     // Resolve up to 5 events at a time to avoid overloading
     const batch = liveWithoutLinks.slice(0, 5);
