@@ -387,14 +387,49 @@ export function EventsView() {
     return list;
   }, [allEnrichedEvents, activeLeagueFilter, searchQuery]);
 
-  const handleEventClick = (enriched: EnrichedEvent) => {
-    const link = eventLinks.get(enriched.event.id);
+  const handleEventClick = async (enriched: EnrichedEvent) => {
+    const existingLink = eventLinks.get(enriched.event.id);
     const comp = enriched.event.competitions?.[0];
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
     const home = teams.find((c) => c.homeAway === "home") || teams[1];
-    const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
-    if (link) openPlayer(title, link);
+    const homeTeam = home?.team?.displayName;
+    const awayTeam = away?.team?.displayName;
+    const title = `${awayTeam || "Equipo"} vs ${homeTeam || "Equipo"}`;
+
+    if (existingLink) {
+      openPlayer(title, existingLink);
+      return;
+    }
+
+    if (!homeTeam || !awayTeam) return;
+
+    const sportMap: Record<string, string> = {
+      nba: "Basketball", mlb: "Baseball", nhl: "Hockey",
+      ufc: "MMA", boxing: "Boxing", wwe: "Wrestling",
+    };
+    const sport = sportMap[enriched.leagueKey] || "Soccer";
+
+    try {
+      const { data } = await supabase.functions.invoke("resolve-live-stream", {
+        body: { homeTeam, awayTeam, espnId: enriched.event.id, sport },
+      });
+
+      const resolvedLink = data?.links?.url1
+        ? {
+            url1: data.links.url1,
+            url2: data.links.url2 || undefined,
+            url3: data.links.url3 || undefined,
+          }
+        : null;
+
+      if (resolvedLink?.url1) {
+        openPlayer(title, resolvedLink);
+        fetchEventLinks();
+      }
+    } catch {
+      // no-op
+    }
   };
 
   const handleDbEventClick = (event: DbEvent) => {
@@ -568,7 +603,7 @@ export function EventsView() {
               <EventCard
                 event={enriched.event}
                 leagueInfo={{ key: enriched.leagueKey, name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
-                hasLink={eventLinks.has(enriched.event.id)}
+                hasLink={true}
                 isFavorite={favorites.has(enriched.event.id)}
                 onToggleFavorite={() => toggleFavorite(enriched.event.id)}
                 onClick={() => handleEventClick(enriched)}
