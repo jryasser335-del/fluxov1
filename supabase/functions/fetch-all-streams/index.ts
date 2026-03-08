@@ -117,7 +117,7 @@ async function fetchStreamedStreams(): Promise<StreamEntry[]> {
 
 async function fetchMoviebiteStreams(): Promise<StreamEntry[]> {
   const entries: StreamEntry[] = [];
-  const API_BASE = "https://api.watchfooty.pw";
+  const API_BASE = "https://live.moviebite.cc";
 
   try {
     const res = await fetchFast(`${API_BASE}/api/v1/matches/all`, 4000);
@@ -125,7 +125,6 @@ async function fetchMoviebiteStreams(): Promise<StreamEntry[]> {
     const matches = await res.json();
     if (!Array.isArray(matches)) return entries;
 
-    // For each match, fetch detailed streams (limit to 40 to avoid overload)
     const toFetch = matches.slice(0, 40);
 
     await Promise.all(
@@ -143,7 +142,6 @@ async function fetchMoviebiteStreams(): Promise<StreamEntry[]> {
           const name = detail.title || (home && away ? `${home} vs ${away}` : "Unknown");
           const category = detail.sport || detail.league || m.sport || "Other";
 
-          // Pick best HD English streams, preferring hd > prime > elite > omega > easy > tv
           const streams = detail.streams || [];
           const prioritySources = ["hd", "prime", "elite", "omega", "easy", "tv", "delta", "echo"];
           const hdEnglish = streams
@@ -154,7 +152,6 @@ async function fetchMoviebiteStreams(): Promise<StreamEntry[]> {
               return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
             });
 
-          // Take top 3 unique sources
           const usedSources = new Set<string>();
           const picked: any[] = [];
           for (const s of hdEnglish) {
@@ -165,7 +162,6 @@ async function fetchMoviebiteStreams(): Promise<StreamEntry[]> {
             }
           }
 
-          // If we have no HD English, try any HD stream
           if (picked.length === 0) {
             const anyHd = streams.filter((s: any) => s.url && s.quality === "HD").slice(0, 1);
             picked.push(...anyHd);
@@ -182,7 +178,7 @@ async function fetchMoviebiteStreams(): Promise<StreamEntry[]> {
               source: "moviebite",
             });
           }
-        } catch { /* skip individual match */ }
+        } catch { /* skip */ }
       }),
     );
   } catch (err) {
