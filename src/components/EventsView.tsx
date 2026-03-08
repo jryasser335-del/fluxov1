@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./events/EventCard";
 
 import { SkeletonEventCard } from "./Skeleton";
-import { toast } from "sonner";
 import { Search, RefreshCw, Radio, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -388,10 +387,10 @@ export function EventsView() {
     return list;
   }, [allEnrichedEvents, activeLeagueFilter, searchQuery]);
 
-  const [resolvingEventId, setResolvingEventId] = useState<string | null>(null);
-
-  const handleEventClick = async (enriched: EnrichedEvent) => {
+  const handleEventClick = (enriched: EnrichedEvent) => {
     const existingLink = eventLinks.get(enriched.event.id);
+    if (!existingLink?.url1) return;
+
     const comp = enriched.event.competitions?.[0];
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
@@ -400,60 +399,7 @@ export function EventsView() {
     const awayTeam = away?.team?.displayName;
     const title = `${awayTeam || "Equipo"} vs ${homeTeam || "Equipo"}`;
 
-    if (existingLink) {
-      openPlayer(title, existingLink);
-      return;
-    }
-
-    if (!homeTeam || !awayTeam) {
-      toast.error("No se pudo identificar los equipos");
-      return;
-    }
-
-    // Show loading feedback
-    setResolvingEventId(enriched.event.id);
-    const toastId = toast.loading("Buscando señal...", { description: title });
-
-    const sportMap: Record<string, string> = {
-      nba: "Basketball", mlb: "Baseball", nhl: "Hockey",
-      ufc: "MMA", boxing: "Boxing", wwe: "Wrestling",
-    };
-    const sport = sportMap[enriched.leagueKey] || "Soccer";
-
-    try {
-      const invoke = supabase.functions.invoke("resolve-live-stream", {
-        body: { homeTeam, awayTeam, espnId: enriched.event.id, sport },
-      });
-
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), 12000),
-      );
-
-      const { data, error } = await Promise.race([invoke, timeout]) as Awaited<typeof invoke>;
-
-      if (error) throw error;
-
-      const resolvedLink = data?.links?.url1
-        ? {
-            url1: data.links.url1,
-            url2: data.links.url2 || undefined,
-            url3: data.links.url3 || undefined,
-          }
-        : null;
-
-      if (resolvedLink?.url1) {
-        toast.success("Señal encontrada", { id: toastId, description: title });
-        openPlayer(title, resolvedLink);
-        fetchEventLinks();
-      } else {
-        toast.error("No hay señal disponible", { id: toastId, description: "Intenta de nuevo más tarde" });
-      }
-    } catch (err) {
-      console.error("Resolve error:", err);
-      toast.error("Error buscando señal", { id: toastId, description: "Intenta de nuevo" });
-    } finally {
-      setResolvingEventId(null);
-    }
+    openPlayer(title, existingLink);
   };
 
   const handleDbEventClick = (event: DbEvent) => {
@@ -627,7 +573,7 @@ export function EventsView() {
               <EventCard
                 event={enriched.event}
                 leagueInfo={{ key: enriched.leagueKey, name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
-                hasLink={true}
+                hasLink={Boolean(eventLinks.get(enriched.event.id)?.url1)}
                 isFavorite={favorites.has(enriched.event.id)}
                 onToggleFavorite={() => toggleFavorite(enriched.event.id)}
                 onClick={() => handleEventClick(enriched)}
