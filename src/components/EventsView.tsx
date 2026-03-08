@@ -201,17 +201,19 @@ export function EventsView() {
     setLoading(false);
   }, [leaguesToFetch]);
 
-  // Build eventLinks map
+  // Build eventLinks map - now uses external streams for instant matching
   const eventLinks = useMemo(() => {
-    const linksMap = new Map<string, { url1: string; url2?: string; url3?: string }>();
-    if (dbEvents.length === 0 || allEnrichedEvents.length === 0) return linksMap;
+    const linksMap = new Map<string, { url1: string; url2?: string; url3?: string; viewers?: number }>();
 
     for (const { event: espnEvent } of allEnrichedEvents) {
+      // 1) Check DB by ESPN ID
       const byId = dbEvents.find(d => d.espn_id && d.espn_id === espnEvent.id);
       if (byId?.stream_url) {
         linksMap.set(espnEvent.id, { url1: byId.stream_url, url2: byId.stream_url_2 || undefined, url3: byId.stream_url_3 || undefined });
         continue;
       }
+
+      // 2) Fuzzy match DB events
       const comp = espnEvent.competitions?.[0];
       const competitors = comp?.competitors || [];
       const espnHome = competitors.find(c => c.homeAway === "home");
@@ -222,7 +224,7 @@ export function EventsView() {
       const homeShort = normalizeText(espnHome?.team?.shortDisplayName || "");
       const awayShort = normalizeText(espnAway?.team?.shortDisplayName || "");
 
-      const match = dbEvents.find(d => {
+      const dbMatch = dbEvents.find(d => {
         if (!d.stream_url) return false;
         const dAll = normalizeText(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""}`);
         const homeMatch = [homeName, homeShort].some(n => n.length > 2 && dAll.includes(n));
@@ -230,84 +232,39 @@ export function EventsView() {
         return homeMatch && awayMatch;
       });
 
-      if (match?.stream_url) {
-        linksMap.set(espnEvent.id, { url1: match.stream_url, url2: match.stream_url_2 || undefined, url3: match.stream_url_3 || undefined });
+      if (dbMatch?.stream_url) {
+        linksMap.set(espnEvent.id, { url1: dbMatch.stream_url, url2: dbMatch.stream_url_2 || undefined, url3: dbMatch.stream_url_3 || undefined });
+        continue;
+      }
+
+      // 3) Match against pre-fetched external streams (PPV.to / Streamed)
+      if (externalStreams.length > 0) {
+        const extMatch = findBestExternalMatch(externalStreams, homeName, awayName, homeShort, awayShort);
+        if (extMatch) {
+          linksMap.set(espnEvent.id, { url1: extMatch.iframe, viewers: extMatch.viewers || 0 });
+        }
       }
     }
     return linksMap;
-  }, [dbEvents, allEnrichedEvents]);
-
-  // Auto-resolve streams for live ESPN events without links
-  const resolvedEventsRef = useRef(new Set<string>());
-  const resolvingRef = useRef(new Set<string>());
-
-  useEffect(() => {
-    if (allEnrichedEvents.length === 0) return;
-
-    // Resolve ALL events without links (not just live ones)
-    // If PPV.to or Streamed.pk has it, we want it immediately
-    const withoutLinks = allEnrichedEvents.filter(({ event }) => {
-      if (eventLinks.has(event.id)) return false;
-      if (resolvedEventsRef.current.has(event.id)) return false;
-      if (resolvingRef.current.has(event.id)) return false;
-      return true;
-    });
-
-    if (withoutLinks.length === 0) return;
-
-    // Resolve up to 5 events at a time to avoid overloading
-    const batch = withoutLinks.slice(0, 5);
-
-    for (const { event, leagueKey } of batch) {
-      const comp = event.competitions?.[0];
-      const competitors = comp?.competitors || [];
-      const home = competitors.find(c => c.homeAway === "home") || competitors[1];
-      const away = competitors.find(c => c.homeAway === "away") || competitors[0];
-      const homeTeam = home?.team?.displayName;
-      const awayTeam = away?.team?.displayName;
-      if (!homeTeam || !awayTeam) continue;
-
-      resolvingRef.current.add(event.id);
-
-      // Determine sport for DB
-      const sportMap: Record<string, string> = {
-        nba: "Basketball", mlb: "Baseball", nhl: "Hockey",
-        ufc: "MMA", boxing: "Boxing", wwe: "Wrestling",
-      };
-      const sport = sportMap[leagueKey] || "Soccer";
-
-      supabase.functions.invoke("resolve-live-stream", {
-        body: { homeTeam, awayTeam, espnId: event.id, sport },
-      }).then(({ data }) => {
-        resolvingRef.current.delete(event.id);
-        resolvedEventsRef.current.add(event.id);
-        if (data?.success && data?.links?.url1) {
-          // Refresh DB events to pick up the newly saved links
-          fetchEventLinks();
-        }
-      }).catch(() => {
-        resolvingRef.current.delete(event.id);
-        resolvedEventsRef.current.add(event.id);
-      });
-    }
-  }, [allEnrichedEvents, eventLinks, fetchEventLinks]);
+  }, [dbEvents, allEnrichedEvents, externalStreams]);
 
   useEffect(() => {
     fetchEventLinks();
+    fetchExternalStreams();
     const channel = supabase
       .channel('events-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => fetchEventLinks())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchEventLinks]);
+  }, [fetchEventLinks, fetchExternalStreams]);
 
   useEffect(() => { loadAllEvents(); }, [loadAllEvents]);
 
   useEffect(() => {
     const hasLive = allEnrichedEvents.some(e => e.event.competitions?.[0]?.status?.type?.state === "in");
-    const interval = setInterval(() => { loadAllEvents(); fetchEventLinks(); }, hasLive ? 30000 : 60000);
+    const interval = setInterval(() => { loadAllEvents(); fetchEventLinks(); fetchExternalStreams(); }, hasLive ? 30000 : 60000);
     return () => clearInterval(interval);
-  }, [allEnrichedEvents, loadAllEvents, fetchEventLinks]);
+  }, [allEnrichedEvents, loadAllEvents, fetchEventLinks, fetchExternalStreams]);
 
   // Reset league filter when sport changes
   useEffect(() => {
