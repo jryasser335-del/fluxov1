@@ -266,24 +266,24 @@ export function EventCard({
       </div>
 
       {/* Info below card */}
-      <div className="bg-background px-1 pt-2 pb-1 space-y-0.5">
-        <h3 className="text-[12px] sm:text-[13px] font-semibold text-foreground leading-tight line-clamp-2">
-          {away?.team?.displayName || "TBD"} vs {home?.team?.displayName || "TBD"}
+      <div className="bg-background px-1.5 pt-2 pb-1.5 space-y-0.5">
+        <h3 className="text-[12px] sm:text-[13px] font-tech font-semibold text-foreground leading-tight line-clamp-2 tracking-tight">
+          {away?.team?.displayName || "TBD"} <span className="text-muted-foreground font-normal">vs</span> {home?.team?.displayName || "TBD"}
         </h3>
-        <div className="flex items-center gap-1">
-          <span className="text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-body text-muted-foreground">
             {leagueInfo.name}
           </span>
           {(isPre || isFinal) && (
             <>
-              <span className="text-[10px] text-muted-foreground/50">|</span>
-              <span className="text-[10px] text-muted-foreground">{timeText}</span>
+              <span className="text-[10px] text-muted-foreground/30">·</span>
+              <span className="text-[10px] font-mono-premium text-muted-foreground tabular-nums">{timeText}</span>
             </>
           )}
           {isLive && timeText && (
             <>
-              <span className="text-[10px] text-muted-foreground/50">|</span>
-              <span className="text-[10px] text-primary font-medium">{timeText}</span>
+              <span className="text-[10px] text-muted-foreground/30">·</span>
+              <span className="text-[10px] font-mono-premium text-primary font-medium tabular-nums">{timeText}</span>
             </>
           )}
         </div>
