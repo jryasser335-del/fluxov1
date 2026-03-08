@@ -1,5 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -28,7 +26,7 @@ interface StreamEntry {
   iframe: string;
   poster?: string;
   viewers?: number;
-  source: "ppv" | "streamed";
+  source: "ppv" | "streamed" | "moviebite";
   channels?: string;
 }
 
@@ -56,7 +54,7 @@ async function fetchPPVStreams(): Promise<StreamEntry[]> {
           });
         }
       }
-      break; // success, no need to try next mirror
+      break;
     } catch {
       continue;
     }
@@ -74,11 +72,10 @@ async function fetchStreamedStreams(): Promise<StreamEntry[]> {
       if (!res?.ok) continue;
       const matches = await res.json();
 
-      // Get embed URLs for live matches only
       const liveMatches = matches.filter((m: any) => {
         const sources = m.sources || [];
         return sources.length > 0;
-      }).slice(0, 30); // limit to avoid too many requests
+      }).slice(0, 30);
 
       await Promise.all(
         liveMatches.map(async (m: any) => {
@@ -118,20 +115,98 @@ async function fetchStreamedStreams(): Promise<StreamEntry[]> {
   return entries;
 }
 
+async function fetchMoviebiteStreams(): Promise<StreamEntry[]> {
+  const entries: StreamEntry[] = [];
+  const API_BASE = "https://api.watchfooty.pw";
+
+  try {
+    const res = await fetchFast(`${API_BASE}/api/v1/matches/all`, 4000);
+    if (!res?.ok) return entries;
+    const matches = await res.json();
+    if (!Array.isArray(matches)) return entries;
+
+    // For each match, fetch detailed streams (limit to 40 to avoid overload)
+    const toFetch = matches.slice(0, 40);
+
+    await Promise.all(
+      toFetch.map(async (m: any) => {
+        const matchId = m.id || m.matchId;
+        if (!matchId) return;
+
+        try {
+          const r = await fetchFast(`${API_BASE}/api/v1/match/${matchId}`, 2500);
+          if (!r?.ok) return;
+          const detail = await r.json();
+
+          const home = detail.teams?.home?.name || m.teams?.home?.name || "";
+          const away = detail.teams?.away?.name || m.teams?.away?.name || "";
+          const name = detail.title || (home && away ? `${home} vs ${away}` : "Unknown");
+          const category = detail.sport || detail.league || m.sport || "Other";
+
+          // Pick best HD English streams, preferring hd > prime > elite > omega > easy > tv
+          const streams = detail.streams || [];
+          const prioritySources = ["hd", "prime", "elite", "omega", "easy", "tv", "delta", "echo"];
+          const hdEnglish = streams
+            .filter((s: any) => s.url && s.quality === "HD" && (s.language === "English" || s.language === "en"))
+            .sort((a: any, b: any) => {
+              const ai = prioritySources.indexOf(a.source);
+              const bi = prioritySources.indexOf(b.source);
+              return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+            });
+
+          // Take top 3 unique sources
+          const usedSources = new Set<string>();
+          const picked: any[] = [];
+          for (const s of hdEnglish) {
+            if (picked.length >= 3) break;
+            if (!usedSources.has(s.source)) {
+              picked.push(s);
+              usedSources.add(s.source);
+            }
+          }
+
+          // If we have no HD English, try any HD stream
+          if (picked.length === 0) {
+            const anyHd = streams.filter((s: any) => s.url && s.quality === "HD").slice(0, 1);
+            picked.push(...anyHd);
+          }
+
+          for (const s of picked) {
+            entries.push({
+              id: `mb-${matchId}-${s.source}-${s.id || ""}`,
+              name,
+              category,
+              iframe: s.url,
+              poster: detail.poster ? `${API_BASE}${detail.poster}` : undefined,
+              viewers: 0,
+              source: "moviebite",
+            });
+          }
+        } catch { /* skip individual match */ }
+      }),
+    );
+  } catch (err) {
+    console.error("Moviebite fetch error:", err);
+  }
+
+  return entries;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const t0 = Date.now();
   try {
-    // Fetch from both sources in parallel
-    const [ppvStreams, streamedStreams] = await Promise.all([
+    // Fetch from all three sources in parallel
+    const [ppvStreams, streamedStreams, moviebiteStreams] = await Promise.all([
       fetchPPVStreams(),
       fetchStreamedStreams(),
+      fetchMoviebiteStreams(),
     ]);
 
-    const allStreams = [...ppvStreams, ...streamedStreams];
+    const allStreams = [...ppvStreams, ...streamedStreams, ...moviebiteStreams];
 
-    console.log(`📡 Bulk fetch: ${ppvStreams.length} PPV + ${streamedStreams.length} Streamed = ${allStreams.length} total in ${Date.now() - t0}ms`);
+    console.log(`📡 Bulk fetch: ${ppvStreams.length} PPV + ${streamedStreams.length} Streamed + ${moviebiteStreams.length} Moviebite = ${allStreams.length} total in ${Date.now() - t0}ms`);
 
     return new Response(
       JSON.stringify({ success: true, streams: allStreams, count: allStreams.length }),
