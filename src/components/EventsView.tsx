@@ -52,7 +52,7 @@ interface ExternalStream {
   iframe: string;
   poster?: string;
   viewers?: number;
-  source: "ppv" | "streamed";
+  source: "ppv" | "streamed" | "moviebite";
   channels?: string;
 }
 
