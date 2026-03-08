@@ -303,7 +303,7 @@ export function EventsView() {
 
   useEffect(() => {
     const hasLive = allEnrichedEvents.some(e => e.event.competitions?.[0]?.status?.type?.state === "in");
-    const interval = setInterval(() => { loadAllEvents(); fetchEventLinks(); fetchExternalStreams(); }, hasLive ? 30000 : 60000);
+    const interval = setInterval(() => { loadAllEvents(true); fetchEventLinks(); fetchExternalStreams(); }, hasLive ? 30000 : 60000);
     return () => clearInterval(interval);
   }, [allEnrichedEvents, loadAllEvents, fetchEventLinks, fetchExternalStreams]);
 
