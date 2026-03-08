@@ -425,37 +425,45 @@ export function EventsView() {
     const home = teams.find((c) => c.homeAway === "home") || teams[1];
     const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
 
-    // If we already have a link, open immediately
+    // Si ya existe link, abrir de inmediato
     const existingLink = eventLinks.get(enriched.event.id);
     if (existingLink?.url1) {
       openPlayer(title, existingLink);
       return;
     }
 
-    // Otherwise resolve on-the-fly
+    // Abrir modal al instante para evitar sensación de "no hace nada"
+    openPlayer(title, { url1: "" });
+
+    // Resolver link en segundo plano con timeout
     setResolvingId(enriched.event.id);
     try {
-      const { data } = await supabase.functions.invoke("fetch-all-streams", { body: {} });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 6000)
+      );
+
+      const invokePromise = supabase.functions.invoke("fetch-all-streams", { body: {} });
+      const { data } = await Promise.race([invokePromise, timeoutPromise]) as { data?: { streams?: ExternalStream[] } };
+
       if (data?.streams) {
         setExternalStreams(data.streams as ExternalStream[]);
-        // Try matching now
+
         const homeName = normalizeText(home?.team?.displayName || "");
         const awayName = normalizeText(away?.team?.displayName || "");
         const homeShort = normalizeText(home?.team?.shortDisplayName || "");
         const awayShort = normalizeText(away?.team?.shortDisplayName || "");
         const matches = findBestExternalMatches(data.streams as ExternalStream[], homeName, awayName, homeShort, awayShort);
+
         if (matches.length > 0) {
           openPlayer(title, {
             url1: matches[0].iframe,
             url2: matches[1]?.iframe,
             url3: matches[2]?.iframe,
           });
-        } else {
-          openPlayer(title, { url1: "" });
         }
       }
     } catch {
-      openPlayer(title, { url1: "" });
+      // Mantener modal abierto en estado "pendiente" si falla/timeout.
     } finally {
       setResolvingId(null);
     }
