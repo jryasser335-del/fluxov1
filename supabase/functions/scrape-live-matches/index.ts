@@ -95,7 +95,7 @@ async function fetchWatchfootyRecords(): Promise<Record<string, any>[]> {
         const awayName = m.teams?.away?.name?.trim();
         if (!homeName || !awayName) continue;
 
-        const matchId = m.id;
+        const matchId = m.matchId || m.id;
         if (!matchId) continue;
         const homeSlug = slugify(homeName);
         const awaySlug = slugify(awayName);
