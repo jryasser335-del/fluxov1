@@ -182,12 +182,19 @@ export function EventsView() {
 
   // Fetch ALL leagues for the current sport simultaneously
   const loadAllEvents = useCallback(async (isRefresh = false) => {
+    if (isRefresh && refreshInFlightRef.current) return;
+
     if (leaguesToFetch.length === 0) {
       setAllEnrichedEvents([]);
       setLoading(false);
+      setHasInitialLoad(true);
       return;
     }
-    if (!isRefresh) setLoading(true);
+
+    const shouldShowBlockingLoader = !isRefresh && !hasInitialLoad;
+    if (shouldShowBlockingLoader) setLoading(true);
+    if (isRefresh) refreshInFlightRef.current = true;
+
     try {
       const results = await Promise.allSettled(
         leaguesToFetch.map(async (leagueKey) => {
@@ -196,20 +203,9 @@ export function EventsView() {
           const leagueLogo = lg?.logos?.[0]?.href || getLeagueLogoFallback(leagueKey);
           const leagueName = lg?.name || lg?.abbreviation || leagueKey;
           const leagueSub = lg?.abbreviation || leagueKey.toUpperCase();
-          const leagueSlug = lg?.slug || "";
-          
-          // Filter events to only include those that belong to this exact league
-          // ESPN sometimes returns events from sub-leagues (G-League, NBA Cup, etc.)
-          const filteredEvents = (data.events || []).filter(event => {
-            // If no league info, include all events
-            if (!lg) return true;
-            // Check if the event's league matches what we requested
-            const eventLeague = event.competitions?.[0]?.competitors?.[0]?.team?.id;
-            // For most cases, ESPN returns correct events for the endpoint
-            // But we can verify using the league slug in the response
-            return true; // ESPN endpoints are league-specific, trust the response
-          });
-          
+
+          const filteredEvents = (data.events || []).filter(() => true);
+
           return filteredEvents.map(event => ({
             event,
             leagueKey,
@@ -232,12 +228,20 @@ export function EventsView() {
           }
         }
       }
-      setAllEnrichedEvents(enriched);
+
+      // En refresh silencioso, conserva datos previos si esta tanda vino vacía/fallida.
+      if (enriched.length > 0 || !isRefresh || !hasInitialLoad) {
+        setAllEnrichedEvents(enriched);
+      }
     } catch {
-      setAllEnrichedEvents([]);
+      // Evita vaciar la UI en refrescos de fondo con fallos de red temporales.
+      if (!isRefresh) setAllEnrichedEvents([]);
+    } finally {
+      if (!hasInitialLoad) setHasInitialLoad(true);
+      setLoading(false);
+      if (isRefresh) refreshInFlightRef.current = false;
     }
-    setLoading(false);
-  }, [leaguesToFetch]);
+  }, [leaguesToFetch, hasInitialLoad]);
 
   // Build eventLinks map - now uses external streams for instant matching
   const eventLinks = useMemo(() => {
