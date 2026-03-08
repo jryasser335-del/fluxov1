@@ -410,16 +410,49 @@ export function EventsView() {
     return list;
   }, [allEnrichedEvents, activeLeagueFilter, searchQuery]);
 
-  const handleEventClick = (enriched: EnrichedEvent) => {
-    const existingLink = eventLinks.get(enriched.event.id);
-    if (!existingLink?.url1) return;
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
+  const handleEventClick = async (enriched: EnrichedEvent) => {
     const comp = enriched.event.competitions?.[0];
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
     const home = teams.find((c) => c.homeAway === "home") || teams[1];
     const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
-    openPlayer(title, existingLink);
+
+    // If we already have a link, open immediately
+    const existingLink = eventLinks.get(enriched.event.id);
+    if (existingLink?.url1) {
+      openPlayer(title, existingLink);
+      return;
+    }
+
+    // Otherwise resolve on-the-fly
+    setResolvingId(enriched.event.id);
+    try {
+      const { data } = await supabase.functions.invoke("fetch-all-streams", { body: {} });
+      if (data?.streams) {
+        setExternalStreams(data.streams as ExternalStream[]);
+        // Try matching now
+        const homeName = normalizeText(home?.team?.displayName || "");
+        const awayName = normalizeText(away?.team?.displayName || "");
+        const homeShort = normalizeText(home?.team?.shortDisplayName || "");
+        const awayShort = normalizeText(away?.team?.shortDisplayName || "");
+        const matches = findBestExternalMatches(data.streams as ExternalStream[], homeName, awayName, homeShort, awayShort);
+        if (matches.length > 0) {
+          openPlayer(title, {
+            url1: matches[0].iframe,
+            url2: matches[1]?.iframe,
+            url3: matches[2]?.iframe,
+          });
+        } else {
+          openPlayer(title, { url1: "" });
+        }
+      }
+    } catch {
+      openPlayer(title, { url1: "" });
+    } finally {
+      setResolvingId(null);
+    }
   };
 
   const handleDbEventClick = (event: DbEvent) => {
@@ -594,6 +627,7 @@ export function EventsView() {
                 event={enriched.event}
                 leagueInfo={{ key: enriched.leagueKey, name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
                 hasLink={Boolean(eventLinks.get(enriched.event.id)?.url1)}
+                isResolving={resolvingId === enriched.event.id}
                 isFavorite={favorites.has(enriched.event.id)}
                 onToggleFavorite={() => toggleFavorite(enriched.event.id)}
                 onClick={() => handleEventClick(enriched)}

@@ -8,6 +8,7 @@ interface EventCardProps {
   event: ESPNEvent;
   leagueInfo: { key: string; name: string; sub: string; logo?: string };
   hasLink: boolean;
+  isResolving?: boolean;
   isFavorite: boolean;
   isFeatured?: boolean;
   onToggleFavorite: () => void;
@@ -122,6 +123,7 @@ export function EventCard({
   event,
   leagueInfo,
   hasLink,
+  isResolving,
   isFavorite,
   onToggleFavorite,
   onClick,
@@ -158,10 +160,10 @@ export function EventCard({
   return (
     <div
       className={cn(
-        "group relative rounded-xl overflow-hidden transition-all duration-300",
-        hasLink ? "cursor-pointer hover:-translate-y-1 hover:shadow-xl" : "opacity-50"
+        "group relative rounded-xl overflow-hidden transition-all duration-300 cursor-pointer hover:-translate-y-1 hover:shadow-xl",
+        isResolving && "animate-pulse"
       )}
-      onClick={hasLink ? onClick : undefined}
+      onClick={onClick}
     >
       {/* Thumbnail area with team-color gradient */}
       <div
