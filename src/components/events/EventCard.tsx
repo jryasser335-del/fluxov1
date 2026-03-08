@@ -123,6 +123,7 @@ export function EventCard({
   event,
   leagueInfo,
   hasLink,
+  isResolving,
   isFavorite,
   onToggleFavorite,
   onClick,
