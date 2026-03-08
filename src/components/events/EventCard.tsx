@@ -192,7 +192,7 @@ export function EventCard({
         {/* Time badge for scheduled */}
         {isPre && (
           <div className="absolute top-2.5 left-2.5 z-10">
-            <span className="px-2 py-0.5 rounded text-[10px] font-semibold text-white/90 bg-black/50 backdrop-blur-sm">
+            <span className="px-2.5 py-0.5 rounded text-[10px] font-mono-premium text-white/90 bg-black/50 backdrop-blur-sm tracking-wide">
               {timeText}
             </span>
           </div>
