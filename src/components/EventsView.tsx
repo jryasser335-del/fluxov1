@@ -203,12 +203,50 @@ export function EventsView() {
     setLoading(false);
   }, [leaguesToFetch]);
 
-  // Build eventLinks map
+  // Helpers de matching por nombre de equipo
+  const STOPWORDS_SET = new Set([
+    "fc",
+    "cf",
+    "sc",
+    "ac",
+    "bc",
+    "cd",
+    "the",
+    "de",
+    "la",
+    "el",
+    "club",
+    "team",
+    "vs",
+    "v",
+  ]);
+  const tokenizeName = (s: string): string[] =>
+    normalizeText(s)
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 2 && !STOPWORDS_SET.has(t));
+  const teamNameScore = (a: string, b: string): number => {
+    const ta = new Set(tokenizeName(a));
+    const tb = new Set(tokenizeName(b));
+    if (ta.size === 0 || tb.size === 0) return 0;
+    let overlap = 0;
+    for (const t of ta) if (tb.has(t)) overlap++;
+    return overlap / Math.max(ta.size, tb.size);
+  };
+  const matchScore = (eHome: string, eAway: string, dHome: string, dAway: string): number => {
+    const direct = (teamNameScore(eHome, dHome) + teamNameScore(eAway, dAway)) / 2;
+    const swapped = (teamNameScore(eHome, dAway) + teamNameScore(eAway, dHome)) / 2;
+    return Math.max(direct, swapped);
+  };
+
+  // eventLinks: se construye en cuanto dbEvents carga, SIN esperar a ESPN
+  // Antes bloqueaba con: if (allEnrichedEvents.length === 0) return linksMap
+  // Ahora funciona apenas dbEvents llega (que es mucho más rápido que ESPN)
   const eventLinks = useMemo(() => {
     const linksMap = new Map<string, { url1: string; url2?: string; url3?: string }>();
-    if (dbEvents.length === 0 || allEnrichedEvents.length === 0) return linksMap;
+    if (dbEvents.length === 0) return linksMap;
 
     for (const { event: espnEvent } of allEnrichedEvents) {
+      // 1. Match exacto por espn_id
       const byId = dbEvents.find((d) => d.espn_id && d.espn_id === espnEvent.id);
       if (byId?.stream_url) {
         linksMap.set(espnEvent.id, {
@@ -218,29 +256,36 @@ export function EventsView() {
         });
         continue;
       }
+      // 2. Match fuzzy por nombre de equipos con score tolerante
       const comp = espnEvent.competitions?.[0];
       const competitors = comp?.competitors || [];
       const espnHome = competitors.find((c) => c.homeAway === "home");
       const espnAway = competitors.find((c) => c.homeAway === "away");
       if (!espnHome?.team?.displayName && !espnAway?.team?.displayName) continue;
-      const homeName = normalizeText(espnHome?.team?.displayName || "");
-      const awayName = normalizeText(espnAway?.team?.displayName || "");
-      const homeShort = normalizeText(espnHome?.team?.shortDisplayName || "");
-      const awayShort = normalizeText(espnAway?.team?.shortDisplayName || "");
-
-      const match = dbEvents.find((d) => {
-        if (!d.stream_url) return false;
-        const dAll = normalizeText(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""}`);
-        const homeMatch = [homeName, homeShort].some((n) => n.length > 2 && dAll.includes(n));
-        const awayMatch = [awayName, awayShort].some((n) => n.length > 2 && dAll.includes(n));
-        return homeMatch && awayMatch;
-      });
-
-      if (match?.stream_url) {
+      const eHomeName = espnHome?.team?.displayName || "";
+      const eHomeShort = espnHome?.team?.shortDisplayName || "";
+      const eAwayName = espnAway?.team?.displayName || "";
+      const eAwayShort = espnAway?.team?.shortDisplayName || "";
+      let best: DbEvent | null = null;
+      let bestScore = 0;
+      for (const d of dbEvents) {
+        if (!d.stream_url) continue;
+        const dHome = d.team_home || "";
+        const dAway = d.team_away || "";
+        const score = Math.max(
+          matchScore(eHomeName, eAwayName, dHome, dAway),
+          matchScore(eHomeShort, eAwayShort, dHome, dAway),
+        );
+        if (score > bestScore) {
+          bestScore = score;
+          best = d;
+        }
+      }
+      if (best && bestScore >= 0.35 && best.stream_url) {
         linksMap.set(espnEvent.id, {
-          url1: match.stream_url,
-          url2: match.stream_url_2 || undefined,
-          url3: match.stream_url_3 || undefined,
+          url1: best.stream_url,
+          url2: best.stream_url_2 || undefined,
+          url3: best.stream_url_3 || undefined,
         });
       }
     }
@@ -248,17 +293,17 @@ export function EventsView() {
   }, [dbEvents, allEnrichedEvents]);
 
   useEffect(() => {
-    // Cargar links de DB PRIMERO, antes que ESPN, para que aparezcan sin esperar
+    // Cargar links de DB INMEDIATAMENTE — no espera a ESPN
     fetchEventLinks();
 
-    // Suscripción realtime para actualizaciones instantáneas cuando el auto-assign corra
+    // Realtime: actualiza links al instante cuando el auto-assign corre
     const channel = supabase
       .channel("events-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => fetchEventLinks())
       .subscribe();
 
-    // Refrescar links cada 20 segundos (antes era solo cuando había live, ahora siempre)
-    const linksInterval = setInterval(() => fetchEventLinks(), 20000);
+    // Polling cada 15s para capturar nuevos links sin depender de realtime
+    const linksInterval = setInterval(() => fetchEventLinks(), 15000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -266,11 +311,14 @@ export function EventsView() {
     };
   }, [fetchEventLinks]);
 
+  // Cargar ESPN en paralelo — llega después pero no bloquea los links
   useEffect(() => {
     loadAllEvents();
   }, [loadAllEvents]);
 
   useEffect(() => {
+    // Solo recargar ESPN cada 30s si hay partidos live, 60s si no
+    // fetchEventLinks ya tiene su propio interval de 15s arriba
     const hasLive = allEnrichedEvents.some((e) => e.event.competitions?.[0]?.status?.type?.state === "in");
     const interval = setInterval(
       () => {
