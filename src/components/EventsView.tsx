@@ -138,8 +138,10 @@ export function EventsView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [allEnrichedEvents, setAllEnrichedEvents] = useState<EnrichedEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
   const [externalStreams, setExternalStreams] = useState<ExternalStream[]>([]);
+  const refreshInFlightRef = useRef(false);
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("fluxoFavEvents");
     return new Set(saved ? JSON.parse(saved) : []);
