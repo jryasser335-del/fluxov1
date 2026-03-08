@@ -113,7 +113,7 @@ async function resolveStreamUrl(source: string, id: string): Promise<string | nu
   return null;
 }
 
-// ── PPV.to (only reliable supplementary source) ──
+// ── PPV.to ──
 async function fetchPPV(): Promise<SupEvent[]> {
   try {
     for (const url of ["https://api.ppv.to/api/streams", "https://api.ppv.land/api/streams"]) {
@@ -138,12 +138,34 @@ async function fetchPPV(): Promise<SupEvent[]> {
   } catch (e) { console.error("PPV failed:", e.message); return []; }
 }
 
+// ── Match PPV events to Streamed records by team name similarity ──
+function findPPVMatch(ppvEvent: SupEvent, records: Record<string, any>[]): number {
+  if (!ppvEvent.teamHome) return -1;
+  const pH = normalize(ppvEvent.teamHome);
+  const pA = normalize(ppvEvent.teamAway || "");
+  const homeWords = pH.split(/\s+/).filter((w: string) => w.length > 3);
+  const awayWords = pA.split(/\s+/).filter((w: string) => w.length > 3);
+
+  return records.findIndex((r) => {
+    if (!r.team_home || !r.team_away) return false;
+    const rHome = normalize(r.team_home);
+    const rAway = normalize(r.team_away);
+    const homeMatch = homeWords.some((w: string) => rHome.includes(w) || rAway.includes(w));
+    const awayMatch = pA ? awayWords.some((w: string) => rHome.includes(w) || rAway.includes(w)) : false;
+    return homeMatch && awayMatch;
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // ── 1. Fetch matches ──
-    const matches = await fetchStreamedMatches();
+    // ── 1. Fetch from BOTH sources in parallel ──
+    const [matches, ppvEvents] = await Promise.all([
+      fetchStreamedMatches(),
+      fetchPPV(),
+    ]);
+
     const filteredMatches = matches.filter((m) => ALLOWED_CATEGORIES.has((m.category || "").toLowerCase()));
     const qualityMatches = filteredMatches.filter((match) => {
       const homeName = match.teams?.home?.name?.trim();
@@ -152,7 +174,7 @@ Deno.serve(async (req) => {
       return match.sources?.some((s) => SOURCE_TO_COLUMN[s.source]);
     });
 
-    // ── 2. Resolve stream URLs via official API (batch, max 4 sources per match) ──
+    // ── 2. Resolve Streamed stream URLs ──
     const records: Record<string, any>[] = [];
     const resolvePromises: Promise<void>[] = [];
 
@@ -168,7 +190,6 @@ Deno.serve(async (req) => {
       };
       records.push(record);
 
-      // Resolve up to 4 unique column sources
       const columnsResolved = new Set<string>();
       for (const src of match.sources) {
         const col = SOURCE_TO_COLUMN[src.source];
@@ -187,54 +208,54 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Resolve all streams in parallel (with concurrency batching)
     const BATCH_SIZE = 20;
     for (let i = 0; i < resolvePromises.length; i += BATCH_SIZE) {
       await Promise.all(resolvePromises.slice(i, i + BATCH_SIZE));
     }
 
-    // Filter out records with zero resolved URLs
-    const validRecords = records.filter((r) => r.source_admin || r.source_delta || r.source_echo || r.source_golf);
+    // Filter out records with zero resolved URLs (before PPV merge)
+    let validRecords = records.filter((r) => r.source_admin || r.source_delta || r.source_echo || r.source_golf);
     console.log(`Resolved ${validRecords.length}/${records.length} matches with stream URLs`);
 
-    // ── 3. PPV supplementary ──
-    const ppv = await fetchPPV();
-    let supplementaryAdded = 0;
-    let supplementaryEnriched = 0;
+    // ── 3. Merge PPV as CO-PRIMARY source ──
+    // Priority order for final links: PPV (link 1) > Streamed HD alpha/bravo (link 2) > rest (link 3)
+    // PPV goes into source_admin (highest priority), Streamed HD shifts down
+    let ppvMerged = 0;
+    let ppvAdded = 0;
 
-    for (const sup of ppv) {
+    for (const sup of ppvEvents) {
       if (!sup.embedUrl) continue;
 
-      const existingIdx = validRecords.findIndex((r) => {
-        if (!r.team_home || !r.team_away) return false;
-        const rHome = normalize(r.team_home);
-        const rAway = normalize(r.team_away);
-        const pH = normalize(sup.teamHome || sup.title);
-        const pA = normalize(sup.teamAway || "");
-        const homeWords = pH.split(/\s+/).filter((w: string) => w.length > 3);
-        const awayWords = pA.split(/\s+/).filter((w: string) => w.length > 3);
-        const homeMatch = homeWords.some((w: string) => rHome.includes(w) || rAway.includes(w));
-        const awayMatch = pA ? awayWords.some((w: string) => rHome.includes(w) || rAway.includes(w)) : false;
-        return homeMatch && awayMatch;
-      });
+      const existingIdx = findPPVMatch(sup, validRecords);
 
       if (existingIdx >= 0) {
         const r = validRecords[existingIdx];
-        if (!r.source_golf) { r.source_golf = sup.embedUrl; supplementaryEnriched++; }
-        else if (!r.source_echo) { r.source_echo = sup.embedUrl; supplementaryEnriched++; }
-        else if (!r.source_delta) { r.source_delta = sup.embedUrl; supplementaryEnriched++; }
-        else if (!r.source_admin) { r.source_admin = sup.embedUrl; supplementaryEnriched++; }
+        // PPV becomes the top priority link - shift existing links down
+        // Current source_admin (Streamed HD) moves to source_delta/echo
+        const currentAdmin = r.source_admin;
+        const currentDelta = r.source_delta;
+        
+        // Insert PPV as source_admin (Link 1)
+        r.source_admin = sup.embedUrl;
+        // Old admin (Streamed HD) goes to next available slot
+        if (currentAdmin) {
+          if (!r.source_delta) r.source_delta = currentAdmin;
+          else if (!r.source_echo) r.source_echo = currentAdmin;
+          else if (!r.source_golf) r.source_golf = currentAdmin;
+        }
+        ppvMerged++;
       } else if (sup.category !== "other" && sup.teamHome) {
+        // PPV-only event - create new record with PPV as primary
         const slugId = sup.embedUrl.replace(/[^a-z0-9]/gi, "-").slice(-40);
         validRecords.push({
-          match_id: `sup-${slugId}`,
+          match_id: `ppv-${slugId}`,
           match_title: sup.title, category: sup.category,
           team_home: sup.teamHome, team_away: sup.teamAway,
-          source_admin: null, source_delta: null, source_echo: null,
-          source_golf: sup.embedUrl,
+          source_admin: sup.embedUrl, // PPV is link 1
+          source_delta: null, source_echo: null, source_golf: null,
           scanned_at: new Date().toISOString(),
         });
-        supplementaryAdded++;
+        ppvAdded++;
       }
     }
 
@@ -251,8 +272,8 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true, count: validRecords.length,
         matchesFound: qualityMatches.length,
-        streamsResolved: validRecords.length - supplementaryAdded,
-        ppv: ppv.length, supplementaryAdded, supplementaryEnriched,
+        streamsResolved: validRecords.length - ppvAdded,
+        ppv: ppvEvents.length, ppvMerged, ppvAdded,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
