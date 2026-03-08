@@ -8,6 +8,7 @@ interface EventCardProps {
   event: ESPNEvent;
   leagueInfo: { key: string; name: string; sub: string; logo?: string };
   hasLink: boolean;
+  isResolving?: boolean;
   isFavorite: boolean;
   isFeatured?: boolean;
   onToggleFavorite: () => void;
