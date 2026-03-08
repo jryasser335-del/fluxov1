@@ -387,7 +387,7 @@ export function EventsView() {
 
   // Filter enriched events by sub-league and search
   const filteredEvents = useMemo(() => {
-    let list = allEnrichedEvents;
+    let list = [...allEnrichedEvents];
     
     // Filter by sub-league if selected
     if (activeLeagueFilter) {
