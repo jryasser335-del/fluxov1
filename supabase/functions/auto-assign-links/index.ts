@@ -28,8 +28,7 @@ const CATEGORY_TO_SPORT: Record<string, string> = {
 };
 
 function getRawLinks(scraped: any): string[] {
-  // Priority: admin (PPV.to primary) > delta (Watchfooty HD 1) > echo (Watchfooty HD 2) > golf (fallback)
-  return [scraped.source_admin, scraped.source_delta, scraped.source_echo, scraped.source_golf].filter(Boolean);
+  return [scraped.source_admin, scraped.source_echo, scraped.source_delta, scraped.source_golf].filter(Boolean);
 }
 
 const TEAM_STOPWORDS = new Set([
@@ -127,17 +126,22 @@ Deno.serve(async (req) => {
         matchedEventIds.add(event.id);
         const links = getRawLinks(match);
         if (links.length > 0) {
-          // Always promote links immediately so events always have streams
+          const eventDate = new Date(event.event_date);
+          const minsUntil = (eventDate.getTime() - now.getTime()) / 60000;
+          const isLiveOrSoon = minsUntil <= 30;
+
           await supabase.from("events").update({
             pending_url: links[0] || null,
             pending_url_2: links[1] || null,
             pending_url_3: links[2] || null,
-            stream_url: links[0] || null,
-            stream_url_2: links[1] || null,
-            stream_url_3: links[2] || null,
+            ...(isLiveOrSoon ? {
+              stream_url: links[0] || null,
+              stream_url_2: links[1] || null,
+              stream_url_3: links[2] || null,
+            } : {}),
           }).eq("id", event.id);
           assigned++;
-          promoted++;
+          if (isLiveOrSoon) promoted++;
         }
       }
     }

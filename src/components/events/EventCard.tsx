@@ -196,7 +196,21 @@ export function EventCard({
     } catch { return ""; }
   }, [comp?.date, event.date]);
 
-  const displayViewers = viewerCount;
+  // Simulated viewer count for display (base + real)
+  const displayViewers = useMemo(() => {
+    if (viewerCount > 0) return viewerCount;
+    if (!hasLink) return 0;
+    // Generate a stable pseudo-random number based on event id
+    let hash = 0;
+    const id = event.id;
+    for (let i = 0; i < id.length; i++) {
+      hash = ((hash << 5) - hash) + id.charCodeAt(i);
+      hash |= 0;
+    }
+    const base = isLive ? 1500 : 500;
+    const range = isLive ? 5000 : 2000;
+    return base + Math.abs(hash % range);
+  }, [event.id, hasLink, isLive, viewerCount]);
 
   // Sport label for footer
   const sportLabel = useMemo(() => {
