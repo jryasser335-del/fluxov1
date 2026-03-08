@@ -183,20 +183,36 @@ Deno.serve(async (req) => {
 
     console.log(`PPV matched to ${ppvMatched} watchfooty records, ${ppvEvents.length - ppvMatched} standalone`);
 
-    // ── 3. Save to DB ──
+    // ── 3. Deduplicate by match_id ──
+    const uniqueMap = new Map<string, any>();
+    for (const r of validRecords) {
+      const existing = uniqueMap.get(r.match_id);
+      if (!existing) {
+        uniqueMap.set(r.match_id, r);
+      } else {
+        // Merge: prefer records with more sources
+        if (!existing.source_admin && r.source_admin) existing.source_admin = r.source_admin;
+        if (!existing.source_delta && r.source_delta) existing.source_delta = r.source_delta;
+        if (!existing.source_echo && r.source_echo) existing.source_echo = r.source_echo;
+      }
+    }
+    const deduped = Array.from(uniqueMap.values());
+
+    // ── 4. Save to DB ──
     const adminClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     await adminClient.from("live_scraped_links").delete().neq("id", "00000000-0000-0000-0000-000000000000");
 
-    if (validRecords.length > 0) {
-      // Batch insert in chunks of 500
-      for (let i = 0; i < validRecords.length; i += 500) {
-        const batch = validRecords.slice(i, i + 500);
+    let saved = 0;
+    if (deduped.length > 0) {
+      for (let i = 0; i < deduped.length; i += 500) {
+        const batch = deduped.slice(i, i + 500);
         const { error: insertError } = await adminClient.from("live_scraped_links").upsert(batch, { onConflict: "match_id" });
         if (insertError) { console.error("Insert error:", insertError); }
+        else { saved += batch.length; }
       }
     }
 
-    console.log(`Saved ${validRecords.length} total records`);
+    console.log(`Saved ${saved}/${deduped.length} total records`);
 
     return new Response(
       JSON.stringify({
