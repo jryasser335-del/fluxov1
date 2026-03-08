@@ -387,6 +387,8 @@ export function EventsView() {
     return list;
   }, [allEnrichedEvents, activeLeagueFilter, searchQuery]);
 
+  const [resolvingEventId, setResolvingEventId] = useState<string | null>(null);
+
   const handleEventClick = async (enriched: EnrichedEvent) => {
     const existingLink = eventLinks.get(enriched.event.id);
     const comp = enriched.event.competitions?.[0];
@@ -403,6 +405,9 @@ export function EventsView() {
     }
 
     if (!homeTeam || !awayTeam) return;
+    if (resolvingEventId) return; // prevent double clicks
+
+    setResolvingEventId(enriched.event.id);
 
     const sportMap: Record<string, string> = {
       nba: "Basketball", mlb: "Baseball", nhl: "Hockey",
@@ -416,7 +421,7 @@ export function EventsView() {
       });
 
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), 12000),
+        setTimeout(() => reject(new Error("timeout")), 15000),
       );
 
       const { data, error } = await Promise.race([invoke, timeout]) as Awaited<typeof invoke>;
@@ -436,6 +441,8 @@ export function EventsView() {
       }
     } catch (err) {
       console.error("Resolve error:", err);
+    } finally {
+      setResolvingEventId(null);
     }
   };
 
@@ -606,7 +613,16 @@ export function EventsView() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              className="relative"
             >
+              {resolvingEventId === enriched.event.id && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 rounded-xl backdrop-blur-sm">
+                  <div className="flex flex-col items-center gap-2">
+                    <RefreshCw className="w-6 h-6 text-primary animate-spin" />
+                    <span className="text-xs text-white/80 font-medium">Conectando...</span>
+                  </div>
+                </div>
+              )}
               <EventCard
                 event={enriched.event}
                 leagueInfo={{ key: enriched.leagueKey, name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
