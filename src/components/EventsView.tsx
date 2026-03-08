@@ -65,8 +65,28 @@ interface EnrichedEvent {
   leagueLogo: string;
 }
 
+function findBestExternalMatch(
+  streams: ExternalStream[],
+  homeName: string,
+  awayName: string,
+  homeShort: string,
+  awayShort: string,
+): ExternalStream | null {
+  let best: ExternalStream | null = null;
+  let bestScore = 0;
+  for (const s of streams) {
+    const sName = s.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const homeMatch = [homeName, homeShort].some(n => n.length > 2 && sName.includes(n));
+    const awayMatch = [awayName, awayShort].some(n => n.length > 2 && sName.includes(n));
+    const score = (homeMatch ? 1 : 0) + (awayMatch ? 1 : 0);
+    if (score > bestScore) { bestScore = score; best = s; }
+  }
+  return bestScore >= 1 ? best : null;
+}
+
 const normalizeText = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
 
 const LEAGUE_LOGO_FALLBACKS: Record<string, string> = {
   "eng.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png",
