@@ -160,8 +160,7 @@ export function EventCard({
   return (
     <div
       className={cn(
-        "group relative rounded-xl overflow-hidden transition-all duration-300 cursor-pointer hover:-translate-y-1 hover:shadow-xl",
-        isResolving && "animate-pulse"
+        "group relative rounded-xl overflow-hidden transition-all duration-300 cursor-pointer hover:-translate-y-1 hover:shadow-xl"
       )}
       onClick={onClick}
     >
