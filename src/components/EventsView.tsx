@@ -388,6 +388,8 @@ export function EventsView() {
     return list;
   }, [allEnrichedEvents, activeLeagueFilter, searchQuery]);
 
+  const [resolvingEventId, setResolvingEventId] = useState<string | null>(null);
+
   const handleEventClick = async (enriched: EnrichedEvent) => {
     const existingLink = eventLinks.get(enriched.event.id);
     const comp = enriched.event.competitions?.[0];
@@ -403,7 +405,14 @@ export function EventsView() {
       return;
     }
 
-    if (!homeTeam || !awayTeam) return;
+    if (!homeTeam || !awayTeam) {
+      toast.error("No se pudo identificar los equipos");
+      return;
+    }
+
+    // Show loading feedback
+    setResolvingEventId(enriched.event.id);
+    const toastId = toast.loading("Buscando señal...", { description: title });
 
     const sportMap: Record<string, string> = {
       nba: "Basketball", mlb: "Baseball", nhl: "Hockey",
@@ -412,9 +421,11 @@ export function EventsView() {
     const sport = sportMap[enriched.leagueKey] || "Soccer";
 
     try {
-      const { data } = await supabase.functions.invoke("resolve-live-stream", {
+      const { data, error } = await supabase.functions.invoke("resolve-live-stream", {
         body: { homeTeam, awayTeam, espnId: enriched.event.id, sport },
       });
+
+      if (error) throw error;
 
       const resolvedLink = data?.links?.url1
         ? {
@@ -425,11 +436,17 @@ export function EventsView() {
         : null;
 
       if (resolvedLink?.url1) {
+        toast.success("Señal encontrada", { id: toastId, description: title });
         openPlayer(title, resolvedLink);
         fetchEventLinks();
+      } else {
+        toast.error("No hay señal disponible", { id: toastId, description: "Intenta de nuevo más tarde" });
       }
-    } catch {
-      // no-op
+    } catch (err) {
+      console.error("Resolve error:", err);
+      toast.error("Error buscando señal", { id: toastId, description: "Intenta de nuevo" });
+    } finally {
+      setResolvingEventId(null);
     }
   };
 
