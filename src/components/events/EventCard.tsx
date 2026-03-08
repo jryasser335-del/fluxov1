@@ -201,7 +201,7 @@ export function EventCard({
         {/* Viewers - top right */}
         {isLive && viewers > 0 && (
           <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded bg-black/40 backdrop-blur-sm">
-            <span className="text-[10px] font-semibold text-white">{viewers.toLocaleString()}</span>
+            <span className="text-[10px] font-mono-premium font-medium text-white tabular-nums">{viewers.toLocaleString()}</span>
             <Eye className="w-3 h-3 text-white/70" />
           </div>
         )}
