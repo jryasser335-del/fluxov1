@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { fetchESPNScoreboard, ESPNEvent, ESPNResponse } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
@@ -211,6 +211,67 @@ export function EventsView() {
     }
     return linksMap;
   }, [dbEvents, allEnrichedEvents]);
+
+  // Auto-resolve streams for live ESPN events without links
+  const resolvedEventsRef = useRef(new Set<string>());
+  const resolvingRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (allEnrichedEvents.length === 0) return;
+
+    const liveWithoutLinks = allEnrichedEvents.filter(({ event }) => {
+      const state = event.competitions?.[0]?.status?.type?.state;
+      if (state !== "in" && state !== "pre") return false;
+      // For pre events, only resolve if starting within 60 min
+      if (state === "pre") {
+        const eventDate = new Date(event.competitions?.[0]?.date || event.date);
+        const minsUntil = (eventDate.getTime() - Date.now()) / 60000;
+        if (minsUntil > 60) return false;
+      }
+      if (eventLinks.has(event.id)) return false;
+      if (resolvedEventsRef.current.has(event.id)) return false;
+      if (resolvingRef.current.has(event.id)) return false;
+      return true;
+    });
+
+    if (liveWithoutLinks.length === 0) return;
+
+    // Resolve up to 5 events at a time to avoid overloading
+    const batch = liveWithoutLinks.slice(0, 5);
+
+    for (const { event, leagueKey } of batch) {
+      const comp = event.competitions?.[0];
+      const competitors = comp?.competitors || [];
+      const home = competitors.find(c => c.homeAway === "home") || competitors[1];
+      const away = competitors.find(c => c.homeAway === "away") || competitors[0];
+      const homeTeam = home?.team?.displayName;
+      const awayTeam = away?.team?.displayName;
+      if (!homeTeam || !awayTeam) continue;
+
+      resolvingRef.current.add(event.id);
+
+      // Determine sport for DB
+      const sportMap: Record<string, string> = {
+        nba: "Basketball", mlb: "Baseball", nhl: "Hockey",
+        ufc: "MMA", boxing: "Boxing", wwe: "Wrestling",
+      };
+      const sport = sportMap[leagueKey] || "Soccer";
+
+      supabase.functions.invoke("resolve-live-stream", {
+        body: { homeTeam, awayTeam, espnId: event.id, sport },
+      }).then(({ data }) => {
+        resolvingRef.current.delete(event.id);
+        resolvedEventsRef.current.add(event.id);
+        if (data?.success && data?.links?.url1) {
+          // Refresh DB events to pick up the newly saved links
+          fetchEventLinks();
+        }
+      }).catch(() => {
+        resolvingRef.current.delete(event.id);
+        resolvedEventsRef.current.add(event.id);
+      });
+    }
+  }, [allEnrichedEvents, eventLinks, fetchEventLinks]);
 
   useEffect(() => {
     fetchEventLinks();
