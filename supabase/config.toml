@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.team-logo-search]
 verify_jwt = false
+
+[functions.resolve-live-stream]
+verify_jwt = false
