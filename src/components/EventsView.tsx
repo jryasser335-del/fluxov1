@@ -203,12 +203,30 @@ export function EventsView() {
     setLoading(false);
   }, [leaguesToFetch]);
 
+  // Tokeniza un nombre en palabras significativas (>= 2 chars, sin stopwords)
+  const STOPWORDS = new Set(["fc", "cf", "sc", "ac", "bc", "cd", "the", "de", "la", "el", "club", "team", "vs", "v"]);
+  const tokenize = (s: string): string[] =>
+    normalizeText(s)
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 2 && !STOPWORDS.has(t));
+
+  // Calcula score de solapamiento entre dos nombres de equipo
+  const nameScore = (a: string, b: string): number => {
+    const ta = new Set(tokenize(a));
+    const tb = new Set(tokenize(b));
+    if (ta.size === 0 || tb.size === 0) return 0;
+    let overlap = 0;
+    for (const t of ta) if (tb.has(t)) overlap++;
+    return overlap / Math.max(ta.size, tb.size);
+  };
+
   // Build eventLinks map
   const eventLinks = useMemo(() => {
     const linksMap = new Map<string, { url1: string; url2?: string; url3?: string }>();
     if (dbEvents.length === 0 || allEnrichedEvents.length === 0) return linksMap;
 
     for (const { event: espnEvent } of allEnrichedEvents) {
+      // 1. Match exacto por espn_id
       const byId = dbEvents.find((d) => d.espn_id && d.espn_id === espnEvent.id);
       if (byId?.stream_url) {
         linksMap.set(espnEvent.id, {
@@ -218,29 +236,52 @@ export function EventsView() {
         });
         continue;
       }
+
       const comp = espnEvent.competitions?.[0];
       const competitors = comp?.competitors || [];
       const espnHome = competitors.find((c) => c.homeAway === "home");
       const espnAway = competitors.find((c) => c.homeAway === "away");
       if (!espnHome?.team?.displayName && !espnAway?.team?.displayName) continue;
-      const homeName = normalizeText(espnHome?.team?.displayName || "");
-      const awayName = normalizeText(espnAway?.team?.displayName || "");
-      const homeShort = normalizeText(espnHome?.team?.shortDisplayName || "");
-      const awayShort = normalizeText(espnAway?.team?.shortDisplayName || "");
 
-      const match = dbEvents.find((d) => {
-        if (!d.stream_url) return false;
-        const dAll = normalizeText(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""}`);
-        const homeMatch = [homeName, homeShort].some((n) => n.length > 2 && dAll.includes(n));
-        const awayMatch = [awayName, awayShort].some((n) => n.length > 2 && dAll.includes(n));
-        return homeMatch && awayMatch;
-      });
+      const espnHomeName = espnHome?.team?.displayName || "";
+      const espnHomeShort = espnHome?.team?.shortDisplayName || "";
+      const espnAwayName = espnAway?.team?.displayName || "";
+      const espnAwayShort = espnAway?.team?.shortDisplayName || "";
 
-      if (match?.stream_url) {
+      // 2. Match fuzzy por nombre de equipos con score de solapamiento
+      let bestMatch: DbEvent | null = null;
+      let bestScore = 0;
+
+      for (const d of dbEvents) {
+        if (!d.stream_url) continue;
+        const dbHome = d.team_home || "";
+        const dbAway = d.team_away || "";
+        if (!dbHome && !dbAway) continue;
+
+        // Probar combinación directa e invertida (home/away pueden estar al revés)
+        const directScore =
+          (Math.max(nameScore(espnHomeName, dbHome), nameScore(espnHomeShort, dbHome)) +
+            Math.max(nameScore(espnAwayName, dbAway), nameScore(espnAwayShort, dbAway))) /
+          2;
+
+        const swappedScore =
+          (Math.max(nameScore(espnHomeName, dbAway), nameScore(espnHomeShort, dbAway)) +
+            Math.max(nameScore(espnAwayName, dbHome), nameScore(espnAwayShort, dbHome))) /
+          2;
+
+        const score = Math.max(directScore, swappedScore);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = d;
+        }
+      }
+
+      // Umbral de 0.35 para tolerar diferencias en nombres (ej: "Man City" vs "Manchester City")
+      if (bestMatch && bestScore >= 0.35 && bestMatch.stream_url) {
         linksMap.set(espnEvent.id, {
-          url1: match.stream_url,
-          url2: match.stream_url_2 || undefined,
-          url3: match.stream_url_3 || undefined,
+          url1: bestMatch.stream_url,
+          url2: bestMatch.stream_url_2 || undefined,
+          url3: bestMatch.stream_url_3 || undefined,
         });
       }
     }
@@ -248,21 +289,13 @@ export function EventsView() {
   }, [dbEvents, allEnrichedEvents]);
 
   useEffect(() => {
-    // Cargar links de DB PRIMERO, antes que ESPN, para que aparezcan sin esperar
     fetchEventLinks();
-
-    // Suscripción realtime para actualizaciones instantáneas cuando el auto-assign corra
     const channel = supabase
       .channel("events-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => fetchEventLinks())
       .subscribe();
-
-    // Refrescar links cada 20 segundos (antes era solo cuando había live, ahora siempre)
-    const linksInterval = setInterval(() => fetchEventLinks(), 20000);
-
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(linksInterval);
     };
   }, [fetchEventLinks]);
 
@@ -275,11 +308,12 @@ export function EventsView() {
     const interval = setInterval(
       () => {
         loadAllEvents();
+        fetchEventLinks();
       },
       hasLive ? 30000 : 60000,
     );
     return () => clearInterval(interval);
-  }, [allEnrichedEvents, loadAllEvents]);
+  }, [allEnrichedEvents, loadAllEvents, fetchEventLinks]);
 
   // Reset league filter when sport changes
   useEffect(() => {
