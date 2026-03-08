@@ -179,13 +179,13 @@ export function EventsView() {
   }, [currentTab]);
 
   // Fetch ALL leagues for the current sport simultaneously
-  const loadAllEvents = useCallback(async () => {
+  const loadAllEvents = useCallback(async (isRefresh = false) => {
     if (leaguesToFetch.length === 0) {
       setAllEnrichedEvents([]);
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!isRefresh) setLoading(true);
     try {
       const results = await Promise.allSettled(
         leaguesToFetch.map(async (leagueKey) => {
@@ -303,7 +303,7 @@ export function EventsView() {
 
   useEffect(() => {
     const hasLive = allEnrichedEvents.some(e => e.event.competitions?.[0]?.status?.type?.state === "in");
-    const interval = setInterval(() => { loadAllEvents(); fetchEventLinks(); fetchExternalStreams(); }, hasLive ? 30000 : 60000);
+    const interval = setInterval(() => { loadAllEvents(true); fetchEventLinks(); fetchExternalStreams(); }, hasLive ? 30000 : 60000);
     return () => clearInterval(interval);
   }, [allEnrichedEvents, loadAllEvents, fetchEventLinks, fetchExternalStreams]);
 
