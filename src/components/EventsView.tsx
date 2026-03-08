@@ -45,6 +45,17 @@ interface DbEvent {
   event_date: string;
 }
 
+interface ExternalStream {
+  id: string;
+  name: string;
+  category: string;
+  iframe: string;
+  poster?: string;
+  viewers?: number;
+  source: "ppv" | "streamed";
+  channels?: string;
+}
+
 // Extended event with league metadata
 interface EnrichedEvent {
   event: ESPNEvent;
