@@ -387,6 +387,8 @@ export function EventsView() {
     return list;
   }, [allEnrichedEvents, activeLeagueFilter, searchQuery]);
 
+  const [resolvingEventId, setResolvingEventId] = useState<string | null>(null);
+
   const handleEventClick = async (enriched: EnrichedEvent) => {
     const existingLink = eventLinks.get(enriched.event.id);
     const comp = enriched.event.competitions?.[0];
@@ -403,6 +405,9 @@ export function EventsView() {
     }
 
     if (!homeTeam || !awayTeam) return;
+    if (resolvingEventId) return; // prevent double clicks
+
+    setResolvingEventId(enriched.event.id);
 
     const sportMap: Record<string, string> = {
       nba: "Basketball", mlb: "Baseball", nhl: "Hockey",
@@ -416,7 +421,7 @@ export function EventsView() {
       });
 
       const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), 12000),
+        setTimeout(() => reject(new Error("timeout")), 15000),
       );
 
       const { data, error } = await Promise.race([invoke, timeout]) as Awaited<typeof invoke>;
@@ -436,6 +441,8 @@ export function EventsView() {
       }
     } catch (err) {
       console.error("Resolve error:", err);
+    } finally {
+      setResolvingEventId(null);
     }
   };
 
