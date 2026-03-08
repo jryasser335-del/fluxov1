@@ -452,7 +452,13 @@ export function EventsView() {
         const awayName = normalizeText(away?.team?.displayName || "");
         const homeShort = normalizeText(home?.team?.shortDisplayName || "");
         const awayShort = normalizeText(away?.team?.shortDisplayName || "");
-        const matches = findBestExternalMatches(data.streams as ExternalStream[], homeName, awayName, homeShort, awayShort);
+        
+        // For Liga MX, only use streamed.pk sources
+        const streamsToMatch = enriched.leagueKey === "mex.1" 
+          ? (data.streams as ExternalStream[]).filter(s => s.source === "streamed")
+          : data.streams as ExternalStream[];
+        
+        const matches = findBestExternalMatches(streamsToMatch, homeName, awayName, homeShort, awayShort);
 
         if (matches.length > 0) {
           openPlayer(title, {
