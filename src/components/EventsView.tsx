@@ -179,13 +179,13 @@ export function EventsView() {
   }, [currentTab]);
 
   // Fetch ALL leagues for the current sport simultaneously
-  const loadAllEvents = useCallback(async () => {
+  const loadAllEvents = useCallback(async (isRefresh = false) => {
     if (leaguesToFetch.length === 0) {
       setAllEnrichedEvents([]);
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!isRefresh) setLoading(true);
     try {
       const results = await Promise.allSettled(
         leaguesToFetch.map(async (leagueKey) => {
