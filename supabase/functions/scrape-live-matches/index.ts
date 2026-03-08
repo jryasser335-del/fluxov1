@@ -217,8 +217,8 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        count: validRecords.length,
-        watchfooty: validRecords.filter(r => r.source_delta).length,
+        count: saved,
+        watchfooty: deduped.filter(r => r.source_delta).length,
         ppvTotal: ppvEvents.length,
         ppvMatched,
       }),
