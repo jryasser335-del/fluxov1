@@ -23,12 +23,49 @@ const PPV_CATEGORY_MAP: Record<string, string> = {
   Soccer: "football",
 };
 
+const STREAMED_CATEGORY_MAP: Record<string, string> = {
+  football: "football",
+  soccer: "football",
+  basketball: "basketball",
+  nba: "basketball",
+  baseball: "baseball",
+  mlb: "baseball",
+  hockey: "hockey",
+  nhl: "hockey",
+  tennis: "tennis",
+  rugby: "rugby",
+  cricket: "cricket",
+  boxing: "fighting",
+  mma: "fighting",
+  ufc: "fighting",
+  wrestling: "fighting",
+  wwe: "fighting",
+  motorsport: "racing",
+  f1: "racing",
+  "american football": "american-football",
+  nfl: "american-football",
+};
+
 const normalize = (s: string) =>
   s
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+
+const STOPWORDS = new Set(["fc", "cf", "sc", "ac", "bc", "cd", "the", "de", "la", "el", "club", "team", "vs", "v"]);
+const tokenize = (s: string): string[] =>
+  normalize(s)
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 2 && !STOPWORDS.has(t));
+const nameScore = (a: string, b: string): number => {
+  const ta = new Set(tokenize(a));
+  const tb = new Set(tokenize(b));
+  if (ta.size === 0 || tb.size === 0) return 0;
+  let overlap = 0;
+  for (const t of ta) if (tb.has(t)) overlap++;
+  return overlap / Math.max(ta.size, tb.size);
+};
 
 function parseTeams(title: string): { home: string; away: string } | null {
   const separators = [" vs. ", " vs ", " v ", " - ", " VS ", " Vs "];
@@ -67,7 +104,7 @@ async function fetchWithTimeout(
   }
 }
 
-// ── PPV.to (fuente 1) ──
+// ── PPV.to (fuente 1 → source_admin) ──
 async function fetchPPV(): Promise<
   { title: string; category: string; embedUrl: string; teamHome: string | null; teamAway: string | null }[]
 > {
@@ -103,92 +140,123 @@ async function fetchPPV(): Promise<
   }
 }
 
-// ── live.moviebite.cc (fuente 2) ──
-// Intenta primero la API JSON, si no funciona hace scraping del HTML
-async function fetchMoviebite(): Promise<
-  { title: string; category: string; embedUrl: string; teamHome: string | null; teamAway: string | null }[]
+// ── Streamed.pk/su (fuente 2 = admin embed, fuente 3 = delta embed) ──
+async function fetchStreamed(): Promise<
+  {
+    title: string;
+    category: string;
+    embedAdmin: string | null;
+    embedDelta: string | null;
+    teamHome: string | null;
+    teamAway: string | null;
+  }[]
 > {
   const results: any[] = [];
 
-  // Intentar endpoints JSON comunes
-  const jsonEndpoints = [
-    "https://live.moviebite.cc/api/streams",
-    "https://live.moviebite.cc/api/events",
-    "https://live.moviebite.cc/api/matches",
-    "https://live.moviebite.cc/streams.json",
+  // Intentar varios endpoints de streamed
+  const apiEndpoints = [
+    "https://streamed.su/api/matches/all",
+    "https://streamed.pk/api/matches/all",
+    "https://api.streamed.su/matches",
+    "https://streamed.su/api/matches/live",
   ];
 
-  for (const endpoint of jsonEndpoints) {
+  for (const baseUrl of apiEndpoints) {
     try {
-      const response = await fetchWithTimeout(endpoint, 6000);
+      const response = await fetchWithTimeout(baseUrl, 8000);
       if (!response?.ok) continue;
       const ct = response.headers.get("content-type") || "";
       if (!ct.includes("json")) continue;
       const data = await response.json();
-
-      const items = Array.isArray(data) ? data : data.streams || data.events || data.matches || data.data || [];
+      const items = Array.isArray(data) ? data : data.matches || data.events || data.data || [];
       if (!Array.isArray(items) || items.length === 0) continue;
 
       for (const item of items) {
-        const title = item.name || item.title || item.match || "";
-        const embedUrl = item.iframe || item.embed || item.url || item.stream || "";
+        const title = item.title || item.name || item.match || "";
+        if (!title) continue;
         const category = item.category || item.sport || "other";
-        if (!title || !embedUrl) continue;
         const teams = parseTeams(title);
+
+        const sources = item.sources || item.streams || [];
+        let embedAdmin: string | null = null;
+        let embedDelta: string | null = null;
+
+        if (Array.isArray(sources)) {
+          for (const src of sources) {
+            const srcName = (src.source || src.name || "").toLowerCase();
+            const embedUrl = src.embedUrl || src.iframe || src.url || src.embed || "";
+            if (!embedUrl) continue;
+            if (srcName.includes("admin") && !embedAdmin) embedAdmin = embedUrl;
+            else if (srcName.includes("delta") && !embedDelta) embedDelta = embedUrl;
+            else if (!embedAdmin) embedAdmin = embedUrl;
+            else if (!embedDelta) embedDelta = embedUrl;
+          }
+        } else if (typeof sources === "object" && sources !== null) {
+          embedAdmin = sources.admin || sources.source1 || null;
+          embedDelta = sources.delta || sources.source2 || null;
+        }
+
+        // Si no hay sources explícitos pero hay id, construir URLs estándar de streamed
+        if (!embedAdmin && item.id) {
+          embedAdmin = `https://streamed.su/watch/${item.id}/admin/1`;
+          embedDelta = `https://streamed.su/watch/${item.id}/delta/1`;
+        }
+
+        if (!embedAdmin && !embedDelta) continue;
+
         results.push({
           title,
-          category: PPV_CATEGORY_MAP[category] || category.toLowerCase() || "other",
-          embedUrl,
-          teamHome: teams?.home || item.home || item.team_home || null,
-          teamAway: teams?.away || item.away || item.team_away || null,
+          category: STREAMED_CATEGORY_MAP[category.toLowerCase()] || category.toLowerCase() || "other",
+          embedAdmin,
+          embedDelta,
+          teamHome: teams?.home || item.home || item.team1 || item.homeTeam || null,
+          teamAway: teams?.away || item.away || item.team2 || item.awayTeam || null,
         });
       }
 
       if (results.length > 0) {
-        console.log(`Moviebite JSON (${endpoint}): Found ${results.length} events`);
+        console.log(`Streamed API (${baseUrl}): Found ${results.length} events`);
         return results;
       }
     } catch (e) {
+      console.error(`Streamed endpoint ${baseUrl} failed:`, e.message);
       continue;
     }
   }
 
-  // Si no hay API JSON, hacer scraping del HTML
+  // Fallback: scraping HTML de streamed.su
   try {
-    const response = await fetchWithTimeout("https://live.moviebite.cc/", 10000, { Accept: "text/html" });
-    if (!response?.ok) return [];
-    const html = await response.text();
-
-    // Intentar extraer bloques de partido del HTML
-    const matchBlocks = [
-      ...html.matchAll(
-        /<(?:div|article|li)[^>]*class=["'][^"']*(?:match|event|game|stream)[^"']*["'][^>]*>([\s\S]*?)<\/(?:div|article|li)>/gi,
-      ),
-    ];
-
-    for (const block of matchBlocks) {
-      const blockHtml = block[1];
-      const titleMatch = blockHtml.match(
-        /([A-Za-z0-9\s\u00C0-\u024F]+(?:\s+vs\.?\s+|\s+v\s+)[A-Za-z0-9\s\u00C0-\u024F]+)/i,
-      );
-      const iframeMatch = blockHtml.match(/(?:src|href)=["']([^"']+)["']/i);
-      if (!titleMatch || !iframeMatch) continue;
-      const title = titleMatch[1].trim();
-      const embedUrl = iframeMatch[1].trim();
-      const teams = parseTeams(title);
-      if (!teams) continue;
-      results.push({
-        title,
-        category: "other",
-        embedUrl: embedUrl.startsWith("http") ? embedUrl : `https://live.moviebite.cc${embedUrl}`,
-        teamHome: teams.home,
-        teamAway: teams.away,
-      });
+    const response = await fetchWithTimeout("https://streamed.su/", 10000, { Accept: "text/html" });
+    if (response?.ok) {
+      const html = await response.text();
+      const jsonMatch = html.match(/"matches":\s*(\[[\s\S]*?\])/);
+      if (jsonMatch) {
+        try {
+          const matches = JSON.parse(jsonMatch[1]);
+          for (const m of matches) {
+            const title = m.title || m.name || "";
+            if (!title) continue;
+            const teams = parseTeams(title);
+            const embedAdmin = m.id ? `https://streamed.su/watch/${m.id}/admin/1` : null;
+            const embedDelta = m.id ? `https://streamed.su/watch/${m.id}/delta/1` : null;
+            if (!embedAdmin) continue;
+            results.push({
+              title,
+              category: STREAMED_CATEGORY_MAP[(m.category || "").toLowerCase()] || "other",
+              embedAdmin,
+              embedDelta,
+              teamHome: teams?.home || null,
+              teamAway: teams?.away || null,
+            });
+          }
+          console.log(`Streamed HTML fallback: Found ${results.length} events`);
+        } catch {
+          /* ignore */
+        }
+      }
     }
-
-    console.log(`Moviebite HTML scraping: Found ${results.length} events`);
   } catch (e) {
-    console.error("Moviebite HTML scraping failed:", e.message);
+    console.error("Streamed HTML fallback failed:", e.message);
   }
 
   return results;
@@ -198,17 +266,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // ── 1. Fetch de PPV.to y Moviebite en paralelo ──
-    const [ppvEvents, moviebiteEvents] = await Promise.all([fetchPPV(), fetchMoviebite()]);
+    // ── 1. Fetch PPV.to y Streamed.pk en paralelo ──
+    const [ppvEvents, streamedEvents] = await Promise.all([fetchPPV(), fetchStreamed()]);
 
-    console.log(`PPV.to: ${ppvEvents.length} events | Moviebite: ${moviebiteEvents.length} events`);
+    console.log(`PPV.to: ${ppvEvents.length} | Streamed: ${streamedEvents.length}`);
 
-    // ── 2. Construir registros combinando ambas fuentes ──
-    // PPV.to → source_admin (link 1)
-    // Moviebite → source_delta (link 2)
+    // ── 2. Construir registros ──
+    // PPV.to            → source_admin (link 1)
+    // Streamed admin    → source_delta (link 2)
+    // Streamed delta    → source_echo  (link 3)
     const recordMap = new Map<string, any>();
 
-    // Primero cargar todos los eventos de PPV.to
+    // Base: todos los eventos de PPV.to
     for (const ppv of ppvEvents) {
       if (!ppv.teamHome) continue;
       const key = normalize(`${ppv.teamHome}-${ppv.teamAway || ""}`);
@@ -219,52 +288,53 @@ Deno.serve(async (req) => {
         category: ppv.category,
         team_home: ppv.teamHome,
         team_away: ppv.teamAway,
-        source_admin: ppv.embedUrl, // PPV.to = link 1
-        source_delta: null, // Moviebite = link 2 (se llena abajo)
+        source_admin: ppv.embedUrl,
+        source_delta: null,
         source_echo: null,
         source_golf: null,
         scanned_at: new Date().toISOString(),
       });
     }
 
-    // Luego cruzar con Moviebite para agregar source_delta
-    let moviebiteMatched = 0;
-    for (const mb of moviebiteEvents) {
-      if (!mb.teamHome) continue;
-      const mbHome = normalize(mb.teamHome);
-      const mbAway = normalize(mb.teamAway || "");
-      const mbHomeWords = mbHome.split(/\s+/).filter((w: string) => w.length > 2);
-      const mbAwayWords = mbAway.split(/\s+/).filter((w: string) => w.length > 2);
+    // Cruzar Streamed con PPV para agregar fuentes 2 y 3
+    let streamedMatched = 0;
+    for (const s of streamedEvents) {
+      if (!s.teamHome || (!s.embedAdmin && !s.embedDelta)) continue;
 
-      // Buscar si ya existe en el mapa (viene de PPV.to)
-      let matched = false;
-      for (const [_key, record] of recordMap.entries()) {
-        const rHome = normalize(record.team_home || "");
-        const rAway = normalize(record.team_away || "");
-        const homeMatch = mbHomeWords.some((w: string) => rHome.includes(w) || rAway.includes(w));
-        const awayMatch = mbAway ? mbAwayWords.some((w: string) => rHome.includes(w) || rAway.includes(w)) : true;
-        if (homeMatch && awayMatch) {
-          record.source_delta = mb.embedUrl; // Moviebite = link 2
-          moviebiteMatched++;
-          matched = true;
-          break;
+      let bestKey = "";
+      let bestScore = 0;
+
+      for (const [key, record] of recordMap.entries()) {
+        const direct =
+          (nameScore(s.teamHome, record.team_home || "") + nameScore(s.teamAway || "", record.team_away || "")) / 2;
+        const swapped =
+          (nameScore(s.teamHome, record.team_away || "") + nameScore(s.teamAway || "", record.team_home || "")) / 2;
+        const score = Math.max(direct, swapped);
+        if (score > bestScore) {
+          bestScore = score;
+          bestKey = key;
         }
       }
 
-      // Si no matcheó con ningún PPV.to, crear registro standalone con Moviebite
-      if (!matched && mb.teamHome && mb.teamAway) {
-        const key = normalize(`${mb.teamHome}-${mb.teamAway}`);
+      if (bestKey && bestScore >= 0.35) {
+        const record = recordMap.get(bestKey)!;
+        if (!record.source_delta && s.embedAdmin) record.source_delta = s.embedAdmin;
+        if (!record.source_echo && s.embedDelta) record.source_echo = s.embedDelta;
+        streamedMatched++;
+      } else if (s.teamHome && s.teamAway) {
+        // Standalone de Streamed si no matcheó con PPV.to
+        const key = normalize(`${s.teamHome}-${s.teamAway}`);
         if (!recordMap.has(key)) {
-          const slugId = mb.embedUrl.replace(/[^a-z0-9]/gi, "-").slice(-40);
+          const slugId = (s.embedAdmin || s.title).replace(/[^a-z0-9]/gi, "-").slice(-40);
           recordMap.set(key, {
-            match_id: `mb-${slugId}`,
-            match_title: mb.title,
-            category: mb.category,
-            team_home: mb.teamHome,
-            team_away: mb.teamAway,
+            match_id: `st-${slugId}`,
+            match_title: s.title,
+            category: s.category,
+            team_home: s.teamHome,
+            team_away: s.teamAway,
             source_admin: null,
-            source_delta: mb.embedUrl, // Moviebite como único link
-            source_echo: null,
+            source_delta: s.embedAdmin,
+            source_echo: s.embedDelta,
             source_golf: null,
             scanned_at: new Date().toISOString(),
           });
@@ -272,9 +342,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    console.log(
-      `Moviebite matched to ${moviebiteMatched} PPV records, ${moviebiteEvents.length - moviebiteMatched} standalone`,
-    );
+    console.log(`Streamed matched: ${streamedMatched}, standalone: ${streamedEvents.length - streamedMatched}`);
 
     const deduped = Array.from(recordMap.values());
 
@@ -304,8 +372,8 @@ Deno.serve(async (req) => {
         success: true,
         count: saved,
         ppvTotal: ppvEvents.length,
-        moviebiteTotal: moviebiteEvents.length,
-        moviebiteMatched,
+        streamedTotal: streamedEvents.length,
+        streamedMatched,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
