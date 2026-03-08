@@ -117,7 +117,7 @@ async function fetchStreamedStreams(): Promise<StreamEntry[]> {
 
 async function fetchMoviebiteStreams(): Promise<StreamEntry[]> {
   const entries: StreamEntry[] = [];
-  const API_BASE = "https://live.moviebite.cc";
+  const API_BASE = "https://api.watchfooty.pw";
 
   try {
     const res = await fetchFast(`${API_BASE}/api/v1/matches/all`, 4000);
