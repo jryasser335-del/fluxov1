@@ -231,7 +231,7 @@ export function EventsView() {
     if (withoutLinks.length === 0) return;
 
     // Resolve up to 5 events at a time to avoid overloading
-    const batch = liveWithoutLinks.slice(0, 5);
+    const batch = withoutLinks.slice(0, 5);
 
     for (const { event, leagueKey } of batch) {
       const comp = event.competitions?.[0];
