@@ -14,13 +14,34 @@ import { motion } from "framer-motion";
 
 // Sport category tabs - each league is its own tab for precise filtering
 const SPORT_TABS = [
-  { value: "football", label: "Football", emoji: "⚽", leagues: [
-    "eng.1", "esp.1", "ger.1", "ita.1", "fra.1", "uefa.champions",
-    "uefa.europa", "esp.copa_del_rey", "eng.fa", "eng.league_cup",
-    "ger.dfb_pokal", "ita.coppa_italia", "fra.coupe_de_france",
-    "ned.1", "por.1", "tur.1", "mex.1", "arg.1", "bra.1",
-    "conmebol.libertadores", "mls"
-  ]},
+  {
+    value: "football",
+    label: "Football",
+    emoji: "⚽",
+    leagues: [
+      "eng.1",
+      "esp.1",
+      "ger.1",
+      "ita.1",
+      "fra.1",
+      "uefa.champions",
+      "uefa.europa",
+      "esp.copa_del_rey",
+      "eng.fa",
+      "eng.league_cup",
+      "ger.dfb_pokal",
+      "ita.coppa_italia",
+      "fra.coupe_de_france",
+      "ned.1",
+      "por.1",
+      "tur.1",
+      "mex.1",
+      "arg.1",
+      "bra.1",
+      "conmebol.libertadores",
+      "mls",
+    ],
+  },
   { value: "nba", label: "NBA", emoji: "🏀", leagues: ["nba"] },
   { value: "mlb", label: "MLB", emoji: "⚾", leagues: ["mlb", "baseball.wbc"] },
   { value: "nhl", label: "NHL", emoji: "🏒", leagues: ["nhl"] },
@@ -55,7 +76,11 @@ interface EnrichedEvent {
 }
 
 const normalizeText = (s: string) =>
-  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
 const LEAGUE_LOGO_FALLBACKS: Record<string, string> = {
   "eng.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png",
@@ -100,21 +125,23 @@ export function EventsView() {
   const fetchEventLinks = useCallback(async () => {
     const { data, error } = await supabase
       .from("events")
-      .select("espn_id, name, team_home, team_away, stream_url, stream_url_2, stream_url_3, pending_url, is_active, sport, league, is_live, event_date")
+      .select(
+        "espn_id, name, team_home, team_away, stream_url, stream_url_2, stream_url_3, pending_url, is_active, sport, league, is_live, event_date",
+      )
       .eq("is_active", true);
     if (!error && data) setDbEvents(data as DbEvent[]);
   }, []);
 
   // Get leagues to fetch based on active sport
   const leaguesToFetch = useMemo(() => {
-    const tab = SPORT_TABS.find(t => t.value === activeSport);
+    const tab = SPORT_TABS.find((t) => t.value === activeSport);
     return tab?.leagues || [];
   }, [activeSport]);
 
   // Get available sub-league options for current sport tab
-  const currentTab = SPORT_TABS.find(t => t.value === activeSport);
+  const currentTab = SPORT_TABS.find((t) => t.value === activeSport);
   const availableLeagues = useMemo(() => {
-    return LEAGUE_OPTIONS.filter(l => currentTab?.leagues?.includes(l.value));
+    return LEAGUE_OPTIONS.filter((l) => currentTab?.leagues?.includes(l.value));
   }, [currentTab]);
 
   // Fetch ALL leagues for the current sport simultaneously
@@ -134,10 +161,10 @@ export function EventsView() {
           const leagueName = lg?.name || lg?.abbreviation || leagueKey;
           const leagueSub = lg?.abbreviation || leagueKey.toUpperCase();
           const leagueSlug = lg?.slug || "";
-          
+
           // Filter events to only include those that belong to this exact league
           // ESPN sometimes returns events from sub-leagues (G-League, NBA Cup, etc.)
-          const filteredEvents = (data.events || []).filter(event => {
+          const filteredEvents = (data.events || []).filter((event) => {
             // If no league info, include all events
             if (!lg) return true;
             // Check if the event's league matches what we requested
@@ -146,15 +173,15 @@ export function EventsView() {
             // But we can verify using the league slug in the response
             return true; // ESPN endpoints are league-specific, trust the response
           });
-          
-          return filteredEvents.map(event => ({
+
+          return filteredEvents.map((event) => ({
             event,
             leagueKey,
             leagueName,
             leagueSub,
             leagueLogo,
           }));
-        })
+        }),
       );
 
       const enriched: EnrichedEvent[] = [];
@@ -176,37 +203,86 @@ export function EventsView() {
     setLoading(false);
   }, [leaguesToFetch]);
 
+  // Tokeniza un nombre en palabras significativas (>= 2 chars, sin stopwords)
+  const STOPWORDS = new Set(["fc", "cf", "sc", "ac", "bc", "cd", "the", "de", "la", "el", "club", "team", "vs", "v"]);
+  const tokenize = (s: string): string[] =>
+    normalizeText(s)
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 2 && !STOPWORDS.has(t));
+
+  // Calcula score de solapamiento entre dos nombres de equipo
+  const nameScore = (a: string, b: string): number => {
+    const ta = new Set(tokenize(a));
+    const tb = new Set(tokenize(b));
+    if (ta.size === 0 || tb.size === 0) return 0;
+    let overlap = 0;
+    for (const t of ta) if (tb.has(t)) overlap++;
+    return overlap / Math.max(ta.size, tb.size);
+  };
+
   // Build eventLinks map
   const eventLinks = useMemo(() => {
     const linksMap = new Map<string, { url1: string; url2?: string; url3?: string }>();
     if (dbEvents.length === 0 || allEnrichedEvents.length === 0) return linksMap;
 
     for (const { event: espnEvent } of allEnrichedEvents) {
-      const byId = dbEvents.find(d => d.espn_id && d.espn_id === espnEvent.id);
+      // 1. Match exacto por espn_id
+      const byId = dbEvents.find((d) => d.espn_id && d.espn_id === espnEvent.id);
       if (byId?.stream_url) {
-        linksMap.set(espnEvent.id, { url1: byId.stream_url, url2: byId.stream_url_2 || undefined, url3: byId.stream_url_3 || undefined });
+        linksMap.set(espnEvent.id, {
+          url1: byId.stream_url,
+          url2: byId.stream_url_2 || undefined,
+          url3: byId.stream_url_3 || undefined,
+        });
         continue;
       }
+
       const comp = espnEvent.competitions?.[0];
       const competitors = comp?.competitors || [];
-      const espnHome = competitors.find(c => c.homeAway === "home");
-      const espnAway = competitors.find(c => c.homeAway === "away");
+      const espnHome = competitors.find((c) => c.homeAway === "home");
+      const espnAway = competitors.find((c) => c.homeAway === "away");
       if (!espnHome?.team?.displayName && !espnAway?.team?.displayName) continue;
-      const homeName = normalizeText(espnHome?.team?.displayName || "");
-      const awayName = normalizeText(espnAway?.team?.displayName || "");
-      const homeShort = normalizeText(espnHome?.team?.shortDisplayName || "");
-      const awayShort = normalizeText(espnAway?.team?.shortDisplayName || "");
 
-      const match = dbEvents.find(d => {
-        if (!d.stream_url) return false;
-        const dAll = normalizeText(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""}`);
-        const homeMatch = [homeName, homeShort].some(n => n.length > 2 && dAll.includes(n));
-        const awayMatch = [awayName, awayShort].some(n => n.length > 2 && dAll.includes(n));
-        return homeMatch && awayMatch;
-      });
+      const espnHomeName = espnHome?.team?.displayName || "";
+      const espnHomeShort = espnHome?.team?.shortDisplayName || "";
+      const espnAwayName = espnAway?.team?.displayName || "";
+      const espnAwayShort = espnAway?.team?.shortDisplayName || "";
 
-      if (match?.stream_url) {
-        linksMap.set(espnEvent.id, { url1: match.stream_url, url2: match.stream_url_2 || undefined, url3: match.stream_url_3 || undefined });
+      // 2. Match fuzzy por nombre de equipos con score de solapamiento
+      let bestMatch: DbEvent | null = null;
+      let bestScore = 0;
+
+      for (const d of dbEvents) {
+        if (!d.stream_url) continue;
+        const dbHome = d.team_home || "";
+        const dbAway = d.team_away || "";
+        if (!dbHome && !dbAway) continue;
+
+        // Probar combinación directa e invertida (home/away pueden estar al revés)
+        const directScore =
+          (Math.max(nameScore(espnHomeName, dbHome), nameScore(espnHomeShort, dbHome)) +
+            Math.max(nameScore(espnAwayName, dbAway), nameScore(espnAwayShort, dbAway))) /
+          2;
+
+        const swappedScore =
+          (Math.max(nameScore(espnHomeName, dbAway), nameScore(espnHomeShort, dbAway)) +
+            Math.max(nameScore(espnAwayName, dbHome), nameScore(espnAwayShort, dbHome))) /
+          2;
+
+        const score = Math.max(directScore, swappedScore);
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = d;
+        }
+      }
+
+      // Umbral de 0.35 para tolerar diferencias en nombres (ej: "Man City" vs "Manchester City")
+      if (bestMatch && bestScore >= 0.35 && bestMatch.stream_url) {
+        linksMap.set(espnEvent.id, {
+          url1: bestMatch.stream_url,
+          url2: bestMatch.stream_url_2 || undefined,
+          url3: bestMatch.stream_url_3 || undefined,
+        });
       }
     }
     return linksMap;
@@ -215,17 +291,27 @@ export function EventsView() {
   useEffect(() => {
     fetchEventLinks();
     const channel = supabase
-      .channel('events-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, () => fetchEventLinks())
+      .channel("events-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => fetchEventLinks())
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [fetchEventLinks]);
 
-  useEffect(() => { loadAllEvents(); }, [loadAllEvents]);
+  useEffect(() => {
+    loadAllEvents();
+  }, [loadAllEvents]);
 
   useEffect(() => {
-    const hasLive = allEnrichedEvents.some(e => e.event.competitions?.[0]?.status?.type?.state === "in");
-    const interval = setInterval(() => { loadAllEvents(); fetchEventLinks(); }, hasLive ? 30000 : 60000);
+    const hasLive = allEnrichedEvents.some((e) => e.event.competitions?.[0]?.status?.type?.state === "in");
+    const interval = setInterval(
+      () => {
+        loadAllEvents();
+        fetchEventLinks();
+      },
+      hasLive ? 30000 : 60000,
+    );
     return () => clearInterval(interval);
   }, [allEnrichedEvents, loadAllEvents, fetchEventLinks]);
 
@@ -250,7 +336,34 @@ export function EventsView() {
       nba: { sports: ["basketball"], leagues: ["nba"] },
       mlb: { sports: ["baseball"], leagues: ["mlb", "world baseball classic", "wbc", "clasico mundial"] },
       nhl: { sports: ["hockey"], leagues: ["nhl"] },
-      football: { sports: ["soccer", "football"], leagues: ["premier", "laliga", "la liga", "bundesliga", "serie a", "ligue 1", "champions", "europa", "copa del rey", "fa cup", "carabao", "efl", "dfb", "coppa italia", "coupe de france", "eredivisie", "liga portugal", "super lig", "liga mx", "argentina", "brasileirao", "libertadores", "mls"] },
+      football: {
+        sports: ["soccer", "football"],
+        leagues: [
+          "premier",
+          "laliga",
+          "la liga",
+          "bundesliga",
+          "serie a",
+          "ligue 1",
+          "champions",
+          "europa",
+          "copa del rey",
+          "fa cup",
+          "carabao",
+          "efl",
+          "dfb",
+          "coppa italia",
+          "coupe de france",
+          "eredivisie",
+          "liga portugal",
+          "super lig",
+          "liga mx",
+          "argentina",
+          "brasileirao",
+          "libertadores",
+          "mls",
+        ],
+      },
       boxing: { sports: ["boxing"] },
       mma: { sports: ["mma", "ufc"] },
       wrestling: { sports: ["wrestling", "wwe"] },
@@ -275,10 +388,10 @@ export function EventsView() {
         const eventSport = normalizeText(d.sport || "");
         const eventLeague = normalizeText(d.league || "");
         const eventName = normalizeText(d.name || "");
-        
+
         // Must match sport
         if (!config.sports.some((s) => eventSport.includes(s))) return false;
-        
+
         // If tab has specific leagues, must also match league
         if (config.leagues) {
           const allText = `${eventLeague} ${eventName}`;
@@ -288,7 +401,9 @@ export function EventsView() {
 
       if (activeLeagueFilter) {
         const leagueText = normalizeText(`${d.league || ""} ${d.name || ""}`);
-        const aliases = DB_LEAGUE_ALIASES[activeLeagueFilter] || [normalizeText(activeLeagueFilter.replace(/\./g, " "))];
+        const aliases = DB_LEAGUE_ALIASES[activeLeagueFilter] || [
+          normalizeText(activeLeagueFilter.replace(/\./g, " ")),
+        ];
         if (!aliases.some((alias) => leagueText.includes(alias))) return false;
       }
 
@@ -304,10 +419,10 @@ export function EventsView() {
   // Filter enriched events by sub-league and search
   const filteredEvents = useMemo(() => {
     let list = allEnrichedEvents;
-    
+
     // Filter by sub-league if selected
     if (activeLeagueFilter) {
-      list = list.filter(e => e.leagueKey === activeLeagueFilter);
+      list = list.filter((e) => e.leagueKey === activeLeagueFilter);
     }
 
     // Filter by search
@@ -316,8 +431,9 @@ export function EventsView() {
       list = list.filter(({ event: e }) => {
         const comp = e.competitions?.[0];
         const teams = comp?.competitors || [];
-        return teams.some(t => (t.team?.displayName || "").toLowerCase().includes(q)) ||
-          e.name?.toLowerCase().includes(q);
+        return (
+          teams.some((t) => (t.team?.displayName || "").toLowerCase().includes(q)) || e.name?.toLowerCase().includes(q)
+        );
       });
     }
 
@@ -345,18 +461,24 @@ export function EventsView() {
   const handleDbEventClick = (event: DbEvent) => {
     if (!event.stream_url) return;
     const title = `${event.team_home || "Team"} vs ${event.team_away || "Team"}`;
-    openPlayer(title, { url1: event.stream_url, url2: event.stream_url_2 || undefined, url3: event.stream_url_3 || undefined });
+    openPlayer(title, {
+      url1: event.stream_url,
+      url2: event.stream_url_2 || undefined,
+      url3: event.stream_url_3 || undefined,
+    });
   };
 
   const formatTime = (iso: string) => {
     try {
       return new Date(iso).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" });
-    } catch { return "—"; }
+    } catch {
+      return "—";
+    }
   };
 
   const stats = useMemo(() => {
-    const live = filteredEvents.filter(e => e.event.competitions?.[0]?.status?.type?.state === "in").length;
-    const withLinks = filteredEvents.filter(e => eventLinks.has(e.event.id)).length;
+    const live = filteredEvents.filter((e) => e.event.competitions?.[0]?.status?.type?.state === "in").length;
+    const withLinks = filteredEvents.filter((e) => eventLinks.has(e.event.id)).length;
     return { total: filteredEvents.length, live, withLinks };
   }, [filteredEvents, eventLinks]);
 
@@ -377,16 +499,24 @@ export function EventsView() {
       <div className="relative mb-6">
         {/* Background glow */}
         <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[200px] bg-primary/[0.06] blur-[100px] rounded-full pointer-events-none" />
-        
+
         <div className="relative flex items-center justify-between gap-3 mb-6">
           <div className="flex items-center gap-3">
             <div className="relative group">
               <div className="absolute -inset-1 rounded-2xl bg-gradient-to-br from-primary/40 to-accent/20 blur-md opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
-              <img src={fluxoLogo} alt="FluxoTV" className="relative w-11 h-11 rounded-2xl shadow-2xl ring-1 ring-white/10" />
+              <img
+                src={fluxoLogo}
+                alt="FluxoTV"
+                className="relative w-11 h-11 rounded-2xl shadow-2xl ring-1 ring-white/10"
+              />
             </div>
             <div className="hidden sm:flex items-baseline gap-0.5">
-              <span className="font-display text-3xl text-white tracking-wider drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]">FLUXO</span>
-              <span className="font-display text-3xl tracking-wider bg-gradient-to-r from-primary to-[hsl(200,100%,55%)] bg-clip-text text-transparent drop-shadow-[0_0_30px_hsl(210,100%,50%,0.4)]">TV</span>
+              <span className="font-display text-3xl text-white tracking-wider drop-shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                FLUXO
+              </span>
+              <span className="font-display text-3xl tracking-wider bg-gradient-to-r from-primary to-[hsl(200,100%,55%)] bg-clip-text text-transparent drop-shadow-[0_0_30px_hsl(210,100%,50%,0.4)]">
+                TV
+              </span>
             </div>
           </div>
           <div className="relative flex-1 max-w-md group">
@@ -416,7 +546,10 @@ export function EventsView() {
               </motion.div>
             )}
             <button
-              onClick={() => { loadAllEvents(); fetchEventLinks(); }}
+              onClick={() => {
+                loadAllEvents();
+                fetchEventLinks();
+              }}
               className="h-11 w-11 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center text-white/30 hover:text-white hover:bg-white/[0.08] hover:border-white/[0.12] hover:shadow-lg hover:shadow-primary/5 transition-all duration-300"
             >
               <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
@@ -437,7 +570,7 @@ export function EventsView() {
                   "relative flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold whitespace-nowrap transition-all duration-300 overflow-hidden",
                   isActive
                     ? "text-white shadow-xl shadow-primary/20"
-                    : "text-white/40 hover:text-white/70 border border-white/[0.06] hover:border-white/[0.12] bg-white/[0.02] hover:bg-white/[0.05]"
+                    : "text-white/40 hover:text-white/70 border border-white/[0.06] hover:border-white/[0.12] bg-white/[0.02] hover:bg-white/[0.05]",
                 )}
               >
                 {isActive && (
@@ -471,7 +604,7 @@ export function EventsView() {
                     "relative px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-300",
                     isActive
                       ? "bg-white/[0.1] text-white border border-white/[0.15] shadow-sm"
-                      : "text-white/30 hover:text-white/60 hover:bg-white/[0.04]"
+                      : "text-white/30 hover:text-white/60 hover:bg-white/[0.04]",
                   )}
                 >
                   {league.label} {count > 0 && <span className="text-white/20 ml-0.5">{count}</span>}
@@ -481,7 +614,6 @@ export function EventsView() {
           </div>
         )}
       </div>
-
 
       {/* Events grid */}
       {loading ? (
@@ -512,7 +644,12 @@ export function EventsView() {
             >
               <EventCard
                 event={enriched.event}
-                leagueInfo={{ key: enriched.leagueKey, name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
+                leagueInfo={{
+                  key: enriched.leagueKey,
+                  name: enriched.leagueName,
+                  sub: enriched.leagueSub,
+                  logo: enriched.leagueLogo,
+                }}
                 hasLink={eventLinks.has(enriched.event.id)}
                 isFavorite={favorites.has(enriched.event.id)}
                 streamUrl={eventLinks.get(enriched.event.id)?.url1}
@@ -523,29 +660,37 @@ export function EventsView() {
             </motion.div>
           ))}
           {/* DB-only events */}
-          {dbOnlyEvents.filter(d => {
-            return !allEnrichedEvents.some(({ event: e }) => {
-              const comp = e.competitions?.[0];
-              const competitors = comp?.competitors || [];
-              const home = competitors.find(c => c.homeAway === "home");
-              const away = competitors.find(c => c.homeAway === "away");
-              if (!home?.team?.displayName || !away?.team?.displayName) return false;
-              const dAll = normalizeText(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""}`);
-              return [normalizeText(home.team.displayName), normalizeText(home.team.shortDisplayName || "")].some(n => n.length > 2 && dAll.includes(n)) &&
-                [normalizeText(away.team.displayName), normalizeText(away.team.shortDisplayName || "")].some(n => n.length > 2 && dAll.includes(n));
-            });
-          }).map((dbEvent, index) => (
-            <motion.div
-              key={`db-${dbEvent.name}-${index}`}
-              className="cursor-pointer"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: (gridEvents.length + index) * 0.03, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              onClick={() => handleDbEventClick(dbEvent)}
-            >
-              <DbEventCard event={dbEvent} />
-            </motion.div>
-          ))}
+          {dbOnlyEvents
+            .filter((d) => {
+              return !allEnrichedEvents.some(({ event: e }) => {
+                const comp = e.competitions?.[0];
+                const competitors = comp?.competitors || [];
+                const home = competitors.find((c) => c.homeAway === "home");
+                const away = competitors.find((c) => c.homeAway === "away");
+                if (!home?.team?.displayName || !away?.team?.displayName) return false;
+                const dAll = normalizeText(`${d.name || ""} ${d.team_home || ""} ${d.team_away || ""}`);
+                return (
+                  [normalizeText(home.team.displayName), normalizeText(home.team.shortDisplayName || "")].some(
+                    (n) => n.length > 2 && dAll.includes(n),
+                  ) &&
+                  [normalizeText(away.team.displayName), normalizeText(away.team.shortDisplayName || "")].some(
+                    (n) => n.length > 2 && dAll.includes(n),
+                  )
+                );
+              });
+            })
+            .map((dbEvent, index) => (
+              <motion.div
+                key={`db-${dbEvent.name}-${index}`}
+                className="cursor-pointer"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: (gridEvents.length + index) * 0.03, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                onClick={() => handleDbEventClick(dbEvent)}
+              >
+                <DbEventCard event={dbEvent} />
+              </motion.div>
+            ))}
         </div>
       )}
 
@@ -575,11 +720,15 @@ async function fetchTeamLogo(teamName: string): Promise<string | null> {
   }
 
   try {
-    const candidates = Array.from(new Set([
-      teamName,
-      teamName.replace(/\b(Baseball|Basketball|Football|Hockey|Rugby)\b/gi, "").trim(),
-      teamName.replace(/\b(Fc|CF|SC|SK|AC|Club)\b/gi, "").trim(),
-    ].filter(Boolean)));
+    const candidates = Array.from(
+      new Set(
+        [
+          teamName,
+          teamName.replace(/\b(Baseball|Basketball|Football|Hockey|Rugby)\b/gi, "").trim(),
+          teamName.replace(/\b(Fc|CF|SC|SK|AC|Club)\b/gi, "").trim(),
+        ].filter(Boolean),
+      ),
+    );
 
     for (const candidate of candidates) {
       const { data, error } = await supabase.functions.invoke("team-logo-search", {
@@ -612,7 +761,9 @@ function TeamBadge({ name, fallback }: { name: string | null; fallback: string }
     fetchTeamLogo(name).then((url) => {
       if (!cancelled) setLogo(url || null);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [name]);
 
   if (logo && !error) {
@@ -635,23 +786,40 @@ function TeamBadge({ name, fallback }: { name: string | null; fallback: string }
 }
 
 // DB-only event card with real team logos
-function DbEventCard({ event }: { event: { name: string; team_home: string | null; team_away: string | null; sport: string | null; league: string | null; is_live: boolean; stream_url: string | null } }) {
+function DbEventCard({
+  event,
+}: {
+  event: {
+    name: string;
+    team_home: string | null;
+    team_away: string | null;
+    sport: string | null;
+    league: string | null;
+    is_live: boolean;
+    stream_url: string | null;
+  };
+}) {
   const homeInitials = (event.team_home || "?").slice(0, 3).toUpperCase();
   const awayInitials = (event.team_away || "?").slice(0, 3).toUpperCase();
 
   return (
-    <div className={cn(
-      "group relative rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.02]",
-      event.is_live
-        ? "ring-1 ring-primary/30 shadow-[0_0_20px_-8px] shadow-primary/20"
-        : "ring-1 ring-white/[0.06] hover:ring-white/[0.12]"
-    )}>
+    <div
+      className={cn(
+        "group relative rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.02]",
+        event.is_live
+          ? "ring-1 ring-primary/30 shadow-[0_0_20px_-8px] shadow-primary/20"
+          : "ring-1 ring-white/[0.06] hover:ring-white/[0.12]",
+      )}
+    >
       <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-accent/8" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/90" />
-      
+
       <div className="relative flex flex-col min-h-[200px]">
         {event.is_live && (
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent animate-gradient-shift" style={{ backgroundSize: '200% 100%' }} />
+          <div
+            className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent animate-gradient-shift"
+            style={{ backgroundSize: "200% 100%" }}
+          />
         )}
 
         {/* Team logos face-off */}
@@ -668,10 +836,12 @@ function DbEventCard({ event }: { event: { name: string; team_home: string | nul
           </h3>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
-              <span className={cn(
-                "px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider",
-                event.is_live ? "bg-primary/20 text-primary" : "bg-white/[0.06] text-white/40"
-              )}>
+              <span
+                className={cn(
+                  "px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider",
+                  event.is_live ? "bg-primary/20 text-primary" : "bg-white/[0.06] text-white/40",
+                )}
+              >
                 {event.league || event.sport || "Sports"}
               </span>
               {event.is_live && (
