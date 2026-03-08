@@ -389,63 +389,16 @@ export function EventsView() {
     return list;
   }, [allEnrichedEvents, activeLeagueFilter, searchQuery]);
 
-  const [resolvingEventId, setResolvingEventId] = useState<string | null>(null);
-
-  const handleEventClick = async (enriched: EnrichedEvent) => {
+  const handleEventClick = (enriched: EnrichedEvent) => {
     const existingLink = eventLinks.get(enriched.event.id);
+    if (!existingLink?.url1) return;
+
     const comp = enriched.event.competitions?.[0];
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
     const home = teams.find((c) => c.homeAway === "home") || teams[1];
-    const homeTeam = home?.team?.displayName;
-    const awayTeam = away?.team?.displayName;
-    const title = `${awayTeam || "Equipo"} vs ${homeTeam || "Equipo"}`;
-
-    if (existingLink?.url1) {
-      openPlayer(title, existingLink);
-      return;
-    }
-
-    if (!homeTeam || !awayTeam) return;
-    if (resolvingEventId) return; // prevent double clicks
-
-    setResolvingEventId(enriched.event.id);
-
-    const sportMap: Record<string, string> = {
-      nba: "Basketball", mlb: "Baseball", nhl: "Hockey",
-      ufc: "MMA", boxing: "Boxing", wwe: "Wrestling",
-    };
-    const sport = sportMap[enriched.leagueKey] || "Soccer";
-
-    try {
-      const invoke = supabase.functions.invoke("resolve-live-stream", {
-        body: { homeTeam, awayTeam, espnId: enriched.event.id, sport },
-      });
-
-      const timeout = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), 15000),
-      );
-
-      const { data, error } = await Promise.race([invoke, timeout]) as Awaited<typeof invoke>;
-      if (error) throw error;
-
-      const resolvedLink = data?.links?.url1
-        ? {
-            url1: data.links.url1,
-            url2: data.links.url2 || undefined,
-            url3: data.links.url3 || undefined,
-          }
-        : null;
-
-      if (resolvedLink?.url1) {
-        openPlayer(title, resolvedLink);
-        fetchEventLinks();
-      }
-    } catch (err) {
-      console.error("Resolve error:", err);
-    } finally {
-      setResolvingEventId(null);
-    }
+    const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
+    openPlayer(title, existingLink);
   };
 
   const handleDbEventClick = (event: DbEvent) => {
