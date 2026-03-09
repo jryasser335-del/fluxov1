@@ -417,66 +417,19 @@ export function EventsView() {
     return list;
   }, [allEnrichedEvents, activeLeagueFilter, searchQuery]);
 
-  const [resolvingId, setResolvingId] = useState<string | null>(null);
-
-  const handleEventClick = async (enriched: EnrichedEvent) => {
+  const handleEventClick = (enriched: EnrichedEvent) => {
     const comp = enriched.event.competitions?.[0];
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
     const home = teams.find((c) => c.homeAway === "home") || teams[1];
     const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
 
-    // Si ya existe link, abrir de inmediato
+    // Usar links pre-cargados del scraper
     const existingLink = eventLinks.get(enriched.event.id);
     if (existingLink?.url1) {
       openPlayer(title, existingLink);
-      return;
     }
-
-    // Abrir modal al instante para evitar sensación de "no hace nada"
-    openPlayer(title, { url1: "" });
-
-    // Resolver link específico del partido (más confiable que el bulk fetch)
-    setResolvingId(enriched.event.id);
-    try {
-      const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), 15000),
-      );
-
-      const invokePromise = supabase.functions.invoke("resolve-live-stream", {
-        body: {
-          homeTeam: home?.team?.displayName,
-          awayTeam: away?.team?.displayName,
-          espnId: enriched.event.id,
-          sport: activeSport,
-        },
-      });
-
-      const { data, error } = (await Promise.race([invokePromise, timeoutPromise])) as any;
-      if (error) throw error;
-
-      const links = data?.links;
-      if (links?.url1) {
-        openPlayer(title, {
-          url1: links.url1,
-          url2: links.url2 || undefined,
-          url3: links.url3 || undefined,
-        });
-        return;
-      }
-
-      toast.message("Sin señal disponible", {
-        description: "Todavía no hay links para este partido.",
-      });
-      closePlayer();
-    } catch {
-      toast.error("No se pudo obtener la señal", {
-        description: "Intenta nuevamente en unos segundos.",
-      });
-      closePlayer();
-    } finally {
-      setResolvingId(null);
-    }
+    // Si no hay link, simplemente no hacer nada (el card ya indica el estado)
   };
 
   const handleDbEventClick = (event: DbEvent) => {
@@ -651,7 +604,7 @@ export function EventsView() {
                 event={enriched.event}
                 leagueInfo={{ key: enriched.leagueKey, name: enriched.leagueName, sub: enriched.leagueSub, logo: enriched.leagueLogo }}
                 hasLink={Boolean(eventLinks.get(enriched.event.id)?.url1)}
-                isResolving={resolvingId === enriched.event.id}
+                isResolving={false}
                 isFavorite={favorites.has(enriched.event.id)}
                 onToggleFavorite={() => toggleFavorite(enriched.event.id)}
                 onClick={() => handleEventClick(enriched)}
