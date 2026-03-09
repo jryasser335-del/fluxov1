@@ -146,19 +146,57 @@ export function MultiStreamView() {
     };
   }, [fetchEvents, fetchExternalStreams]);
 
-  const activeSlots = slots.filter(s => s.isActive);
+  const activeSlots = slots.filter((s) => s.isActive);
   const displaySlots = layout === 2 ? slots.slice(0, 2) : slots;
-  const selectedEventIds = slots.filter(s => s.eventId).map(s => s.eventId);
+  const selectedEventIds = useMemo(() => {
+    return new Set(slots.map((s) => s.eventId).filter(Boolean) as string[]);
+  }, [slots]);
 
-  const filteredEvents = availableEvents.filter(event => {
-    const hasStream = !!(event.stream_url || event.stream_url_2 || event.stream_url_3);
-    const matchesSearch = searchQuery === "" || 
-      event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.team_home?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.team_away?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.league?.toLowerCase().includes(searchQuery.toLowerCase());
-    return hasStream && matchesSearch && !selectedEventIds.includes(event.id);
-  });
+  const resolvedEvents = useMemo(() => {
+    return availableEvents.map((event) => {
+      const direct = event.stream_url || event.stream_url_2 || event.stream_url_3;
+      if (direct) {
+        const streams: ResolvedUrls = {
+          url1: direct,
+          url2: event.stream_url_2 || undefined,
+          url3: event.stream_url_3 || undefined,
+          source: "db",
+        };
+        return { event, streams };
+      }
+
+      // Try to resolve from pre-fetched external streams
+      const home = normalizeText(event.team_home || "");
+      const away = normalizeText(event.team_away || "");
+      if (externalStreams.length > 0 && home && away) {
+        const matches = findBestExternalMatches(externalStreams, home, away);
+        if (matches.length > 0) {
+          return {
+            event,
+            streams: {
+              url1: matches[0].iframe,
+              url2: matches[1]?.iframe,
+              url3: matches[2]?.iframe,
+              source: "external",
+            } satisfies ResolvedUrls,
+          };
+        }
+      }
+
+      return { event, streams: null as ResolvedUrls | null };
+    });
+  }, [availableEvents, externalStreams]);
+
+  const filteredEvents = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return resolvedEvents.filter(({ event, streams }) => {
+      if (!streams) return false;
+      if (selectedEventIds.has(event.id)) return false;
+      if (!q) return true;
+      const hay = `${event.name} ${event.team_home ?? ""} ${event.team_away ?? ""} ${event.league ?? ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [resolvedEvents, searchQuery, selectedEventIds]);
 
   const handleSelectEvent = (slotId: number, event: AvailableEvent) => {
     const streamUrl = event.stream_url || event.stream_url_2 || event.stream_url_3;
