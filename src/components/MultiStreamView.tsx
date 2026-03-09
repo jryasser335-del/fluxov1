@@ -198,15 +198,29 @@ export function MultiStreamView() {
     });
   }, [resolvedEvents, searchQuery, selectedEventIds]);
 
-  const handleSelectEvent = (slotId: number, event: AvailableEvent) => {
-    const streamUrl = event.stream_url || event.stream_url_2 || event.stream_url_3;
-    if (!streamUrl) return;
+  const handleSelectEvent = (slotId: number, event: AvailableEvent, streams: ResolvedUrls) => {
+    if (!streams?.url1) {
+      toast.info("No hay streams disponibles para este partido");
+      return;
+    }
 
-    setSlots(prev => prev.map(slot => 
-      slot.id === slotId 
-        ? { ...slot, eventId: event.id, url: streamUrl, title: event.name, teamHome: event.team_home || undefined, teamAway: event.team_away || undefined, league: event.league || undefined, isLive: event.is_live, isActive: true }
-        : slot
-    ));
+    setSlots((prev) =>
+      prev.map((slot) =>
+        slot.id === slotId
+          ? {
+              ...slot,
+              eventId: event.id,
+              url: streams.url1,
+              title: event.name,
+              teamHome: event.team_home || undefined,
+              teamAway: event.team_away || undefined,
+              league: event.league || undefined,
+              isLive: event.is_live,
+              isActive: true,
+            }
+          : slot,
+      ),
+    );
     setShowEventPicker(null);
     setSearchQuery("");
   };
