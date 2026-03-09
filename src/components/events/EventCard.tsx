@@ -146,6 +146,7 @@ export function EventCard({
   const awayColor = away?.team?.color ? `#${away.team.color}` : "#1a3a5c";
   const homeColor = home?.team?.color ? `#${home.team.color}` : "#5c1a3a";
 
+
   let timeText = "";
   if (isLive) {
     const period = comp?.status?.period ? `Q${comp.status.period}` : "";
@@ -168,11 +169,13 @@ export function EventCard({
   const showScore = (isLive || isFinal) && awayScore !== undefined && homeScore !== undefined;
 
   return (
-    <div className="rgb-border-wrapper">
+    <div className="card-wrapper">
       <div
         className={cn(
-          "premium-card card-shine cursor-pointer group overflow-hidden",
-          isLive && "ring-1 ring-destructive/30"
+          "premium-card card-shine group overflow-hidden rounded-2xl border border-white/[0.06]",
+          isLive && "ring-1 ring-destructive/30 cursor-pointer",
+          isFinal && "opacity-70",
+          !isFinal && "cursor-pointer"
         )}
         onClick={onClick}
       >
@@ -214,11 +217,11 @@ export function EventCard({
           </div>
         )}
 
-        {/* Final badge */}
+        {/* Final badge - Partido Finalizado */}
         {isFinal && (
           <div className="absolute top-3 left-3 z-10">
-            <div className="px-2.5 py-1 rounded-lg bg-white/[0.08] backdrop-blur-md border border-white/[0.06]">
-              <span className="text-[10px] font-bold text-muted-foreground tracking-[0.1em]">FT</span>
+            <div className="px-2.5 py-1 rounded-lg bg-white/[0.12] backdrop-blur-md border border-white/[0.08]">
+              <span className="text-[10px] font-bold text-white/80 tracking-[0.08em]">FINALIZADO</span>
             </div>
           </div>
         )}

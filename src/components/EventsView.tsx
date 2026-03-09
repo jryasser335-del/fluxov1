@@ -419,17 +419,25 @@ export function EventsView() {
 
   const handleEventClick = (enriched: EnrichedEvent) => {
     const comp = enriched.event.competitions?.[0];
+    const status = comp?.status?.type;
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
     const home = teams.find((c) => c.homeAway === "home") || teams[1];
     const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
+
+    // Partido finalizado
+    if (status?.state === "post") {
+      toast.info("Partido finalizado", {
+        description: `${title} ya ha terminado.`,
+      });
+      return;
+    }
 
     // Usar links pre-cargados del scraper
     const existingLink = eventLinks.get(enriched.event.id);
     if (existingLink?.url1) {
       openPlayer(title, existingLink);
     }
-    // Si no hay link, simplemente no hacer nada (el card ya indica el estado)
   };
 
   const handleDbEventClick = (event: DbEvent) => {
@@ -731,9 +739,9 @@ function DbEventCard({ event }: { event: { name: string; team_home: string | nul
   const awayInitials = (event.team_away || "?").slice(0, 3).toUpperCase();
 
   return (
-    <div className="rgb-border-wrapper">
+    <div className="card-wrapper">
       <div className={cn(
-        "premium-card card-shine cursor-pointer group overflow-hidden",
+        "premium-card card-shine cursor-pointer group overflow-hidden rounded-2xl border border-white/[0.06]",
         event.is_live && "ring-1 ring-destructive/30"
       )}>
         <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-primary/10 via-card to-accent/10">
