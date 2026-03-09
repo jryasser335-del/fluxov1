@@ -192,12 +192,12 @@ export function EventCard({
         {/* LIVE badge */}
         {isLive && (
           <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-destructive/90 backdrop-blur-sm shadow-lg shadow-destructive/30">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/90 backdrop-blur-sm shadow-lg shadow-primary/20">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
               </span>
-              <span className="text-[10px] font-bold text-white tracking-[0.15em]">LIVE</span>
+              <span className="text-[10px] font-bold text-white tracking-[0.15em]">EN VIVO</span>
             </div>
           </div>
         )}
