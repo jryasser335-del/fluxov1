@@ -179,7 +179,7 @@ export function EventCard({
           isFinal && "opacity-70",
           !isFinal && "cursor-pointer"
         )}
-        onClick={handleClick}
+        onClick={onClick}
       >
       <div
         className="relative aspect-[16/10] overflow-hidden"
