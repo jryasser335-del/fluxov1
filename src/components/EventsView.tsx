@@ -451,8 +451,10 @@ export function EventsView() {
     } else if (!externalStreamsLoaded) {
       // Streams aún cargando → esperar en silencio y abrir cuando estén listos
       pendingClickRef.current = { enriched, title };
+    } else {
+      // No hay link disponible → abrir con mensaje de "disponible 30 min antes"
+      openPlayer(title, { url1: "" });
     }
-    // Si ya cargaron y no hay URL, simplemente no hace nada
   };
 
   const handleDbEventClick = (event: DbEvent) => {
