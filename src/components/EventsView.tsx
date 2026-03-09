@@ -31,9 +31,7 @@ function readStreamCache(): ExternalStream[] | null {
 function writeStreamCache(streams: ExternalStream[]) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify({ streams, ts: Date.now() }));
-  } catch {
-    /* localStorage lleno */
-  }
+  } catch {}
 }
 
 const SPORT_TABS = [
@@ -155,16 +153,6 @@ const LEAGUE_LOGO_FALLBACKS: Record<string, string> = {
   "fra.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/9.png",
   "uefa.champions": "https://a.espncdn.com/i/leaguelogos/soccer/500/2.png",
   "uefa.europa": "https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png",
-};
-
-const DB_LEAGUE_ALIASES: Record<string, string[]> = {
-  "eng.1": ["premier league", "premier"],
-  "esp.1": ["laliga", "la liga"],
-  "ger.1": ["bundesliga"],
-  "ita.1": ["serie a"],
-  "fra.1": ["ligue 1"],
-  "uefa.champions": ["champions"],
-  "uefa.europa": ["europa league"],
 };
 
 const getLeagueLogoFallback = (k: string) => LEAGUE_LOGO_FALLBACKS[k] || "";
@@ -339,7 +327,7 @@ export function EventsView() {
 
   return (
     <div className="space-y-6">
-      {/* Header & Search */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <img src={fluxoLogo} alt="Logo" className="w-10 h-10 rounded-xl shadow-lg" />
@@ -376,7 +364,7 @@ export function EventsView() {
         ))}
       </div>
 
-      {/* Main Grid */}
+      {/* Grid Corregido */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <AnimatePresence mode="popLayout">
           {loading ? (
@@ -390,8 +378,13 @@ export function EventsView() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
               >
+                {/* He pasado los datos uno a uno para evitar el error TS2322 */}
                 <EventCard
-                  enriched={item}
+                  event={item.event}
+                  leagueKey={item.leagueKey}
+                  leagueName={item.leagueName}
+                  leagueSub={item.leagueSub}
+                  leagueLogo={item.leagueLogo}
                   hasLink={eventLinks.has(item.event.id)}
                   onClick={() => handleEventClick(item)}
                   isResolving={resolvingIds.has(item.event.id)}
