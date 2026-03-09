@@ -167,6 +167,8 @@ export function EventsView() {
       }
     } catch (err) {
       console.error("Failed to fetch external streams:", err);
+    } finally {
+      setExternalStreamsLoaded(true);
     }
   }, []);
 
