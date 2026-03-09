@@ -110,6 +110,15 @@ async function fetchStreamedStreams(): Promise<StreamEntry[]> {
 
       if (!matches.length) continue;
 
+      // If live feed doesn't include football (often mixed-sport), fallback to football-specific endpoint
+      if (matches.filter(isSoccerLike).length === 0) {
+        const rf = await fetchFast(`${base}/api/matches/football`, 5000);
+        if (rf?.ok) {
+          const fb = await rf.json();
+          if (Array.isArray(fb) && fb.length > 0) matches = fb;
+        }
+      }
+
       const withSources = matches.filter((m: any) => Array.isArray(m?.sources) && m.sources.length > 0);
       const prioritized = [
         ...withSources.filter(isSoccerLike),
