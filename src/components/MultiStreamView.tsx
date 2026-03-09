@@ -186,10 +186,6 @@ export function MultiStreamView() {
   }, [slots]);
 
   const effectiveEvents = useMemo<AvailableEvent[]>(() => {
-    const normalizedBaseNames = new Set(
-      availableEvents.map((e) => normalizeText(e.name || "")).filter(Boolean),
-    );
-
     const externalAsEvents = externalStreams.slice(0, 120)
       .map((stream, idx) => ({
         id: `ext-${stream.source}-${stream.id || idx}`,
@@ -202,8 +198,7 @@ export function MultiStreamView() {
         league: stream.category || stream.source.toUpperCase(),
         is_live: true,
         event_date: new Date().toISOString(),
-      }))
-      .filter((event) => !normalizedBaseNames.has(normalizeText(event.name)));
+      }));
 
     return [...availableEvents, ...externalAsEvents];
   }, [availableEvents, externalStreams]);
