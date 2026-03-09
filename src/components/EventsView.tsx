@@ -419,17 +419,25 @@ export function EventsView() {
 
   const handleEventClick = (enriched: EnrichedEvent) => {
     const comp = enriched.event.competitions?.[0];
+    const status = comp?.status?.type;
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
     const home = teams.find((c) => c.homeAway === "home") || teams[1];
     const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
+
+    // Partido finalizado
+    if (status?.state === "post") {
+      toast.info("Partido finalizado", {
+        description: `${title} ya ha terminado.`,
+      });
+      return;
+    }
 
     // Usar links pre-cargados del scraper
     const existingLink = eventLinks.get(enriched.event.id);
     if (existingLink?.url1) {
       openPlayer(title, existingLink);
     }
-    // Si no hay link, simplemente no hacer nada (el card ya indica el estado)
   };
 
   const handleDbEventClick = (event: DbEvent) => {
