@@ -14,6 +14,8 @@ interface AppUser {
 interface AppAuthState {
   appUser: AppUser | null;
   isLoading: boolean;
+  hasHydrated: boolean;
+  setHasHydrated: (value: boolean) => void;
   login: (username: string, password: string) => Promise<{ error: string | null }>;
   logout: () => void;
   checkAccess: () => boolean;
@@ -33,6 +35,8 @@ export const useAppAuth = create<AppAuthState>()(
     (set, get) => ({
       appUser: null,
       isLoading: false,
+      hasHydrated: false,
+      setHasHydrated: (value) => set({ hasHydrated: value }),
 
       login: async (username: string, password: string) => {
         set({ isLoading: true });
@@ -153,6 +157,9 @@ export const useAppAuth = create<AppAuthState>()(
     {
       name: 'fluxo-app-auth',
       partialize: (state) => ({ appUser: state.appUser }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );

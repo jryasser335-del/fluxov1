@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Plus, X, Maximize2, Minimize2, Grid2X2, LayoutGrid, Search, Trophy, Play, Monitor, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 interface StreamSlot {
   id: number;
@@ -20,7 +21,7 @@ interface StreamSlot {
 interface AvailableEvent {
   id: string;
   name: string;
-  stream_url: string;
+  stream_url: string | null;
   stream_url_2: string | null;
   stream_url_3: string | null;
   team_home: string | null;
@@ -28,6 +29,52 @@ interface AvailableEvent {
   league: string | null;
   is_live: boolean;
   event_date: string;
+}
+
+interface ExternalStream {
+  id: string;
+  name: string;
+  category: string;
+  iframe: string;
+  poster?: string;
+  viewers?: number;
+  source: "ppv" | "streamed" | "moviebite";
+  channels?: string;
+}
+
+type ResolvedUrls = { url1: string; url2?: string; url3?: string; source: "db" | "external" };
+
+const normalizeText = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+function findBestExternalMatches(
+  streams: ExternalStream[],
+  homeName: string,
+  awayName: string,
+): ExternalStream[] {
+  const scored: { stream: ExternalStream; score: number }[] = [];
+  for (const s of streams) {
+    const sName = normalizeText(s.name);
+    const homeMatch = homeName.length > 2 && sName.includes(homeName);
+    const awayMatch = awayName.length > 2 && sName.includes(awayName);
+    const score = (homeMatch ? 1 : 0) + (awayMatch ? 1 : 0);
+    if (score >= 1) scored.push({ stream: s, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  const result: ExternalStream[] = [];
+  const usedSources = new Set<string>();
+  for (const { stream } of scored) {
+    if (result.length >= 3) break;
+    if (!usedSources.has(stream.source)) {
+      result.push(stream);
+      usedSources.add(stream.source);
+    }
+  }
+  for (const { stream } of scored) {
+    if (result.length >= 3) break;
+    if (!result.includes(stream)) result.push(stream);
+  }
+  return result;
 }
 
 export function MultiStreamView() {
@@ -41,51 +88,139 @@ export function MultiStreamView() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEventPicker, setShowEventPicker] = useState<number | null>(null);
   const [availableEvents, setAvailableEvents] = useState<AvailableEvent[]>([]);
+  const [externalStreams, setExternalStreams] = useState<ExternalStream[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const fetchInFlightRef = useRef(false);
+  const hasLoadedOnceRef = useRef(false);
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      setLoading(true);
+  const fetchEvents = useCallback(async (background = false) => {
+    if (fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
+
+    // Only show blocking loader on first load
+    const shouldBlock = !background && !hasLoadedOnceRef.current;
+    if (shouldBlock) setLoading(true);
+
+    try {
       const { data, error } = await supabase
         .from("events")
-        .select("*")
+        .select("id,name,stream_url,stream_url_2,stream_url_3,team_home,team_away,league,is_live,event_date,is_active")
         .eq("is_active", true)
         .order("event_date", { ascending: true });
-      if (!error && data) setAvailableEvents(data as AvailableEvent[]);
-      setLoading(false);
-    };
-    fetchEvents();
-    const channel = supabase
-      .channel("events-multistream")
-      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => fetchEvents())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+      if (!error && data) {
+        setAvailableEvents(data as unknown as AvailableEvent[]);
+        hasLoadedOnceRef.current = true;
+      }
+    } catch (e) {
+      console.error("MultiStream fetchEvents error", e);
+    } finally {
+      if (shouldBlock) setLoading(false);
+      fetchInFlightRef.current = false;
+    }
   }, []);
 
-  const activeSlots = slots.filter(s => s.isActive);
+  const fetchExternalStreams = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-all-streams", { body: {} });
+      if (!error && data?.streams) {
+        setExternalStreams(data.streams as ExternalStream[]);
+      }
+    } catch (e) {
+      console.error("MultiStream fetchExternalStreams error", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchExternalStreams();
+    fetchEvents(false);
+
+    const channel = supabase
+      .channel("events-multistream")
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => fetchEvents(true))
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchEvents, fetchExternalStreams]);
+
+  const activeSlots = slots.filter((s) => s.isActive);
   const displaySlots = layout === 2 ? slots.slice(0, 2) : slots;
-  const selectedEventIds = slots.filter(s => s.eventId).map(s => s.eventId);
+  const selectedEventIds = useMemo(() => {
+    return new Set(slots.map((s) => s.eventId).filter(Boolean) as string[]);
+  }, [slots]);
 
-  const filteredEvents = availableEvents.filter(event => {
-    const hasStream = !!(event.stream_url || event.stream_url_2 || event.stream_url_3);
-    const matchesSearch = searchQuery === "" || 
-      event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.team_home?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.team_away?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      event.league?.toLowerCase().includes(searchQuery.toLowerCase());
-    return hasStream && matchesSearch && !selectedEventIds.includes(event.id);
-  });
+  const resolvedEvents = useMemo(() => {
+    return availableEvents.map((event) => {
+      const direct = event.stream_url || event.stream_url_2 || event.stream_url_3;
+      if (direct) {
+        const streams: ResolvedUrls = {
+          url1: direct,
+          url2: event.stream_url_2 || undefined,
+          url3: event.stream_url_3 || undefined,
+          source: "db",
+        };
+        return { event, streams };
+      }
 
-  const handleSelectEvent = (slotId: number, event: AvailableEvent) => {
-    const streamUrl = event.stream_url || event.stream_url_2 || event.stream_url_3;
-    if (!streamUrl) return;
+      // Try to resolve from pre-fetched external streams
+      const home = normalizeText(event.team_home || "");
+      const away = normalizeText(event.team_away || "");
+      if (externalStreams.length > 0 && home && away) {
+        const matches = findBestExternalMatches(externalStreams, home, away);
+        if (matches.length > 0) {
+          return {
+            event,
+            streams: {
+              url1: matches[0].iframe,
+              url2: matches[1]?.iframe,
+              url3: matches[2]?.iframe,
+              source: "external",
+            } satisfies ResolvedUrls,
+          };
+        }
+      }
 
-    setSlots(prev => prev.map(slot => 
-      slot.id === slotId 
-        ? { ...slot, eventId: event.id, url: streamUrl, title: event.name, teamHome: event.team_home || undefined, teamAway: event.team_away || undefined, league: event.league || undefined, isLive: event.is_live, isActive: true }
-        : slot
-    ));
+      return { event, streams: null as ResolvedUrls | null };
+    });
+  }, [availableEvents, externalStreams]);
+
+  const filteredEvents = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return resolvedEvents.filter(({ event, streams }) => {
+      if (!streams) return false;
+      if (selectedEventIds.has(event.id)) return false;
+      if (!q) return true;
+      const hay = `${event.name} ${event.team_home ?? ""} ${event.team_away ?? ""} ${event.league ?? ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [resolvedEvents, searchQuery, selectedEventIds]);
+
+  const handleSelectEvent = (slotId: number, event: AvailableEvent, streams: ResolvedUrls) => {
+    if (!streams?.url1) {
+      toast.info("No hay streams disponibles para este partido");
+      return;
+    }
+
+    setSlots((prev) =>
+      prev.map((slot) =>
+        slot.id === slotId
+          ? {
+              ...slot,
+              eventId: event.id,
+              url: streams.url1,
+              title: event.name,
+              teamHome: event.team_home || undefined,
+              teamAway: event.team_away || undefined,
+              league: event.league || undefined,
+              isLive: event.is_live,
+              isActive: true,
+            }
+          : slot,
+      ),
+    );
     setShowEventPicker(null);
     setSearchQuery("");
   };
@@ -253,10 +388,10 @@ export function MultiStreamView() {
                           <span className="text-[11px] font-medium">No hay partidos disponibles</span>
                         </div>
                       ) : (
-                        filteredEvents.map((event) => (
+                        filteredEvents.map(({ event, streams }) => (
                           <button
                             key={event.id}
-                            onClick={() => handleSelectEvent(slot.id, event)}
+                            onClick={() => handleSelectEvent(slot.id, event, streams)}
                             className="w-full p-2.5 rounded-xl bg-white/[0.02] hover:bg-primary/[0.05] border border-white/[0.04] hover:border-primary/20 transition-all text-left group/item"
                           >
                             <div className="flex items-center gap-2.5">
@@ -314,7 +449,7 @@ export function MultiStreamView() {
                         Añadir Stream
                       </span>
                       <span className="block text-[10px] text-muted-foreground/20 mt-0.5">
-                        {availableEvents.filter(e => !!(e.stream_url || e.stream_url_2 || e.stream_url_3)).length - selectedEventIds.filter(Boolean).length} disponibles
+                        {resolvedEvents.filter(({ event, streams }) => !!streams && !selectedEventIds.has(event.id)).length} disponibles
                       </span>
                     </div>
                   </motion.button>

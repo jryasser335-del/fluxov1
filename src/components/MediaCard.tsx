@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { TMDB_IMG } from "@/lib/constants";
 import { TMDBResult } from "@/lib/api";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
@@ -12,7 +13,10 @@ export interface MediaCardProps {
   platform?: string | null;
 }
 
-export function MediaCard({ item, type, streamUrl, platform }: MediaCardProps) {
+export const MediaCard = forwardRef<HTMLDivElement, MediaCardProps>(function MediaCard(
+  { item, type, streamUrl, platform },
+  ref,
+) {
   const { openPlayer } = usePlayerModal();
   const title = item.title || item.name || "";
   const date = item.release_date || item.first_air_date || "";
@@ -32,6 +36,7 @@ export function MediaCard({ item, type, streamUrl, platform }: MediaCardProps) {
 
   return (
     <div
+      ref={ref}
       onClick={handleClick}
       className={cn(
         "group relative rounded-2xl overflow-hidden aspect-[2/3] transition-all duration-400",
@@ -117,5 +122,7 @@ export function MediaCard({ item, type, streamUrl, platform }: MediaCardProps) {
       )}
     </div>
   );
-}
+});
+
+MediaCard.displayName = "MediaCard";
 

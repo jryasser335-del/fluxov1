@@ -10,24 +10,25 @@ import { AdminUsers } from "@/components/admin/AdminUsers";
 import { AdminScraper } from "@/components/admin/AdminScraper";
 
 export default function Admin() {
-  const { appUser, logout } = useAppAuth();
+  const { appUser, logout, hasHydrated } = useAppAuth();
   const isAdmin = appUser?.isAdmin ?? false;
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (!hasHydrated) return;
     if (!appUser) {
       navigate("/");
     } else if (!isAdmin) {
       navigate("/");
     }
-  }, [appUser, isAdmin, navigate]);
+  }, [hasHydrated, appUser, isAdmin, navigate]);
 
   const handleSignOut = async () => {
     logout();
     navigate("/");
   };
 
-  if (!appUser) {
+  if (!hasHydrated || !appUser) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="relative">
