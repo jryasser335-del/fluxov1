@@ -157,9 +157,27 @@ Deno.serve(async (req) => {
       // Streamed
       (async (): Promise<{ url: string; source: string }[]> => {
         for (const base of STREAMED_BASES) {
-          const res = await fetchFast(`${base}/api/matches/all`, 2500);
-          if (!res?.ok) continue;
-          const matches = await res.json();
+          // Streamed base-specific match endpoints
+          const matchEndpoints = base.includes("streamed.pk")
+            ? ["/api/matches/football", "/api/matches/all-today", "/api/matches/live", "/api/matches/live/popular"]
+            : ["/api/matches/all", "/api/matches/all-today", "/api/matches/football", "/api/matches/live"];
+
+          let matches: any[] = [];
+          for (const ep of matchEndpoints) {
+            const res = await fetchFast(`${base}${ep}`, 2500);
+            if (!res?.ok) continue;
+            try {
+              const data = await res.json();
+              if (Array.isArray(data) && data.length) {
+                matches = data;
+                break;
+              }
+            } catch {
+              // ignore
+            }
+          }
+          if (!matches.length) continue;
+
           let bestMatch: any = null, bestScore = 0;
           for (const m of matches) {
             const mH = m.teams?.home?.name || "", mA = m.teams?.away?.name || "";
@@ -170,19 +188,28 @@ Deno.serve(async (req) => {
             );
             if (sc > bestScore) { bestScore = sc; bestMatch = m; }
           }
+
           if (bestMatch && bestScore >= 0.5) {
-            const hdSrcs = ["alpha", "bravo", "charlie"];
-            const srcs = (bestMatch.sources || []).filter((s: any) => hdSrcs.includes(s.source)).slice(0, 2);
+            const hdSrcs = ["delta", "echo", "alpha", "bravo", "charlie"];
+            const srcs = (bestMatch.sources || []).filter((s: any) => hdSrcs.includes(s.source)).slice(0, 3);
             const urls: { url: string; source: string }[] = [];
+
             await Promise.all(srcs.map(async (src: any) => {
-              const r = await fetchFast(`${base}/api/stream/${src.source}/${src.id}`, 2000);
+              const r = await fetchFast(`${base}/api/stream/${src.source}/${src.id}`, 2500);
               if (!r?.ok) return;
-              const streams = await r.json();
+              let streams: any = null;
+              try {
+                streams = await r.json();
+              } catch {
+                return;
+              }
               if (Array.isArray(streams) && streams.length) {
-                const hd = streams.find((s: any) => s.hd) || streams[0];
-                if (hd?.embedUrl) urls.push({ url: hd.embedUrl, source: "streamed" });
+                const hd = streams.find((s: any) => s?.hd) || streams[0];
+                const embed = hd?.embedUrl ?? hd?.embed_url ?? hd?.url;
+                if (embed) urls.push({ url: String(embed), source: "streamed" });
               }
             }));
+
             return urls;
           }
         }
