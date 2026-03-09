@@ -172,15 +172,14 @@ export function EventCard({
     <div className="card-wrapper">
       <div
         className={cn(
-          "premium-card card-shine group overflow-hidden rounded-2xl border border-white/[0.06]",
-          isLive && "ring-1 ring-destructive/30 cursor-pointer",
-          isFinal && "opacity-70",
-          !isFinal && "cursor-pointer"
+          "premium-card card-shine group cursor-pointer rounded-2xl border border-white/[0.06] bg-card",
+          isLive && "border-primary/20",
+          isFinal && "opacity-75"
         )}
         onClick={onClick}
       >
       <div
-        className="relative aspect-[16/10] overflow-hidden"
+        className="relative aspect-[16/10] overflow-hidden rounded-t-2xl"
         style={{
           background: `linear-gradient(145deg, ${awayColor}dd 0%, ${awayColor}88 35%, hsl(225, 15%, 6%) 50%, ${homeColor}88 65%, ${homeColor}dd 100%)`
         }}
@@ -189,11 +188,6 @@ export function EventCard({
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,_rgba(255,255,255,0.05)_0%,_transparent_50%)]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_80%,_rgba(255,255,255,0.03)_0%,_transparent_50%)]" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20" />
-
-        {/* Live top bar glow */}
-        {isLive && (
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-destructive to-transparent animate-live-pulse" />
-        )}
 
         {/* LIVE badge */}
         {isLive && (
