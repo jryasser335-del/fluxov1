@@ -241,17 +241,6 @@
       0 0 30px -5px hsl(330 100% 50% / 0.2);
   }
 
-  @keyframes rgb-shift {
-    0% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-    100% {
-      background-position: 0% 50%;
-    }
-  }
 }
 
 /* Custom scrollbar */
