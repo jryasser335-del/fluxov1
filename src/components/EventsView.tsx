@@ -318,6 +318,18 @@ export function EventsView() {
     return () => clearInterval(interval);
   }, [allEnrichedEvents, loadAllEvents, fetchEventLinks, fetchExternalStreams]);
 
+  // Resolver click pendiente cuando los streams terminan de cargar
+  useEffect(() => {
+    if (externalStreamsLoaded && pendingClickRef.current) {
+      const { enriched, title } = pendingClickRef.current;
+      pendingClickRef.current = null;
+      const link = eventLinks.get(enriched.event.id);
+      if (link?.url1) {
+        openPlayer(title, link);
+      }
+    }
+  }, [externalStreamsLoaded, eventLinks, openPlayer]);
+
   // Reset league filter when sport changes
   useEffect(() => {
     setActiveLeagueFilter(null);
