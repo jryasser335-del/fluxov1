@@ -28,7 +28,7 @@ export default function Admin() {
     navigate("/");
   };
 
-  if (!appUser) {
+  if (!hasHydrated || !appUser) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="relative">
