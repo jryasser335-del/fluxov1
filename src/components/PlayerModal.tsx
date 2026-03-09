@@ -395,7 +395,7 @@ export function PlayerModal() {
             </h3>
             <div className="w-16 h-[2px] mx-auto rounded-full bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
             <p className="text-white/40 text-sm sm:text-base leading-relaxed font-body">
-              El link estará disponible <span className="text-primary font-semibold drop-shadow-[0_0_8px_hsl(var(--primary)/0.4)]">30 minutos</span> antes del inicio del partido.
+              Buscando las mejores <span className="text-primary font-semibold drop-shadow-[0_0_8px_hsl(var(--primary)/0.4)]">señales disponibles</span>...
             </p>
           </div>
 
@@ -407,7 +407,7 @@ export function PlayerModal() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary shadow-lg shadow-primary/50" />
               </span>
-              <span className="text-sm font-medium text-white/50 tracking-wide">Esperando señal</span>
+              <span className="text-sm font-medium text-white/50 tracking-wide">Buscando señales</span>
               <span className="flex gap-0.5">
                 <span className="w-1 h-1 rounded-full bg-white/20 animate-[pulse_1.5s_ease-in-out_infinite]" />
                 <span className="w-1 h-1 rounded-full bg-white/20 animate-[pulse_1.5s_ease-in-out_0.3s_infinite]" />
