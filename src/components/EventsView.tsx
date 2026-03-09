@@ -340,33 +340,52 @@ export function EventsView() {
 
     if (toPersist.length === 0) return;
 
-    // Batch upsert to DB
-    const rows = toPersist.map(p => ({
-      espn_id: p.espnId,
-      name: p.title,
-      team_home: p.home,
-      team_away: p.away,
-      sport: p.sport,
-      league: p.league,
-      event_date: p.date,
-      stream_url: p.url1,
-      stream_url_2: p.url2 || null,
-      stream_url_3: p.url3 || null,
-      pending_url: p.url1,
-      is_active: true,
-      is_live: true,
-    }));
+    // Persist each link: update existing by espn_id, or insert new
+    (async () => {
+      let saved = 0;
+      for (const p of toPersist) {
+        if (persistedRef.current.has(p.espnId)) continue;
 
-    supabase.from("events").upsert(rows, { onConflict: "espn_id", ignoreDuplicates: false }).then(({ error }) => {
-      if (!error) {
-        for (const p of toPersist) persistedRef.current.add(p.espnId);
-        console.log(`💾 Persisted ${toPersist.length} stream links to DB`);
-        // Refresh DB events so future clicks use DB directly
-        fetchEventLinks();
-      } else {
-        console.error("Persist error:", error);
+        // Try to update existing event with this espn_id
+        const { data: existing } = await supabase
+          .from("events")
+          .select("id")
+          .eq("espn_id", p.espnId)
+          .maybeSingle();
+
+        const payload = {
+          stream_url: p.url1,
+          stream_url_2: p.url2 || null,
+          stream_url_3: p.url3 || null,
+          pending_url: p.url1,
+          is_active: true,
+          is_live: true,
+        };
+
+        if (existing) {
+          await supabase.from("events").update(payload).eq("id", existing.id);
+        } else {
+          await supabase.from("events").insert({
+            ...payload,
+            espn_id: p.espnId,
+            name: p.title,
+            team_home: p.home,
+            team_away: p.away,
+            sport: p.sport,
+            league: p.league,
+            event_date: p.date,
+          });
+        }
+
+        persistedRef.current.add(p.espnId);
+        saved++;
       }
-    });
+
+      if (saved > 0) {
+        console.log(`💾 Persisted ${saved} stream links to DB`);
+        fetchEventLinks();
+      }
+    })();
   }, [eventLinks, externalStreamsLoaded, externalStreams, allEnrichedEvents, dbEvents, fetchEventLinks]);
 
   useEffect(() => {
