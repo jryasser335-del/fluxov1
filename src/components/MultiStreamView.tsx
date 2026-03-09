@@ -76,29 +76,13 @@ export function MultiStreamView() {
     return matchesSearch && !selectedEventIds.includes(event.id);
   });
 
-  const handleSelectEvent = async (slotId: number, event: AvailableEvent) => {
-    let streamUrl = event.stream_url;
-    
-    // If no direct stream_url, try to get one from media_links
-    if (!streamUrl) {
-      const { data: links } = await supabase
-        .from("media_links")
-        .select("url")
-        .eq("event_id", event.id)
-        .limit(1);
-      if (links && links.length > 0) {
-        streamUrl = links[0].url;
-      }
-    }
-
-    if (!streamUrl) {
-      // No stream available for this event
-      return;
-    }
+  const handleSelectEvent = (slotId: number, event: AvailableEvent) => {
+    const streamUrl = event.stream_url || event.stream_url_2 || event.stream_url_3;
+    if (!streamUrl) return;
 
     setSlots(prev => prev.map(slot => 
       slot.id === slotId 
-        ? { ...slot, eventId: event.id, url: streamUrl!, title: event.name, teamHome: event.team_home || undefined, teamAway: event.team_away || undefined, league: event.league || undefined, isLive: event.is_live, isActive: true }
+        ? { ...slot, eventId: event.id, url: streamUrl, title: event.name, teamHome: event.team_home || undefined, teamAway: event.team_away || undefined, league: event.league || undefined, isLive: event.is_live, isActive: true }
         : slot
     ));
     setShowEventPicker(null);
