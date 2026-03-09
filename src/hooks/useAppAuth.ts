@@ -14,6 +14,8 @@ interface AppUser {
 interface AppAuthState {
   appUser: AppUser | null;
   isLoading: boolean;
+  hasHydrated: boolean;
+  setHasHydrated: (value: boolean) => void;
   login: (username: string, password: string) => Promise<{ error: string | null }>;
   logout: () => void;
   checkAccess: () => boolean;
