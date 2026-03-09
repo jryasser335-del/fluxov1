@@ -196,38 +196,58 @@ async function fetchStreamedStreams(): Promise<StreamEntry[]> {
         if (!sources.length) return;
 
         const priority = isSoccerLike(m) ? soccerSourcePriority : genericSourcePriority;
-        const src =
-          sources.find((s: any) => priority.includes(String(s?.source ?? "").toLowerCase())) ??
-          sources.find((s: any) => priority.includes(String(s?.source ?? "").toLowerCase())) ??
-          sources[0];
+        const candidateIds = Array.from(new Set(sources.map((s: any) => String(s?.id || "")).filter(Boolean)));
 
-        if (!src?.source || !src?.id) return;
+        const pairs: Array<{ source: string; id: string }> = [];
+        for (const srcName of priority) {
+          const direct = sources.find((s: any) => String(s?.source ?? "").toLowerCase() === srcName);
+          if (direct?.id) pairs.push({ source: srcName, id: String(direct.id) });
+        }
 
-        const sourceKey = String(src.source).toLowerCase();
-        const sourceId = String(src.id);
+        // Last resort: try remaining (source,id) combos in case the API lists a stream but under a different source
+        for (const s of sources) {
+          const srcName = String(s?.source ?? "").toLowerCase();
+          const id = String(s?.id ?? "");
+          if (!srcName || !id) continue;
+          if (!pairs.some((p) => p.source === srcName && p.id === id)) pairs.push({ source: srcName, id });
+        }
 
-        const r = await fetchFast(`${base}/api/stream/${sourceKey}/${sourceId}`, 6500);
-        if (!r?.ok) return;
-        const streams = await r.json();
-        if (!Array.isArray(streams) || !streams.length) return;
+        let chosenEmbed: string | null = null;
+        let chosenSource = "";
+        let chosenId = "";
 
-        const hd =
-          streams.find((s: any) => s?.hd) ??
-          streams.find((s: any) => String(s?.quality ?? "").toLowerCase() === "hd") ??
-          streams[0];
+        for (const p of pairs) {
+          const r = await fetchFast(`${base}/api/stream/${p.source}/${p.id}`, 6500);
+          if (!r?.ok) continue;
 
-        const embedUrl = hd?.embedUrl ?? hd?.embed_url ?? hd?.url;
-        if (!embedUrl) return;
+          const streams = await r.json();
+          if (!Array.isArray(streams) || !streams.length) continue;
+
+          const hd =
+            streams.find((s: any) => s?.hd) ??
+            streams.find((s: any) => String(s?.quality ?? "").toLowerCase() === "hd") ??
+            streams[0];
+
+          const embedUrl = hd?.embedUrl ?? hd?.embed_url ?? hd?.url;
+          if (!embedUrl) continue;
+
+          chosenEmbed = String(embedUrl);
+          chosenSource = p.source;
+          chosenId = p.id;
+          break;
+        }
+
+        if (!chosenEmbed) return;
 
         const home = m?.teams?.home?.name || m?.homeTeam || m?.home || "";
         const away = m?.teams?.away?.name || m?.awayTeam || m?.away || "";
         const name = home && away ? `${home} vs ${away}` : m?.title || m?.name || "Unknown";
 
         entries.push({
-          id: `str-${m?.id || `${sourceKey}-${sourceId}` || name}`,
+          id: `str-${m?.id || `${chosenSource}-${chosenId}` || name}`,
           name,
           category: m?.category || m?.sport || "Football",
-          iframe: embedUrl,
+          iframe: chosenEmbed,
           poster: null,
           viewers: 0,
           source: "streamed",
