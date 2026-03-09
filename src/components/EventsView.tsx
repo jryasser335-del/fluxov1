@@ -448,11 +448,8 @@ export function EventsView() {
     if (existingLink?.url1) {
       // Tiene URLs → abrir directo
       openPlayer(title, existingLink);
-    } else if (!externalStreamsLoaded) {
-      // Streams aún cargando → esperar en silencio y abrir cuando estén listos
-      pendingClickRef.current = { enriched, title };
     } else {
-      // No hay link disponible → abrir con mensaje de "disponible 30 min antes"
+      // No hay link aún → abrir con mensaje de "disponible 30 min antes"
       openPlayer(title, { url1: "" });
     }
   };
