@@ -219,15 +219,30 @@ export function MultiStreamView() {
       // Try to resolve from pre-fetched external streams
       const home = normalizeText(event.team_home || "");
       const away = normalizeText(event.team_away || "");
-      if (externalStreams.length > 0 && home && away) {
-        const matches = findBestExternalMatches(externalStreams, home, away);
-        if (matches.length > 0) {
+      if (externalStreams.length > 0) {
+        if (home && away) {
+          const matches = findBestExternalMatches(externalStreams, home, away);
+          if (matches.length > 0) {
+            return {
+              event,
+              streams: {
+                url1: matches[0].iframe,
+                url2: matches[1]?.iframe,
+                url3: matches[2]?.iframe,
+                source: "external",
+              } satisfies ResolvedUrls,
+            };
+          }
+        }
+
+        const nameMatches = findExternalMatchesByEventName(externalStreams, event.name || "");
+        if (nameMatches.length > 0) {
           return {
             event,
             streams: {
-              url1: matches[0].iframe,
-              url2: matches[1]?.iframe,
-              url3: matches[2]?.iframe,
+              url1: nameMatches[0].iframe,
+              url2: nameMatches[1]?.iframe,
+              url3: nameMatches[2]?.iframe,
               source: "external",
             } satisfies ResolvedUrls,
           };
