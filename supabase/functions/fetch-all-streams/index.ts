@@ -30,6 +30,34 @@ interface StreamEntry {
   channels?: string;
 }
 
+const norm = (s: string) =>
+  String(s || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const isSoccerLike = (m: any) => {
+  const cat = String(m?.category ?? m?.sport ?? "").toLowerCase();
+  return cat.includes("football") || cat.includes("soccer") || cat.includes("futbol") || cat.includes("fútbol");
+};
+
+const mapLimit = async <T>(items: T[], limit: number, fn: (item: T, idx: number) => Promise<void>) => {
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const idx = next++;
+      if (idx >= items.length) break;
+      try {
+        await fn(items[idx], idx);
+      } catch {
+        // ignore per-item failures
+      }
+    }
+  });
+  await Promise.all(workers);
+};
+
 async function fetchPPVStreams(): Promise<StreamEntry[]> {
   const entries: StreamEntry[] = [];
   for (const apiUrl of ["https://api.ppv.to/api/streams", "https://api.ppv.land/api/streams"]) {
@@ -44,11 +72,11 @@ async function fetchPPVStreams(): Promise<StreamEntry[]> {
           if (!stream.name || !stream.iframe) continue;
           entries.push({
             id: `ppv-${stream.id || stream.name}`,
-            name: stream.name,
-            category: category.name || "Other",
-            iframe: stream.iframe,
-            poster: stream.poster || stream.thumbnail || null,
-            viewers: stream.viewers || 0,
+            name: String(stream.name),
+            category: String(category.name || "Other"),
+            iframe: String(stream.iframe),
+            poster: stream.poster || stream.thumbnail || undefined,
+            viewers: Number(stream.viewers || 0),
             source: "ppv",
             channels: stream.channels || "",
           });
@@ -67,79 +95,77 @@ async function fetchStreamedStreams(): Promise<StreamEntry[]> {
   // Prefer streamed.pk first (it often has football/Liga MX when streamed.su doesn't)
   const bases = ["https://streamed.pk", "https://streamed.su"];
 
-  const mapLimit = async <T>(items: T[], limit: number, fn: (item: T, idx: number) => Promise<void>) => {
-    let next = 0;
-    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-      while (true) {
-        const idx = next++;
-        if (idx >= items.length) break;
-        try {
-          await fn(items[idx], idx);
-        } catch {
-          // ignore per-item failures
-        }
-      }
-    });
-    await Promise.all(workers);
-  };
-
-  const isSoccerLike = (m: any) => {
-    const cat = String(m?.category ?? m?.sport ?? "").toLowerCase();
-    return cat.includes("football") || cat.includes("soccer") || cat.includes("futbol") || cat.includes("fútbol");
-  };
-
   for (const base of bases) {
     try {
-      const matchEndpoints = [
-        "/api/matches/live",
-        "/api/matches/football",
-        "/api/matches/all-today",
-        "/api/matches/all",
-      ];
+      // Merge multiple endpoints so we don't miss leagues like Liga MX
+      const matchEndpoints = base.includes("streamed.pk")
+        ? ["/api/matches/football", "/api/matches/live", "/api/matches/live/popular", "/api/matches/all-today"]
+        : ["/api/matches/all", "/api/matches/live", "/api/matches/all-today", "/api/matches/football"];
 
-      let matches: any[] = [];
-      for (const ep of matchEndpoints) {
-        const res = await fetchFast(`${base}${ep}`, 8000);
-        if (!res?.ok) continue;
-        const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
-          matches = data;
-          break;
-        }
+      const matchLists = await Promise.all(
+        matchEndpoints.map(async (ep) => {
+          const res = await fetchFast(`${base}${ep}`, 8000);
+          if (!res?.ok) return [];
+          const data = await res.json();
+          return Array.isArray(data) ? data : [];
+        }),
+      );
+
+      const merged = matchLists.flat();
+      if (!merged.length) continue;
+
+      // De-dupe
+      const byKey = new Map<string, any>();
+      for (const m of merged) {
+        const key = String(m?.id ?? m?.matchId ?? m?.title ?? m?.name ?? "");
+        if (!key) continue;
+        if (!byKey.has(key)) byKey.set(key, m);
       }
+      const matches = Array.from(byKey.values());
 
-      if (!matches.length) continue;
-
-      // If live feed doesn't include football (often mixed-sport), fallback to football-specific endpoint
-      if (matches.filter(isSoccerLike).length === 0) {
-        const rf = await fetchFast(`${base}/api/matches/football`, 8000);
-        if (rf?.ok) {
-          const fb = await rf.json();
-          if (Array.isArray(fb) && fb.length > 0) matches = fb;
-        }
+      // Debug signal for the specific report
+      if (base.includes("streamed.pk")) {
+        const juarezToluca = matches.find((m: any) => {
+          const home = norm(m?.teams?.home?.name || m?.homeTeam || m?.home || "");
+          const away = norm(m?.teams?.away?.name || m?.awayTeam || m?.away || "");
+          const title = norm(m?.title || m?.name || "");
+          return (
+            (home.includes("juarez") && away.includes("toluca")) ||
+            (home.includes("toluca") && away.includes("juarez")) ||
+            (title.includes("juarez") && title.includes("toluca"))
+          );
+        });
+        console.log(
+          `🧪 streamed.pk debug: juarez-toluca ${juarezToluca ? "FOUND" : "NOT_FOUND"}` +
+            (juarezToluca ? ` sources=${JSON.stringify(juarezToluca.sources || [])}` : ""),
+        );
       }
 
       const withSources = matches.filter((m: any) => Array.isArray(m?.sources) && m.sources.length > 0);
-      const prioritized = [
-        ...withSources.filter(isSoccerLike),
-        ...withSources.filter((m: any) => !isSoccerLike(m)),
-      ];
+      const prioritized = [...withSources.filter(isSoccerLike), ...withSources.filter((m: any) => !isSoccerLike(m))];
 
-      // Keep runtime under control but make sure football matches aren't skipped
-      const liveMatches = prioritized.slice(0, 500);
+      // Keep runtime under control but include enough to catch regional leagues
+      const toProcess = prioritized.slice(0, 700);
 
-      const prioritySources = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "admin"];
+      const soccerSourcePriority = ["delta", "echo", "alpha", "bravo", "charlie", "foxtrot", "golf", "hotel", "admin"];
+      const genericSourcePriority = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "admin"];
 
-      await mapLimit(liveMatches, 8, async (m: any) => {
+      await mapLimit(toProcess, 8, async (m: any) => {
         const sources = Array.isArray(m?.sources) ? m.sources : [];
+        if (!sources.length) return;
+
+        const priority = isSoccerLike(m) ? soccerSourcePriority : genericSourcePriority;
         const src =
-          sources.find((s: any) => prioritySources.includes(String(s?.source ?? "").toLowerCase())) ?? sources[0];
+          sources.find((s: any) => priority.includes(String(s?.source ?? "").toLowerCase())) ??
+          sources.find((s: any) => priority.includes(String(s?.source ?? "").toLowerCase())) ??
+          sources[0];
+
         if (!src?.source || !src?.id) return;
 
         const sourceKey = String(src.source).toLowerCase();
         const sourceId = String(src.id);
 
-        const r = await fetchFast(`${base}/api/stream/${sourceKey}/${sourceId}`, 4000);
+        const r = await fetchFast(`${base}/api/stream/${sourceKey}/${sourceId}`, 6500);
         if (!r?.ok) return;
         const streams = await r.json();
         if (!Array.isArray(streams) || !streams.length) return;
@@ -240,7 +266,9 @@ async function fetchMoviebiteStreams(): Promise<StreamEntry[]> {
               source: "moviebite",
             });
           }
-        } catch { /* skip */ }
+        } catch {
+          /* skip */
+        }
       }),
     );
   } catch (err) {
@@ -255,7 +283,6 @@ Deno.serve(async (req) => {
 
   const t0 = Date.now();
   try {
-    // Fetch from all three sources in parallel
     const [ppvStreams, streamedStreams, moviebiteStreams] = await Promise.all([
       fetchPPVStreams(),
       fetchStreamedStreams(),
@@ -264,17 +291,18 @@ Deno.serve(async (req) => {
 
     const allStreams = [...ppvStreams, ...streamedStreams, ...moviebiteStreams];
 
-    console.log(`📡 Bulk fetch: ${ppvStreams.length} PPV + ${streamedStreams.length} Streamed + ${moviebiteStreams.length} Moviebite = ${allStreams.length} total in ${Date.now() - t0}ms`);
-
-    return new Response(
-      JSON.stringify({ success: true, streams: allStreams, count: allStreams.length }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    console.log(
+      `📡 Bulk fetch: ${ppvStreams.length} PPV + ${streamedStreams.length} Streamed + ${moviebiteStreams.length} Moviebite = ${allStreams.length} total in ${Date.now() - t0}ms`,
     );
+
+    return new Response(JSON.stringify({ success: true, streams: allStreams, count: allStreams.length }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error) {
     console.error(`❌ Error: ${error.message}`);
-    return new Response(
-      JSON.stringify({ success: false, error: error.message, streams: [] }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({ success: false, error: error.message, streams: [] }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
