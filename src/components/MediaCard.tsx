@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { TMDB_IMG } from "@/lib/constants";
 import { TMDBResult } from "@/lib/api";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
