@@ -90,10 +90,25 @@ async function fetchStreamedStreams(): Promise<StreamEntry[]> {
 
   for (const base of bases) {
     try {
-      const res = await fetchFast(`${base}/api/matches/all`, 5000);
-      if (!res?.ok) continue;
-      const matches = await res.json();
-      if (!Array.isArray(matches)) continue;
+      const matchEndpoints = [
+        "/api/matches/live",
+        "/api/matches/football",
+        "/api/matches/all-today",
+        "/api/matches/all",
+      ];
+
+      let matches: any[] = [];
+      for (const ep of matchEndpoints) {
+        const res = await fetchFast(`${base}${ep}`, 5000);
+        if (!res?.ok) continue;
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          matches = data;
+          break;
+        }
+      }
+
+      if (!matches.length) continue;
 
       const withSources = matches.filter((m: any) => Array.isArray(m?.sources) && m.sources.length > 0);
       const prioritized = [
