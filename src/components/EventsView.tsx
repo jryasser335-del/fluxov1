@@ -142,6 +142,7 @@ export function EventsView() {
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
   const [externalStreams, setExternalStreams] = useState<ExternalStream[]>([]);
+  const [externalStreamsLoaded, setExternalStreamsLoaded] = useState(false);
   const refreshInFlightRef = useRef(false);
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("fluxoFavEvents");
@@ -166,6 +167,8 @@ export function EventsView() {
       }
     } catch (err) {
       console.error("Failed to fetch external streams:", err);
+    } finally {
+      setExternalStreamsLoaded(true);
     }
   }, []);
 
@@ -417,6 +420,29 @@ export function EventsView() {
     return list;
   }, [allEnrichedEvents, activeLeagueFilter, searchQuery]);
 
+  // Store pending click to auto-open when streams finish loading
+  const pendingClickRef = useRef<EnrichedEvent | null>(null);
+
+  // Auto-open player when external streams finish loading and there's a pending click
+  useEffect(() => {
+    if (!externalStreamsLoaded || !pendingClickRef.current) return;
+    const enriched = pendingClickRef.current;
+    pendingClickRef.current = null;
+    const link = eventLinks.get(enriched.event.id);
+    if (link?.url1) {
+      const comp = enriched.event.competitions?.[0];
+      const teams = comp?.competitors || [];
+      const away = teams.find((c) => c.homeAway === "away") || teams[0];
+      const home = teams.find((c) => c.homeAway === "home") || teams[1];
+      const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
+      toast.dismiss();
+      openPlayer(title, link);
+    } else {
+      toast.dismiss();
+      toast.info("Sin señal disponible", { description: "No se encontró un stream para este partido." });
+    }
+  }, [externalStreamsLoaded, eventLinks, openPlayer]);
+
   const handleEventClick = (enriched: EnrichedEvent) => {
     const comp = enriched.event.competitions?.[0];
     const status = comp?.status?.type;
@@ -427,9 +453,7 @@ export function EventsView() {
 
     // Partido finalizado
     if (status?.state === "post") {
-      toast.info("Partido finalizado", {
-        description: `${title} ya ha terminado.`,
-      });
+      toast.info("Partido finalizado", { description: `${title} ya ha terminado.` });
       return;
     }
 
@@ -440,15 +464,18 @@ export function EventsView() {
       return;
     }
 
-    // No hay stream disponible — dar feedback al usuario
+    // Streams aún cargando → guardar click pendiente y mostrar loading
+    if (!externalStreamsLoaded) {
+      pendingClickRef.current = enriched;
+      toast.loading("Cargando señales...", { description: "Buscando el mejor stream, espera un momento.", duration: 20000 });
+      return;
+    }
+
+    // No hay stream disponible
     if (status?.state === "pre") {
-      toast.info("Aún no disponible", {
-        description: "El link estará disponible 30 minutos antes del inicio.",
-      });
+      toast.info("Aún no disponible", { description: "El link estará disponible 30 minutos antes del inicio." });
     } else {
-      toast.info("Sin señal disponible", {
-        description: "No se encontró un stream para este partido.",
-      });
+      toast.info("Sin señal disponible", { description: "No se encontró un stream para este partido." });
     }
   };
 
