@@ -75,6 +75,7 @@ export function PlayerModal() {
                      url?.includes("#player=") ||
                      (url && !url.includes(".m3u8") && !url.includes(".mp4") && !isYouTube);
   const isLiveContent = contentType === "live";
+  const isUpcomingContent = contentType === "upcoming";
 
   const availableOptions = useMemo(() => [
     { num: 1 as const, url: urls.url1, label: "Servidor 1" },
