@@ -150,6 +150,36 @@ async function fetchStreamedStreams(): Promise<StreamEntry[]> {
           `🧪 streamed.pk debug: juarez-toluca ${juarezToluca ? "FOUND" : "NOT_FOUND"}` +
             (juarezToluca ? ` sources=${JSON.stringify(juarezToluca.sources || [])}` : ""),
         );
+
+        // Probe the exact stream endpoints for this match so we can see why it doesn't show up in the app
+        if (juarezToluca) {
+          const srcs = Array.isArray(juarezToluca.sources) ? juarezToluca.sources : [];
+          const ids = Array.from(new Set(srcs.map((s: any) => String(s?.id || "")).filter(Boolean)));
+          const probes: Array<{ source: string; id: string }> = [];
+
+          for (const id of ids) {
+            probes.push({ source: "delta", id });
+            probes.push({ source: "echo", id });
+            probes.push({ source: "alpha", id });
+          }
+
+          for (const p of probes.slice(0, 6)) {
+            const r = await fetchFast(`${base}/api/stream/${p.source}/${p.id}`, 6500);
+            const status = r ? r.status : 0;
+            console.log(`🧪 juarez-toluca probe ${p.source}/${p.id} status=${status}`);
+            if (r?.ok) {
+              try {
+                const js = await r.json();
+                const first = Array.isArray(js) ? js[0] : null;
+                console.log(
+                  `🧪 juarez-toluca probe_ok ${p.source}/${p.id} first_keys=${first ? Object.keys(first).join(",") : "none"}`,
+                );
+              } catch {
+                console.log(`🧪 juarez-toluca probe_ok ${p.source}/${p.id} (non-json)`);
+              }
+            }
+          }
+        }
       }
 
       const withSources = matches.filter((m: any) => Array.isArray(m?.sources) && m.sources.length > 0);
