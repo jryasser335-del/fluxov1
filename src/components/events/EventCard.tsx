@@ -215,7 +215,7 @@ export function EventCard({
               "absolute top-2.5 right-2.5 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all",
               isFavorite
                 ? "bg-yellow-500/30 text-yellow-400"
-                : "bg-black/30 text-white/40 opacity-0 group-hover:opacity-100"
+                : "bg-black/30 text-white/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
             )}
           >
             <Star className={cn("w-3.5 h-3.5", isFavorite && "fill-current")} />
@@ -230,7 +230,7 @@ export function EventCard({
               "absolute bottom-2.5 right-2.5 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all",
               isFavorite
                 ? "bg-yellow-500/30 text-yellow-400"
-                : "bg-black/30 text-white/40 opacity-0 group-hover:opacity-100"
+                : "bg-black/30 text-white/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
             )}
           >
             <Star className={cn("w-3.5 h-3.5", isFavorite && "fill-current")} />
