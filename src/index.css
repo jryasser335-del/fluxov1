@@ -224,20 +224,23 @@
   .premium-card {
     position: relative;
     border-radius: 1rem;
-    overflow: hidden;
+    overflow: visible;
     transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-    isolation: isolate;
   }
 
-  /* RGB animated border */
-  .premium-card::before {
+  /* RGB border wrapper */
+  .rgb-border-wrapper {
+    position: relative;
+    border-radius: 1rem;
+  }
+
+  .rgb-border-wrapper::before {
     content: '';
     position: absolute;
     inset: -2px;
     border-radius: inherit;
-    padding: 2px;
-    background: conic-gradient(
-      from var(--rgb-angle, 0deg),
+    background: linear-gradient(
+      var(--rgb-deg, 45deg),
       #ff0040,
       #ff00ff,
       #8000ff,
@@ -249,56 +252,36 @@
       #ff8000,
       #ff0040
     );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    animation: rgb-rotate 3s linear infinite;
+    background-size: 400% 400%;
+    animation: rgb-shift 3s ease infinite;
     opacity: 0.7;
     z-index: -1;
   }
 
-  /* Inner glow overlay */
-  .premium-card::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(
-      180deg,
-      hsl(0 0% 100% / 0.08) 0%,
-      hsl(0 0% 100% / 0.02) 50%,
-      transparent 100%
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    z-index: 10;
+  .rgb-border-wrapper:hover::before {
+    opacity: 1;
+  }
+
+  .rgb-border-wrapper > .premium-card {
+    background: hsl(225 15% 6%);
   }
 
   .premium-card:hover {
     transform: translateY(-4px) scale(1.01);
     box-shadow: 
       0 25px 60px -15px hsl(0 0% 0% / 0.5),
-      0 0 30px -5px hsl(330 100% 50% / 0.15);
+      0 0 30px -5px hsl(330 100% 50% / 0.2);
   }
 
-  .premium-card:hover::before {
-    opacity: 1;
-  }
-
-  @property --rgb-angle {
-    syntax: '<angle>';
-    initial-value: 0deg;
-    inherits: false;
-  }
-
-  @keyframes rgb-rotate {
-    to {
-      --rgb-angle: 360deg;
+  @keyframes rgb-shift {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
     }
   }
 }
