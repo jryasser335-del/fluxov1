@@ -395,7 +395,7 @@ export function PlayerModal() {
             </h3>
             <div className="w-16 h-[2px] mx-auto rounded-full bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
             <p className="text-white/40 text-sm sm:text-base leading-relaxed font-body">
-              Buscando las mejores <span className="text-primary font-semibold drop-shadow-[0_0_8px_hsl(var(--primary)/0.4)]">señales disponibles</span>...
+              El link estará disponible <span className="text-primary font-semibold drop-shadow-[0_0_8px_hsl(var(--primary)/0.4)]">30 minutos antes</span> de que comience el partido
             </p>
           </div>
 
