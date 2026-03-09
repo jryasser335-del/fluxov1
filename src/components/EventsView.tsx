@@ -420,25 +420,6 @@ export function EventsView() {
     return list;
   }, [allEnrichedEvents, activeLeagueFilter, searchQuery]);
 
-  // Store pending click to auto-open when streams finish loading
-  const pendingClickRef = useRef<EnrichedEvent | null>(null);
-
-  // Auto-open player when external streams finish loading and there's a pending click
-  useEffect(() => {
-    if (!externalStreamsLoaded || !pendingClickRef.current) return;
-    const enriched = pendingClickRef.current;
-    pendingClickRef.current = null;
-    const link = eventLinks.get(enriched.event.id);
-    if (link?.url1) {
-      const comp = enriched.event.competitions?.[0];
-      const teams = comp?.competitors || [];
-      const away = teams.find((c) => c.homeAway === "away") || teams[0];
-      const home = teams.find((c) => c.homeAway === "home") || teams[1];
-      const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
-      openPlayer(title, link);
-    }
-  }, [externalStreamsLoaded, eventLinks, openPlayer]);
-
   const handleEventClick = (enriched: EnrichedEvent) => {
     const comp = enriched.event.competitions?.[0];
     const status = comp?.status?.type;
@@ -449,16 +430,33 @@ export function EventsView() {
 
     if (status?.state === "post") return;
 
+    // ABRIR INMEDIATAMENTE - con URLs existentes o vacías
     const existingLink = eventLinks.get(enriched.event.id);
-    if (existingLink?.url1) {
-      openPlayer(title, existingLink);
-      return;
-    }
+    const initialUrls = existingLink || { url1: "" }; // Vacío si no hay link todavía
+    
+    openPlayer(title, initialUrls);
 
-    // Streams aún cargando → guardar click pendiente, se abrirá automáticamente
-    if (!externalStreamsLoaded) {
-      pendingClickRef.current = enriched;
-      return;
+    // Si no hay URLs pero los streams aún no terminaron de cargar, resolveremos dinámicamente
+    if (!existingLink?.url1 && !externalStreamsLoaded) {
+      // Esperar a que terminen los external streams y actualizar el player
+      const checkForUpdatedUrls = () => {
+        const updatedLink = eventLinks.get(enriched.event.id);
+        if (updatedLink?.url1) {
+          // Actualizar URLs del player que ya está abierto
+          openPlayer(title, updatedLink);
+        }
+      };
+
+      // Check periódicamente hasta que aparezcan las URLs o timeout
+      const interval = setInterval(() => {
+        if (externalStreamsLoaded) {
+          clearInterval(interval);
+          checkForUpdatedUrls();
+        }
+      }, 1000);
+
+      // Timeout de seguridad
+      setTimeout(() => clearInterval(interval), 25000);
     }
   };
 
