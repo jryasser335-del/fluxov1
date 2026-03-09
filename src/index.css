@@ -228,42 +228,10 @@
     transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
-  /* RGB border wrapper */
-  .rgb-border-wrapper {
+  /* Card wrapper - clean style */
+  .card-wrapper {
     position: relative;
     border-radius: 1rem;
-  }
-
-  .rgb-border-wrapper::before {
-    content: '';
-    position: absolute;
-    inset: -2px;
-    border-radius: inherit;
-    background: linear-gradient(
-      var(--rgb-deg, 45deg),
-      #ff0040,
-      #ff00ff,
-      #8000ff,
-      #0080ff,
-      #00ffff,
-      #00ff80,
-      #80ff00,
-      #ffff00,
-      #ff8000,
-      #ff0040
-    );
-    background-size: 400% 400%;
-    animation: rgb-shift 3s ease infinite;
-    opacity: 0.7;
-    z-index: -1;
-  }
-
-  .rgb-border-wrapper:hover::before {
-    opacity: 1;
-  }
-
-  .rgb-border-wrapper > .premium-card {
-    background: hsl(225 15% 6%);
   }
 
   .premium-card:hover {
