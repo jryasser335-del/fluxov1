@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import fluxoLogo from "@/assets/fluxotv-logo.png";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 // Sport category tabs - each league is its own tab for precise filtering
 const SPORT_TABS = [
@@ -132,7 +133,7 @@ const DB_LEAGUE_ALIASES: Record<string, string[]> = {
 const getLeagueLogoFallback = (leagueKey: string) => LEAGUE_LOGO_FALLBACKS[leagueKey] || "";
 
 export function EventsView() {
-  const { openPlayer } = usePlayerModal();
+  const { openPlayer, closePlayer } = usePlayerModal();
   const [activeSport, setActiveSport] = useState("football");
   const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -435,41 +436,44 @@ export function EventsView() {
     // Abrir modal al instante para evitar sensación de "no hace nada"
     openPlayer(title, { url1: "" });
 
-    // Resolver link en segundo plano con timeout
+    // Resolver link específico del partido (más confiable que el bulk fetch)
     setResolvingId(enriched.event.id);
     try {
       const timeoutPromise = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("timeout")), 6000)
+        setTimeout(() => reject(new Error("timeout")), 15000),
       );
 
-      const invokePromise = supabase.functions.invoke("fetch-all-streams", { body: {} });
-      const { data } = await Promise.race([invokePromise, timeoutPromise]) as { data?: { streams?: ExternalStream[] } };
+      const invokePromise = supabase.functions.invoke("resolve-live-stream", {
+        body: {
+          homeTeam: home?.team?.displayName,
+          awayTeam: away?.team?.displayName,
+          espnId: enriched.event.id,
+          sport: activeSport,
+        },
+      });
 
-      if (data?.streams) {
-        setExternalStreams(data.streams as ExternalStream[]);
+      const { data, error } = (await Promise.race([invokePromise, timeoutPromise])) as any;
+      if (error) throw error;
 
-        const homeName = normalizeText(home?.team?.displayName || "");
-        const awayName = normalizeText(away?.team?.displayName || "");
-        const homeShort = normalizeText(home?.team?.shortDisplayName || "");
-        const awayShort = normalizeText(away?.team?.shortDisplayName || "");
-        
-        // For Liga MX, only use streamed.pk sources
-        const streamsToMatch = enriched.leagueKey === "mex.1" 
-          ? (data.streams as ExternalStream[]).filter(s => s.source === "streamed")
-          : data.streams as ExternalStream[];
-        
-        const matches = findBestExternalMatches(streamsToMatch, homeName, awayName, homeShort, awayShort);
-
-        if (matches.length > 0) {
-          openPlayer(title, {
-            url1: matches[0].iframe,
-            url2: matches[1]?.iframe,
-            url3: matches[2]?.iframe,
-          });
-        }
+      const links = data?.links;
+      if (links?.url1) {
+        openPlayer(title, {
+          url1: links.url1,
+          url2: links.url2 || undefined,
+          url3: links.url3 || undefined,
+        });
+        return;
       }
+
+      toast.message("Sin señal disponible", {
+        description: "Todavía no hay links para este partido.",
+      });
+      closePlayer();
     } catch {
-      // Mantener modal abierto en estado "pendiente" si falla/timeout.
+      toast.error("No se pudo obtener la señal", {
+        description: "Intenta nuevamente en unos segundos.",
+      });
+      closePlayer();
     } finally {
       setResolvingId(null);
     }
