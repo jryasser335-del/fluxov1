@@ -99,7 +99,7 @@ async function fetchStreamedStreams(): Promise<StreamEntry[]> {
 
       let matches: any[] = [];
       for (const ep of matchEndpoints) {
-        const res = await fetchFast(`${base}${ep}`, 5000);
+        const res = await fetchFast(`${base}${ep}`, 8000);
         if (!res?.ok) continue;
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
