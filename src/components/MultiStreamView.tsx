@@ -152,8 +152,27 @@ export function MultiStreamView() {
     return new Set(slots.map((s) => s.eventId).filter(Boolean) as string[]);
   }, [slots]);
 
+  const fallbackExternalEvents = useMemo<AvailableEvent[]>(() => {
+    if (availableEvents.length > 0 || externalStreams.length === 0) return [];
+
+    return externalStreams.slice(0, 120).map((stream, idx) => ({
+      id: `ext-${stream.source}-${stream.id || idx}`,
+      name: stream.name,
+      stream_url: stream.iframe,
+      stream_url_2: null,
+      stream_url_3: null,
+      team_home: null,
+      team_away: null,
+      league: stream.category || stream.source.toUpperCase(),
+      is_live: true,
+      event_date: new Date().toISOString(),
+    }));
+  }, [availableEvents.length, externalStreams]);
+
+  const effectiveEvents = availableEvents.length > 0 ? availableEvents : fallbackExternalEvents;
+
   const resolvedEvents = useMemo(() => {
-    return availableEvents.map((event) => {
+    return effectiveEvents.map((event) => {
       const direct = event.stream_url || event.stream_url_2 || event.stream_url_3;
       if (direct) {
         const streams: ResolvedUrls = {
@@ -185,7 +204,7 @@ export function MultiStreamView() {
 
       return { event, streams: null as ResolvedUrls | null };
     });
-  }, [availableEvents, externalStreams]);
+  }, [effectiveEvents, externalStreams]);
 
   const filteredEvents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
