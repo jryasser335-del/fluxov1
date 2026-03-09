@@ -133,7 +133,7 @@ const DB_LEAGUE_ALIASES: Record<string, string[]> = {
 const getLeagueLogoFallback = (leagueKey: string) => LEAGUE_LOGO_FALLBACKS[leagueKey] || "";
 
 export function EventsView() {
-  const { openPlayer, closePlayer } = usePlayerModal();
+  const { openPlayer, closePlayer, isOpen } = usePlayerModal();
   const [activeSport, setActiveSport] = useState("football");
   const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -318,17 +318,23 @@ export function EventsView() {
     return () => clearInterval(interval);
   }, [allEnrichedEvents, loadAllEvents, fetchEventLinks, fetchExternalStreams]);
 
-  // Resolver click pendiente cuando los streams terminan de cargar
+  // Resolver click pendiente cuando aparezca el link (sin obligar a esperar el “rayo verde”)
   useEffect(() => {
-    if (externalStreamsLoaded && pendingClickRef.current) {
-      const { enriched, title } = pendingClickRef.current;
+    const pending = pendingClickRef.current;
+    if (!pending) return;
+    if (!isOpen) return;
+
+    const link = eventLinks.get(pending.enriched.event.id);
+    if (link?.url1) {
       pendingClickRef.current = null;
-      const link = eventLinks.get(enriched.event.id);
-      if (link?.url1) {
-        openPlayer(title, link);
-      }
+      openPlayer(pending.title, link, "live");
     }
-  }, [externalStreamsLoaded, eventLinks, openPlayer]);
+  }, [eventLinks, isOpen, openPlayer]);
+
+  // Si el usuario cierra el player, no volver a abrirlo solo
+  useEffect(() => {
+    if (!isOpen) pendingClickRef.current = null;
+  }, [isOpen]);
 
   // Reset league filter when sport changes
   useEffect(() => {
@@ -436,6 +442,8 @@ export function EventsView() {
   const handleEventClick = (enriched: EnrichedEvent) => {
     const comp = enriched.event.competitions?.[0];
     const status = comp?.status?.type;
+    const isLive = status?.state === "in";
+
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
     const home = teams.find((c) => c.homeAway === "home") || teams[1];
@@ -444,14 +452,16 @@ export function EventsView() {
     if (status?.state === "post") return;
 
     const existingLink = eventLinks.get(enriched.event.id);
-    
+
     if (existingLink?.url1) {
-      // Tiene URLs → abrir directo
-      openPlayer(title, existingLink);
-    } else {
-      // No hay link aún → abrir con mensaje de "disponible 30 min antes"
-      openPlayer(title, { url1: "" });
+      pendingClickRef.current = null;
+      openPlayer(title, existingLink, "live");
+      return;
     }
+
+    // Abre al instante, pero deja “armado” el auto-switch cuando aparezca el link.
+    pendingClickRef.current = { enriched, title };
+    openPlayer(title, { url1: "" }, isLive ? "live" : "upcoming");
   };
 
   const handleDbEventClick = (event: DbEvent) => {

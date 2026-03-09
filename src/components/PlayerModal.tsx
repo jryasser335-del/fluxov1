@@ -75,6 +75,7 @@ export function PlayerModal() {
                      url?.includes("#player=") ||
                      (url && !url.includes(".m3u8") && !url.includes(".mp4") && !isYouTube);
   const isLiveContent = contentType === "live";
+  const isUpcomingContent = contentType === "upcoming";
 
   const availableOptions = useMemo(() => [
     { num: 1 as const, url: urls.url1, label: "Servidor 1" },
@@ -373,16 +374,26 @@ export function PlayerModal() {
         </button>
 
         <div className="relative flex flex-col items-center gap-8 text-center px-8 max-w-lg">
-          {/* Animated clock icon */}
+          {/* Animated status icon */}
           <div className="relative">
             {/* Outer ring pulse */}
             <div className="absolute -inset-6 rounded-full border border-primary/10 animate-[ping_3s_ease-in-out_infinite]" />
             <div className="absolute -inset-3 rounded-full border border-primary/15" />
             {/* Main circle */}
-            <div className="relative w-28 h-28 rounded-full flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(200 100% 50% / 0.1))' }}>
+            <div
+              className="relative w-28 h-28 rounded-full flex items-center justify-center"
+              style={{
+                background: isUpcomingContent
+                  ? 'linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(200 100% 50% / 0.1))'
+                  : 'linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(var(--accent) / 0.08))',
+              }}
+            >
               <div className="absolute inset-[2px] rounded-full bg-black/80 backdrop-blur-xl" />
-              <Clock className="relative w-11 h-11 text-primary drop-shadow-[0_0_20px_hsl(var(--primary)/0.5)]" />
+              {isUpcomingContent ? (
+                <Clock className="relative w-11 h-11 text-primary drop-shadow-[0_0_20px_hsl(var(--primary)/0.5)]" />
+              ) : (
+                <Radio className="relative w-11 h-11 text-primary drop-shadow-[0_0_20px_hsl(var(--primary)/0.5)]" />
+              )}
             </div>
             {/* Glow */}
             <div className="absolute -inset-8 rounded-full bg-primary/[0.08] blur-3xl" />
@@ -395,7 +406,17 @@ export function PlayerModal() {
             </h3>
             <div className="w-16 h-[2px] mx-auto rounded-full bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
             <p className="text-white/40 text-sm sm:text-base leading-relaxed font-body">
-              El link estará disponible <span className="text-primary font-semibold drop-shadow-[0_0_8px_hsl(var(--primary)/0.4)]">30 minutos antes</span> de que comience el partido
+              {isUpcomingContent ? (
+                <>
+                  El link estará disponible{' '}
+                  <span className="text-primary font-semibold drop-shadow-[0_0_8px_hsl(var(--primary)/0.4)]">
+                    30 minutos antes
+                  </span>{' '}
+                  de que comience el partido
+                </>
+              ) : (
+                <>El partido está en vivo: estamos buscando el link para reproducirlo.</>
+              )}
             </p>
           </div>
 
@@ -407,7 +428,9 @@ export function PlayerModal() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary shadow-lg shadow-primary/50" />
               </span>
-              <span className="text-sm font-medium text-white/50 tracking-wide">Esperando transmisión</span>
+              <span className="text-sm font-medium text-white/50 tracking-wide">
+                {isUpcomingContent ? "Esperando transmisión" : "Buscando transmisión"}
+              </span>
               <span className="flex gap-0.5">
                 <span className="w-1 h-1 rounded-full bg-white/20 animate-[pulse_1.5s_ease-in-out_infinite]" />
                 <span className="w-1 h-1 rounded-full bg-white/20 animate-[pulse_1.5s_ease-in-out_0.3s_infinite]" />
