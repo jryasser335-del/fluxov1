@@ -449,7 +449,7 @@ export function MultiStreamView() {
                         Añadir Stream
                       </span>
                       <span className="block text-[10px] text-muted-foreground/20 mt-0.5">
-                        {availableEvents.filter(e => !!(e.stream_url || e.stream_url_2 || e.stream_url_3)).length - selectedEventIds.filter(Boolean).length} disponibles
+                        {resolvedEvents.filter(({ event, streams }) => !!streams && !selectedEventIds.has(event.id)).length} disponibles
                       </span>
                     </div>
                   </motion.button>
