@@ -31,6 +31,52 @@ interface AvailableEvent {
   event_date: string;
 }
 
+interface ExternalStream {
+  id: string;
+  name: string;
+  category: string;
+  iframe: string;
+  poster?: string;
+  viewers?: number;
+  source: "ppv" | "streamed" | "moviebite";
+  channels?: string;
+}
+
+type ResolvedUrls = { url1: string; url2?: string; url3?: string; source: "db" | "external" };
+
+const normalizeText = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+function findBestExternalMatches(
+  streams: ExternalStream[],
+  homeName: string,
+  awayName: string,
+): ExternalStream[] {
+  const scored: { stream: ExternalStream; score: number }[] = [];
+  for (const s of streams) {
+    const sName = normalizeText(s.name);
+    const homeMatch = homeName.length > 2 && sName.includes(homeName);
+    const awayMatch = awayName.length > 2 && sName.includes(awayName);
+    const score = (homeMatch ? 1 : 0) + (awayMatch ? 1 : 0);
+    if (score >= 1) scored.push({ stream: s, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  const result: ExternalStream[] = [];
+  const usedSources = new Set<string>();
+  for (const { stream } of scored) {
+    if (result.length >= 3) break;
+    if (!usedSources.has(stream.source)) {
+      result.push(stream);
+      usedSources.add(stream.source);
+    }
+  }
+  for (const { stream } of scored) {
+    if (result.length >= 3) break;
+    if (!result.includes(stream)) result.push(stream);
+  }
+  return result;
+}
+
 export function MultiStreamView() {
   const [layout, setLayout] = useState<2 | 4>(4);
   const [slots, setSlots] = useState<StreamSlot[]>([
