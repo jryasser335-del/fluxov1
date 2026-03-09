@@ -731,51 +731,53 @@ function DbEventCard({ event }: { event: { name: string; team_home: string | nul
   const awayInitials = (event.team_away || "?").slice(0, 3).toUpperCase();
 
   return (
-    <div className={cn(
-      "premium-card card-shine cursor-pointer group",
-      event.is_live && "ring-1 ring-primary/20"
-    )}>
-      <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-primary/10 via-card to-accent/10">
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20" />
-        
-        {event.is_live && (
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-destructive to-transparent animate-live-pulse" />
-        )}
-
-        {event.is_live && (
-          <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-destructive/90 backdrop-blur-sm shadow-lg shadow-destructive/30">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
-            </span>
-            <span className="text-[10px] font-bold text-white tracking-[0.15em]">LIVE</span>
-          </div>
-        )}
-
-        <div className="absolute inset-0 flex items-center justify-center gap-5 px-6">
-          <TeamBadge name={event.team_away} fallback={awayInitials} />
-          <span className="font-display text-base text-white/10 tracking-[0.3em]">VS</span>
-          <TeamBadge name={event.team_home} fallback={homeInitials} />
-        </div>
-      </div>
-
-      <div className="bg-card px-3 pt-2.5 pb-2 space-y-1">
-        <h3 className="text-[11px] font-semibold text-foreground/80 leading-tight truncate">
-          {event.team_home || "TBD"} vs {event.team_away || "TBD"}
-        </h3>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] font-medium text-muted-foreground/40">
-            {event.league || event.sport || "Sports"}
-          </span>
-          {event.stream_url && (
-            <>
-              <span className="text-[9px] text-muted-foreground/20">·</span>
-              <div className="flex items-center gap-1">
-                <div className="w-1 h-1 rounded-full bg-success" />
-                <span className="text-[9px] font-medium text-success/70">Señal</span>
-              </div>
-            </>
+    <div className="rgb-border-wrapper">
+      <div className={cn(
+        "premium-card card-shine cursor-pointer group overflow-hidden",
+        event.is_live && "ring-1 ring-destructive/30"
+      )}>
+        <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-primary/10 via-card to-accent/10">
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20" />
+          
+          {event.is_live && (
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-destructive to-transparent animate-live-pulse" />
           )}
+
+          {event.is_live && (
+            <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-destructive/90 backdrop-blur-sm shadow-lg shadow-destructive/30">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+              </span>
+              <span className="text-[10px] font-bold text-white tracking-[0.15em]">LIVE</span>
+            </div>
+          )}
+
+          <div className="absolute inset-0 flex items-center justify-center gap-5 px-6">
+            <TeamBadge name={event.team_away} fallback={awayInitials} />
+            <span className="font-display text-base text-white/10 tracking-[0.3em]">VS</span>
+            <TeamBadge name={event.team_home} fallback={homeInitials} />
+          </div>
+        </div>
+
+        <div className="bg-card px-3 pt-2.5 pb-2 space-y-1">
+          <h3 className="text-[11px] font-semibold text-foreground/80 leading-tight truncate">
+            {event.team_home || "TBD"} vs {event.team_away || "TBD"}
+          </h3>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-medium text-muted-foreground/40">
+              {event.league || event.sport || "Sports"}
+            </span>
+            {event.stream_url && (
+              <>
+                <span className="text-[9px] text-muted-foreground/20">·</span>
+                <div className="flex items-center gap-1">
+                  <div className="w-1 h-1 rounded-full bg-success" />
+                  <span className="text-[9px] font-medium text-success/70">Señal</span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
