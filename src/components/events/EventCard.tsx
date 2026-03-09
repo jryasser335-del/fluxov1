@@ -168,14 +168,14 @@ export function EventCard({
   const showScore = (isLive || isFinal) && awayScore !== undefined && homeScore !== undefined;
 
   return (
-    <div
-      className={cn(
-        "premium-card card-shine cursor-pointer group",
-        isLive && "ring-1 ring-primary/20"
-      )}
-      onClick={onClick}
-    >
-      {/* Main card area */}
+    <div className="rgb-border-wrapper">
+      <div
+        className={cn(
+          "premium-card card-shine cursor-pointer group overflow-hidden",
+          isLive && "ring-1 ring-destructive/30"
+        )}
+        onClick={onClick}
+      >
       <div
         className="relative aspect-[16/10] overflow-hidden"
         style={{
