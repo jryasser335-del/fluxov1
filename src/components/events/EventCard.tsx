@@ -146,8 +146,6 @@ export function EventCard({
   const awayColor = away?.team?.color ? `#${away.team.color}` : "#1a3a5c";
   const homeColor = home?.team?.color ? `#${home.team.color}` : "#5c1a3a";
 
-  const awayColor = away?.team?.color ? `#${away.team.color}` : "#1a3a5c";
-  const homeColor = home?.team?.color ? `#${home.team.color}` : "#5c1a3a";
 
   let timeText = "";
   if (isLive) {
