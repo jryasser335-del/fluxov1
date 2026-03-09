@@ -442,8 +442,6 @@ export function EventsView() {
   const handleEventClick = (enriched: EnrichedEvent) => {
     const comp = enriched.event.competitions?.[0];
     const status = comp?.status?.type;
-    const isLive = status?.state === "in";
-
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
     const home = teams.find((c) => c.homeAway === "home") || teams[1];
@@ -454,14 +452,13 @@ export function EventsView() {
     const existingLink = eventLinks.get(enriched.event.id);
 
     if (existingLink?.url1) {
-      pendingClickRef.current = null;
       openPlayer(title, existingLink, "live");
-      return;
+    } else if (!externalStreamsLoaded) {
+      pendingClickRef.current = { enriched, title };
+      toast("Cargando enlaces… se abrirá automáticamente", { duration: 2000 });
+    } else {
+      toast("Este partido aún no tiene link disponible", { duration: 3000 });
     }
-
-    // Abre al instante, pero deja “armado” el auto-switch cuando aparezca el link.
-    pendingClickRef.current = { enriched, title };
-    openPlayer(title, { url1: "" }, isLive ? "live" : "upcoming");
   };
 
   const handleDbEventClick = (event: DbEvent) => {
