@@ -170,7 +170,7 @@ export function EventCard({
     <div className="group/card relative">
       {/* Outer glow on hover */}
       <div className={cn(
-        "absolute -inset-px rounded-[18px] opacity-0 group-hover/card:opacity-100 transition-opacity duration-500",
+        "absolute -inset-px rounded-[18px] opacity-0 group-hover/card:opacity-100 transition-opacity duration-500 pointer-events-none",
         isLive ? "bg-gradient-to-br from-primary/20 via-transparent to-primary-glow/10" : "bg-gradient-to-br from-white/[0.06] via-transparent to-white/[0.03]"
       )} />
       
