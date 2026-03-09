@@ -133,7 +133,7 @@ const DB_LEAGUE_ALIASES: Record<string, string[]> = {
 const getLeagueLogoFallback = (leagueKey: string) => LEAGUE_LOGO_FALLBACKS[leagueKey] || "";
 
 export function EventsView() {
-  const { openPlayer } = usePlayerModal();
+  const { openPlayer, closePlayer } = usePlayerModal();
   const [activeSport, setActiveSport] = useState("football");
   const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
