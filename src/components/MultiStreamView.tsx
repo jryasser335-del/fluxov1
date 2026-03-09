@@ -88,8 +88,11 @@ export function MultiStreamView() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEventPicker, setShowEventPicker] = useState<number | null>(null);
   const [availableEvents, setAvailableEvents] = useState<AvailableEvent[]>([]);
+  const [externalStreams, setExternalStreams] = useState<ExternalStream[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const fetchInFlightRef = useRef(false);
+  const hasLoadedOnceRef = useRef(false);
 
   useEffect(() => {
     const fetchEvents = async () => {
