@@ -51,8 +51,6 @@ export function MultiStreamView() {
         .from("events")
         .select("*")
         .eq("is_active", true)
-        .not("stream_url", "is", null)
-        .neq("stream_url", "")
         .order("event_date", { ascending: true });
       if (!error && data) setAvailableEvents(data as AvailableEvent[]);
       setLoading(false);
@@ -70,18 +68,22 @@ export function MultiStreamView() {
   const selectedEventIds = slots.filter(s => s.eventId).map(s => s.eventId);
 
   const filteredEvents = availableEvents.filter(event => {
+    const hasStream = !!(event.stream_url || event.stream_url_2 || event.stream_url_3);
     const matchesSearch = searchQuery === "" || 
       event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.team_home?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.team_away?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.league?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch && !selectedEventIds.includes(event.id);
+    return hasStream && matchesSearch && !selectedEventIds.includes(event.id);
   });
 
   const handleSelectEvent = (slotId: number, event: AvailableEvent) => {
+    const streamUrl = event.stream_url || event.stream_url_2 || event.stream_url_3;
+    if (!streamUrl) return;
+
     setSlots(prev => prev.map(slot => 
       slot.id === slotId 
-        ? { ...slot, eventId: event.id, url: event.stream_url, title: event.name, teamHome: event.team_home || undefined, teamAway: event.team_away || undefined, league: event.league || undefined, isLive: event.is_live, isActive: true }
+        ? { ...slot, eventId: event.id, url: streamUrl, title: event.name, teamHome: event.team_home || undefined, teamAway: event.team_away || undefined, league: event.league || undefined, isLive: event.is_live, isActive: true }
         : slot
     ));
     setShowEventPicker(null);
@@ -312,7 +314,7 @@ export function MultiStreamView() {
                         Añadir Stream
                       </span>
                       <span className="block text-[10px] text-muted-foreground/20 mt-0.5">
-                        {availableEvents.length - selectedEventIds.filter(Boolean).length} disponibles
+                        {availableEvents.filter(e => !!(e.stream_url || e.stream_url_2 || e.stream_url_3)).length - selectedEventIds.filter(Boolean).length} disponibles
                       </span>
                     </div>
                   </motion.button>
