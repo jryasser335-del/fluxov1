@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Plus, X, Maximize2, Minimize2, Grid2X2, LayoutGrid, Search, Trophy, Play, Monitor, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 interface StreamSlot {
   id: number;
