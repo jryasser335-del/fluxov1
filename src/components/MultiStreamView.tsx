@@ -68,12 +68,13 @@ export function MultiStreamView() {
   const selectedEventIds = slots.filter(s => s.eventId).map(s => s.eventId);
 
   const filteredEvents = availableEvents.filter(event => {
+    const hasStream = !!(event.stream_url || event.stream_url_2 || event.stream_url_3);
     const matchesSearch = searchQuery === "" || 
       event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.team_home?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.team_away?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       event.league?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch && !selectedEventIds.includes(event.id);
+    return hasStream && matchesSearch && !selectedEventIds.includes(event.id);
   });
 
   const handleSelectEvent = (slotId: number, event: AvailableEvent) => {
