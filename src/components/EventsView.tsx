@@ -300,6 +300,94 @@ export function EventsView() {
     return linksMap;
   }, [dbEvents, allEnrichedEvents, externalStreams]);
 
+  // ── Persist externally-matched links to DB so they're instant on next load ──
+  const persistedRef = useRef(new Set<string>());
+  useEffect(() => {
+    if (!externalStreamsLoaded || externalStreams.length === 0) return;
+
+    const toPersist: { espnId: string; title: string; home: string; away: string; sport: string; league: string; date: string; url1: string; url2?: string; url3?: string }[] = [];
+
+    for (const { event: espnEvent, leagueKey } of allEnrichedEvents) {
+      // Skip if already in DB or already persisted this session
+      if (persistedRef.current.has(espnEvent.id)) continue;
+      const inDb = dbEvents.find(d => d.espn_id === espnEvent.id || (d.stream_url && eventLinks.get(espnEvent.id)?.url1 === d.stream_url));
+      if (inDb?.stream_url) { persistedRef.current.add(espnEvent.id); continue; }
+
+      const link = eventLinks.get(espnEvent.id);
+      if (!link?.url1) continue;
+      // Only persist links that came from external streams (not already from DB)
+      const dbMatch = dbEvents.find(d => d.stream_url === link.url1);
+      if (dbMatch) { persistedRef.current.add(espnEvent.id); continue; }
+
+      const comp = espnEvent.competitions?.[0];
+      const competitors = comp?.competitors || [];
+      const home = competitors.find(c => c.homeAway === "home");
+      const away = competitors.find(c => c.homeAway === "away");
+
+      toPersist.push({
+        espnId: espnEvent.id,
+        title: `${away?.team?.displayName || "TBD"} vs ${home?.team?.displayName || "TBD"}`,
+        home: home?.team?.displayName || "",
+        away: away?.team?.displayName || "",
+        sport: leagueKey.includes("nba") ? "Basketball" : leagueKey.includes("nhl") ? "Hockey" : leagueKey.includes("mlb") ? "Baseball" : "Soccer",
+        league: leagueKey,
+        date: comp?.date || espnEvent.date,
+        url1: link.url1,
+        url2: link.url2,
+        url3: link.url3,
+      });
+    }
+
+    if (toPersist.length === 0) return;
+
+    // Persist each link: update existing by espn_id, or insert new
+    (async () => {
+      let saved = 0;
+      for (const p of toPersist) {
+        if (persistedRef.current.has(p.espnId)) continue;
+
+        // Try to update existing event with this espn_id
+        const { data: existing } = await supabase
+          .from("events")
+          .select("id")
+          .eq("espn_id", p.espnId)
+          .maybeSingle();
+
+        const payload = {
+          stream_url: p.url1,
+          stream_url_2: p.url2 || null,
+          stream_url_3: p.url3 || null,
+          pending_url: p.url1,
+          is_active: true,
+          is_live: true,
+        };
+
+        if (existing) {
+          await supabase.from("events").update(payload).eq("id", existing.id);
+        } else {
+          await supabase.from("events").insert({
+            ...payload,
+            espn_id: p.espnId,
+            name: p.title,
+            team_home: p.home,
+            team_away: p.away,
+            sport: p.sport,
+            league: p.league,
+            event_date: p.date,
+          });
+        }
+
+        persistedRef.current.add(p.espnId);
+        saved++;
+      }
+
+      if (saved > 0) {
+        console.log(`💾 Persisted ${saved} stream links to DB`);
+        fetchEventLinks();
+      }
+    })();
+  }, [eventLinks, externalStreamsLoaded, externalStreams, allEnrichedEvents, dbEvents, fetchEventLinks]);
+
   useEffect(() => {
     fetchEventLinks();
     fetchExternalStreams();
@@ -318,12 +406,11 @@ export function EventsView() {
     return () => clearInterval(interval);
   }, [allEnrichedEvents, loadAllEvents, fetchEventLinks, fetchExternalStreams]);
 
-  // Resolver click pendiente cuando aparezca el link (sin obligar a esperar el “rayo verde”)
+  // Resolver click pendiente cuando aparezca el link
   useEffect(() => {
     const pending = pendingClickRef.current;
     if (!pending) return;
     if (!isOpen) return;
-
     const link = eventLinks.get(pending.enriched.event.id);
     if (link?.url1) {
       pendingClickRef.current = null;
@@ -331,7 +418,6 @@ export function EventsView() {
     }
   }, [eventLinks, isOpen, openPlayer]);
 
-  // Si el usuario cierra el player, no volver a abrirlo solo
   useEffect(() => {
     if (!isOpen) pendingClickRef.current = null;
   }, [isOpen]);
