@@ -8,8 +8,19 @@ async function fetchFast(url: string, timeoutMs = 3000): Promise<Response | null
   try {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs);
+
+    const headers: Record<string, string> = { "User-Agent": "Mozilla/5.0", Accept: "application/json" };
+    // Some Streamed endpoints behave better when Origin/Referer are present
+    if (url.includes("streamed.pk")) {
+      headers.Origin = "https://streamed.pk";
+      headers.Referer = "https://streamed.pk/";
+    } else if (url.includes("streamed.su")) {
+      headers.Origin = "https://streamed.su";
+      headers.Referer = "https://streamed.su/";
+    }
+
     const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+      headers,
       signal: controller.signal,
     });
     clearTimeout(t);
