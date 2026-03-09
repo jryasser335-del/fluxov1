@@ -144,6 +144,7 @@ export function EventsView() {
   const [externalStreams, setExternalStreams] = useState<ExternalStream[]>([]);
   const [externalStreamsLoaded, setExternalStreamsLoaded] = useState(false);
   const refreshInFlightRef = useRef(false);
+  const pendingClickRef = useRef<{ enriched: EnrichedEvent; title: string } | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("fluxoFavEvents");
     return new Set(saved ? JSON.parse(saved) : []);
