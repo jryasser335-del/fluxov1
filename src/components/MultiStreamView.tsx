@@ -21,7 +21,7 @@ interface StreamSlot {
 interface AvailableEvent {
   id: string;
   name: string;
-  stream_url: string;
+  stream_url: string | null;
   stream_url_2: string | null;
   stream_url_3: string | null;
   team_home: string | null;
