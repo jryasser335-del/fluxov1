@@ -436,6 +436,8 @@ export function EventsView() {
   const handleEventClick = (enriched: EnrichedEvent) => {
     const comp = enriched.event.competitions?.[0];
     const status = comp?.status?.type;
+    const isLive = status?.state === "in";
+
     const teams = comp?.competitors || [];
     const away = teams.find((c) => c.homeAway === "away") || teams[0];
     const home = teams.find((c) => c.homeAway === "home") || teams[1];
@@ -444,14 +446,16 @@ export function EventsView() {
     if (status?.state === "post") return;
 
     const existingLink = eventLinks.get(enriched.event.id);
-    
+
     if (existingLink?.url1) {
-      // Tiene URLs → abrir directo
-      openPlayer(title, existingLink);
-    } else {
-      // No hay link aún → abrir con mensaje de "disponible 30 min antes"
-      openPlayer(title, { url1: "" });
+      pendingClickRef.current = null;
+      openPlayer(title, existingLink, "live");
+      return;
     }
+
+    // Abre al instante, pero deja “armado” el auto-switch cuando aparezca el link.
+    pendingClickRef.current = { enriched, title };
+    openPlayer(title, { url1: "" }, isLive ? "live" : "upcoming");
   };
 
   const handleDbEventClick = (event: DbEvent) => {
