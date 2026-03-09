@@ -703,18 +703,23 @@ function TeamBadge({ name, fallback }: { name: string | null; fallback: string }
 
   if (logo && !error) {
     return (
-      <img
-        src={logo}
-        alt={name || ""}
-        className="w-14 h-14 object-contain drop-shadow-[0_2px_10px_rgba(0,0,0,0.7)]"
-        onError={() => setError(true)}
-        loading="lazy"
-      />
+      <div className="relative">
+        <div className="absolute inset-0 blur-xl opacity-30 scale-150">
+          <img src={logo} alt="" className="w-full h-full object-contain" loading="lazy" />
+        </div>
+        <img
+          src={logo}
+          alt={name || ""}
+          className="relative w-12 h-12 object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
+          onError={() => setError(true)}
+          loading="lazy"
+        />
+      </div>
     );
   }
 
   return (
-    <div className="w-14 h-14 rounded-full flex items-center justify-center font-display text-xl text-white/80 border border-white/10 bg-white/[0.06]">
+    <div className="w-12 h-12 rounded-2xl flex items-center justify-center font-display text-lg text-foreground/60 border border-white/[0.06] bg-white/[0.04]">
       {fallback}
     </div>
   );
@@ -727,53 +732,50 @@ function DbEventCard({ event }: { event: { name: string; team_home: string | nul
 
   return (
     <div className={cn(
-      "group relative rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer hover:scale-[1.02]",
-      event.is_live
-        ? "ring-1 ring-primary/30 shadow-[0_0_20px_-8px] shadow-primary/20"
-        : "ring-1 ring-white/[0.06] hover:ring-white/[0.12]"
+      "premium-card card-shine cursor-pointer group",
+      event.is_live && "ring-1 ring-primary/20"
     )}>
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-accent/8" />
-      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/90" />
-      
-      <div className="relative flex flex-col min-h-[200px]">
+      <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-primary/10 via-card to-accent/10">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20" />
+        
         {event.is_live && (
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent animate-gradient-shift" style={{ backgroundSize: '200% 100%' }} />
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-destructive to-transparent animate-live-pulse" />
         )}
 
-        {/* Team logos face-off */}
-        <div className="flex items-center justify-center gap-4 flex-1 px-4 py-6">
+        {event.is_live && (
+          <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-destructive/90 backdrop-blur-sm shadow-lg shadow-destructive/30">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+            </span>
+            <span className="text-[10px] font-bold text-white tracking-[0.15em]">LIVE</span>
+          </div>
+        )}
+
+        <div className="absolute inset-0 flex items-center justify-center gap-5 px-6">
           <TeamBadge name={event.team_away} fallback={awayInitials} />
-          <span className="font-display text-lg text-white/15 tracking-[0.3em]">VS</span>
+          <span className="font-display text-base text-white/10 tracking-[0.3em]">VS</span>
           <TeamBadge name={event.team_home} fallback={homeInitials} />
         </div>
+      </div>
 
-        {/* Footer */}
-        <div className="mt-auto px-4 pb-3 pt-2 border-t border-white/[0.04]">
-          <h3 className="text-[12px] font-semibold text-white/80 leading-tight truncate mb-1.5">
-            {event.team_home || "TBD"} vs {event.team_away || "TBD"}
-          </h3>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <span className={cn(
-                "px-2 py-0.5 rounded-md text-[8px] font-bold uppercase tracking-wider",
-                event.is_live ? "bg-primary/20 text-primary" : "bg-white/[0.06] text-white/40"
-              )}>
-                {event.league || event.sport || "Sports"}
-              </span>
-              {event.is_live && (
-                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-primary/10">
-                  <Radio className="w-2.5 h-2.5 text-primary animate-pulse" />
-                  <span className="text-[8px] font-bold text-primary uppercase tracking-wider">LIVE</span>
-                </div>
-              )}
-            </div>
-            {event.stream_url && (
+      <div className="bg-card px-3 pt-2.5 pb-2 space-y-1">
+        <h3 className="text-[11px] font-semibold text-foreground/80 leading-tight truncate">
+          {event.team_home || "TBD"} vs {event.team_away || "TBD"}
+        </h3>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[9px] font-medium text-muted-foreground/40">
+            {event.league || event.sport || "Sports"}
+          </span>
+          {event.stream_url && (
+            <>
+              <span className="text-[9px] text-muted-foreground/20">·</span>
               <div className="flex items-center gap-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-success animate-pulse" />
-                <span className="text-[8px] font-semibold text-success">Disponible</span>
+                <div className="w-1 h-1 rounded-full bg-success" />
+                <span className="text-[9px] font-medium text-success/70">Señal</span>
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
     </div>
