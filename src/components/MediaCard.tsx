@@ -36,6 +36,7 @@ export const MediaCard = forwardRef<HTMLDivElement, MediaCardProps>(function Med
 
   return (
     <div
+      ref={ref}
       onClick={handleClick}
       className={cn(
         "group relative rounded-2xl overflow-hidden aspect-[2/3] transition-all duration-400",
