@@ -157,6 +157,9 @@ export const useAppAuth = create<AppAuthState>()(
     {
       name: 'fluxo-app-auth',
       partialize: (state) => ({ appUser: state.appUser }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
   )
 );
