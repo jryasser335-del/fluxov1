@@ -388,10 +388,10 @@ export function MultiStreamView() {
                           <span className="text-[11px] font-medium">No hay partidos disponibles</span>
                         </div>
                       ) : (
-                        filteredEvents.map((event) => (
+                        filteredEvents.map(({ event, streams }) => (
                           <button
                             key={event.id}
-                            onClick={() => handleSelectEvent(slot.id, event)}
+                            onClick={() => handleSelectEvent(slot.id, event, streams)}
                             className="w-full p-2.5 rounded-xl bg-white/[0.02] hover:bg-primary/[0.05] border border-white/[0.04] hover:border-primary/20 transition-all text-left group/item"
                           >
                             <div className="flex items-center gap-2.5">
