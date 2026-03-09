@@ -306,7 +306,7 @@ export function EventCard({
         {/* Info footer - refined */}
         <div className="relative px-3.5 pt-3 pb-2.5 space-y-1.5">
           {/* Subtle separator */}
-          <div className="absolute top-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
+          <div className="absolute top-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent pointer-events-none" />
           
           <h3 className="text-[12px] font-semibold text-foreground/85 leading-tight line-clamp-1 tracking-tight">
             {away?.team?.shortDisplayName || away?.team?.displayName || "TBD"}
