@@ -327,7 +327,6 @@ export function EventsView() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <img src={fluxoLogo} alt="Logo" className="w-10 h-10 rounded-xl shadow-lg" />
@@ -346,7 +345,6 @@ export function EventsView() {
         </div>
       </div>
 
-      {/* Sport Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
         {SPORT_TABS.map((tab) => (
           <button
@@ -364,7 +362,6 @@ export function EventsView() {
         ))}
       </div>
 
-      {/* Grid Corregido */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <AnimatePresence mode="popLayout">
           {loading ? (
@@ -378,13 +375,8 @@ export function EventsView() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
               >
-                {/* He pasado los datos uno a uno para evitar el error TS2322 */}
                 <EventCard
-                  event={item.event}
-                  leagueKey={item.leagueKey}
-                  leagueName={item.leagueName}
-                  leagueSub={item.leagueSub}
-                  leagueLogo={item.leagueLogo}
+                  {...item}
                   hasLink={eventLinks.has(item.event.id)}
                   onClick={() => handleEventClick(item)}
                   isResolving={resolvingIds.has(item.event.id)}
