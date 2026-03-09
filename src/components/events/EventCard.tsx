@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Heart, Eye, Star } from "lucide-react";
+import { Eye, Star, Zap } from "lucide-react";
 import { ESPNEvent } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -102,18 +102,23 @@ function TeamLogo({ team, leagueKey }: { team: TeamData | undefined; leagueKey: 
 
   if (logoUrl) {
     return (
-      <img
-        src={logoUrl}
-        alt={team?.displayName || ""}
-        className="w-12 h-12 sm:w-14 sm:h-14 object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
-        onError={() => setCandidateIndex((prev) => prev + 1)}
-        loading="lazy"
-      />
+      <div className="relative">
+        <div className="absolute inset-0 blur-xl opacity-40 scale-150">
+          <img src={logoUrl} alt="" className="w-full h-full object-contain" loading="lazy" />
+        </div>
+        <img
+          src={logoUrl}
+          alt={team?.displayName || ""}
+          className="relative w-11 h-11 sm:w-14 sm:h-14 object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
+          onError={() => setCandidateIndex((prev) => prev + 1)}
+          loading="lazy"
+        />
+      </div>
     );
   }
 
   return (
-    <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center font-display text-white/60 text-base bg-white/10">
+    <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-display text-foreground/60 text-sm bg-white/[0.06] border border-white/[0.06]">
       {abbr}
     </div>
   );
@@ -138,8 +143,8 @@ export function EventCard({
   const away = competitors.find((c) => c.homeAway === "away") || competitors[0];
   const home = competitors.find((c) => c.homeAway === "home") || competitors[1];
 
-  const awayColor = away?.team?.color ? `#${away.team.color}` : "#8b2252";
-  const homeColor = home?.team?.color ? `#${home.team.color}` : "#22528b";
+  const awayColor = away?.team?.color ? `#${away.team.color}` : "#1a3a5c";
+  const homeColor = home?.team?.color ? `#${home.team.color}` : "#5c1a3a";
 
   let timeText = "";
   if (isLive) {
@@ -157,134 +162,155 @@ export function EventCard({
 
   const viewers = useMemo(() => isLive ? Math.floor(Math.random() * 15000) + 500 : 0, [isLive]);
 
+  // Score display for live/final
+  const awayScore = away?.score;
+  const homeScore = home?.score;
+  const showScore = (isLive || isFinal) && awayScore !== undefined && homeScore !== undefined;
+
   return (
     <div
       className={cn(
-        "group relative rounded-xl overflow-hidden transition-all duration-300 cursor-pointer hover:-translate-y-1 hover:shadow-xl"
+        "premium-card card-shine cursor-pointer group",
+        isLive && "ring-1 ring-primary/20"
       )}
       onClick={onClick}
     >
-      {/* Thumbnail area with team-color gradient */}
+      {/* Main card area */}
       <div
         className="relative aspect-[16/10] overflow-hidden"
         style={{
-          background: `linear-gradient(135deg, ${awayColor} 0%, ${awayColor}cc 30%, ${homeColor}cc 70%, ${homeColor} 100%)`
+          background: `linear-gradient(145deg, ${awayColor}dd 0%, ${awayColor}88 35%, hsl(225, 15%, 6%) 50%, ${homeColor}88 65%, ${homeColor}dd 100%)`
         }}
       >
-        {/* Diagonal split overlay */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background: `linear-gradient(135deg, transparent 45%, rgba(0,0,0,0.15) 45%, rgba(0,0,0,0.15) 55%, transparent 55%)`
-          }}
-        />
-        {/* Dark vignette */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-black/10" />
+        {/* Mesh overlay for depth */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,_rgba(255,255,255,0.05)_0%,_transparent_50%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_80%,_rgba(255,255,255,0.03)_0%,_transparent_50%)]" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20" />
 
-        {/* LIVE badge - top left */}
+        {/* Live top bar glow */}
         {isLive && (
-          <div className="absolute top-2.5 left-2.5 z-10">
-            <span className="px-2.5 py-0.5 rounded text-[10px] font-display text-white bg-red-600 uppercase tracking-[0.15em] shadow-md">
-              LIVE
-            </span>
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-destructive to-transparent animate-live-pulse" />
+        )}
+
+        {/* LIVE badge */}
+        {isLive && (
+          <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-destructive/90 backdrop-blur-sm shadow-lg shadow-destructive/30">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+              </span>
+              <span className="text-[10px] font-bold text-white tracking-[0.15em]">LIVE</span>
+            </div>
           </div>
         )}
 
         {/* Time badge for scheduled */}
         {isPre && (
-          <div className="absolute top-2.5 left-2.5 z-10">
-            <span className="px-2.5 py-0.5 rounded text-[10px] font-mono-premium text-white/90 bg-black/50 backdrop-blur-sm tracking-wide">
-              {timeText}
-            </span>
+          <div className="absolute top-3 left-3 z-10">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/[0.08]">
+              <span className="text-[10px] font-mono-premium font-medium text-white/80 tracking-wide">{timeText}</span>
+            </div>
           </div>
         )}
 
-        {/* Viewers - top right */}
-        {isLive && viewers > 0 && (
-          <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1 px-2 py-0.5 rounded bg-black/40 backdrop-blur-sm">
-            <span className="text-[10px] font-mono-premium font-medium text-white tabular-nums">{viewers.toLocaleString()}</span>
-            <Eye className="w-3 h-3 text-white/70" />
+        {/* Final badge */}
+        {isFinal && (
+          <div className="absolute top-3 left-3 z-10">
+            <div className="px-2.5 py-1 rounded-lg bg-white/[0.08] backdrop-blur-md border border-white/[0.06]">
+              <span className="text-[10px] font-bold text-muted-foreground tracking-[0.1em]">FT</span>
+            </div>
           </div>
         )}
 
-        {/* Favorite - top right (for non-live) */}
-        {!isLive && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
-            className={cn(
-              "absolute top-2.5 right-2.5 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all",
-              isFavorite
-                ? "bg-yellow-500/30 text-yellow-400"
-                : "bg-black/30 text-white/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-            )}
-          >
-            <Star className={cn("w-3.5 h-3.5", isFavorite && "fill-current")} />
-          </button>
-        )}
-
-        {/* Live favorite button */}
-        {isLive && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
-            className={cn(
-              "absolute bottom-2.5 right-2.5 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all",
-              isFavorite
-                ? "bg-yellow-500/30 text-yellow-400"
-                : "bg-black/30 text-white/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
-            )}
-          >
-            <Star className={cn("w-3.5 h-3.5", isFavorite && "fill-current")} />
-          </button>
-        )}
-
-        {/* Team logos + league logo center */}
-        <div className="absolute inset-0 flex items-center justify-center gap-4 sm:gap-6 px-4">
-          <TeamLogo team={away?.team} leagueKey={leagueInfo.key} />
-
-          {/* League logo center */}
-          {leagueLogoUrl && !leagueLogoError ? (
-            <img
-              src={leagueLogoUrl}
-              alt={leagueInfo.name}
-              className="w-8 h-8 sm:w-10 sm:h-10 object-contain opacity-80 drop-shadow-lg"
-              onError={() => setLeagueLogoError(true)}
-            />
-          ) : (
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-black/30 flex items-center justify-center">
-              <span className="text-[8px] text-white/50 font-bold">{leagueInfo.sub?.slice(0, 3) || "VS"}</span>
+        {/* Viewers / Signal indicator - top right */}
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+          {isLive && viewers > 0 && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-black/50 backdrop-blur-md border border-white/[0.06]">
+              <Eye className="w-3 h-3 text-white/50" />
+              <span className="text-[10px] font-mono-premium font-medium text-white/70 tabular-nums">{viewers.toLocaleString()}</span>
             </div>
           )}
-
-          <TeamLogo team={home?.team} leagueKey={leagueInfo.key} />
+          {hasLink && !isLive && (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-success/10 backdrop-blur-md border border-success/20">
+              <Zap className="w-3 h-3 text-success" />
+            </div>
+          )}
         </div>
 
-        {/* Channel watermark bottom-center */}
-        <div className="absolute bottom-1.5 left-0 right-0 text-center">
-          <span className="text-[8px] text-white/35 font-display tracking-[0.2em] uppercase">
+        {/* Favorite button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+          className={cn(
+            "absolute z-10 w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300",
+            isLive ? "bottom-3 right-3" : "bottom-3 right-3",
+            isFavorite
+              ? "bg-warning/20 text-warning border border-warning/30"
+              : "bg-black/30 backdrop-blur-sm text-white/30 border border-white/[0.06] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-white/70"
+          )}
+        >
+          <Star className={cn("w-3.5 h-3.5", isFavorite && "fill-current")} />
+        </button>
+
+        {/* Team logos + center element */}
+        <div className="absolute inset-0 flex items-center justify-center gap-5 sm:gap-8 px-6">
+          <div className="flex-shrink-0">
+            <TeamLogo team={away?.team} leagueKey={leagueInfo.key} />
+          </div>
+
+          {/* Center: Score or League logo */}
+          <div className="flex flex-col items-center gap-1">
+            {showScore ? (
+              <div className="flex items-center gap-2">
+                <span className="font-display text-2xl sm:text-3xl text-white tracking-wider drop-shadow-lg">{awayScore}</span>
+                <span className="text-[10px] text-white/20 font-bold">:</span>
+                <span className="font-display text-2xl sm:text-3xl text-white tracking-wider drop-shadow-lg">{homeScore}</span>
+              </div>
+            ) : leagueLogoUrl && !leagueLogoError ? (
+              <img
+                src={leagueLogoUrl}
+                alt={leagueInfo.name}
+                className="w-7 h-7 sm:w-9 sm:h-9 object-contain opacity-60 drop-shadow-lg"
+                onError={() => setLeagueLogoError(true)}
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center border border-white/[0.04]">
+                <span className="text-[7px] text-muted-foreground font-bold">{leagueInfo.sub?.slice(0, 3) || "VS"}</span>
+              </div>
+            )}
+            {isLive && timeText && (
+              <span className="text-[9px] font-mono-premium text-primary/80 font-medium tracking-wide">{timeText}</span>
+            )}
+          </div>
+
+          <div className="flex-shrink-0">
+            <TeamLogo team={home?.team} leagueKey={leagueInfo.key} />
+          </div>
+        </div>
+
+        {/* League watermark */}
+        <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none">
+          <span className="text-[7px] text-white/15 font-display tracking-[0.25em] uppercase">
             {leagueInfo.sub || leagueInfo.name}
           </span>
         </div>
       </div>
 
-      {/* Info below card */}
-      <div className="bg-background px-1.5 pt-2 pb-1.5 space-y-0.5">
-        <h3 className="text-[12px] sm:text-[13px] font-tech font-semibold text-foreground leading-tight line-clamp-2 tracking-tight">
-          {away?.team?.displayName || "TBD"} <span className="text-muted-foreground font-normal">vs</span> {home?.team?.displayName || "TBD"}
+      {/* Info footer */}
+      <div className="bg-card px-3 pt-2.5 pb-2 space-y-1">
+        <h3 className="text-[11px] sm:text-[12px] font-semibold text-foreground/90 leading-tight line-clamp-1 tracking-tight">
+          {away?.team?.shortDisplayName || away?.team?.displayName || "TBD"}
+          <span className="text-muted-foreground/50 font-normal mx-1">vs</span>
+          {home?.team?.shortDisplayName || home?.team?.displayName || "TBD"}
         </h3>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-body text-muted-foreground">
+          <span className="text-[9px] font-medium text-muted-foreground/60 truncate">
             {leagueInfo.name}
           </span>
-          {(isPre || isFinal) && (
+          {(isPre || isFinal) && timeText && (
             <>
-              <span className="text-[10px] text-muted-foreground/30">·</span>
-              <span className="text-[10px] font-mono-premium text-muted-foreground tabular-nums">{timeText}</span>
-            </>
-          )}
-          {isLive && timeText && (
-            <>
-              <span className="text-[10px] text-muted-foreground/30">·</span>
-              <span className="text-[10px] font-mono-premium text-primary font-medium tabular-nums">{timeText}</span>
+              <span className="text-[9px] text-muted-foreground/20">·</span>
+              <span className="text-[9px] font-mono-premium text-muted-foreground/50 tabular-nums">{timeText}</span>
             </>
           )}
         </div>
