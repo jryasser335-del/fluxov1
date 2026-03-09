@@ -51,8 +51,6 @@ export function MultiStreamView() {
         .from("events")
         .select("*")
         .eq("is_active", true)
-        .not("stream_url", "is", null)
-        .neq("stream_url", "")
         .order("event_date", { ascending: true });
       if (!error && data) setAvailableEvents(data as AvailableEvent[]);
       setLoading(false);
