@@ -143,14 +143,8 @@ export function EventCard({
   const away = competitors.find((c) => c.homeAway === "away") || competitors[0];
   const home = competitors.find((c) => c.homeAway === "home") || competitors[1];
 
-  // Handle click - show message for finished matches
-  const handleClick = () => {
-    if (isFinal) {
-      // Don't call onClick for finished matches, just show the card info
-      return;
-    }
-    onClick();
-  };
+  const awayColor = away?.team?.color ? `#${away.team.color}` : "#1a3a5c";
+  const homeColor = home?.team?.color ? `#${home.team.color}` : "#5c1a3a";
 
   const awayColor = away?.team?.color ? `#${away.team.color}` : "#1a3a5c";
   const homeColor = home?.team?.color ? `#${home.team.color}` : "#5c1a3a";
