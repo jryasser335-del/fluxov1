@@ -430,34 +430,16 @@ export function EventsView() {
 
     if (status?.state === "post") return;
 
-    // ABRIR INMEDIATAMENTE - con URLs existentes o vacías
     const existingLink = eventLinks.get(enriched.event.id);
-    const initialUrls = existingLink || { url1: "" }; // Vacío si no hay link todavía
     
-    openPlayer(title, initialUrls);
-
-    // Si no hay URLs pero los streams aún no terminaron de cargar, resolveremos dinámicamente
-    if (!existingLink?.url1 && !externalStreamsLoaded) {
-      // Esperar a que terminen los external streams y actualizar el player
-      const checkForUpdatedUrls = () => {
-        const updatedLink = eventLinks.get(enriched.event.id);
-        if (updatedLink?.url1) {
-          // Actualizar URLs del player que ya está abierto
-          openPlayer(title, updatedLink);
-        }
-      };
-
-      // Check periódicamente hasta que aparezcan las URLs o timeout
-      const interval = setInterval(() => {
-        if (externalStreamsLoaded) {
-          clearInterval(interval);
-          checkForUpdatedUrls();
-        }
-      }, 1000);
-
-      // Timeout de seguridad
-      setTimeout(() => clearInterval(interval), 25000);
+    if (existingLink?.url1) {
+      // Tiene URLs → abrir directo
+      openPlayer(title, existingLink);
+    } else if (!externalStreamsLoaded) {
+      // Streams aún cargando → esperar en silencio y abrir cuando estén listos
+      pendingClickRef.current = { enriched, title };
     }
+    // Si ya cargaron y no hay URL, simplemente no hace nada
   };
 
   const handleDbEventClick = (event: DbEvent) => {
