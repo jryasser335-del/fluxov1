@@ -172,7 +172,7 @@ export function EventCard({
     <div className="card-wrapper">
       <div
         className={cn(
-          "premium-card card-shine group cursor-pointer rounded-2xl border border-white/[0.06] bg-card",
+          "premium-card card-shine group cursor-pointer rounded-2xl border border-white/[0.06] bg-card touch-manipulation",
           isLive && "border-primary/20",
           isFinal && "opacity-75"
         )}

@@ -437,6 +437,18 @@ export function EventsView() {
     const existingLink = eventLinks.get(enriched.event.id);
     if (existingLink?.url1) {
       openPlayer(title, existingLink);
+      return;
+    }
+
+    // No hay stream disponible — dar feedback al usuario
+    if (status?.state === "pre") {
+      toast.info("Aún no disponible", {
+        description: "El link estará disponible 30 minutos antes del inicio.",
+      });
+    } else {
+      toast.info("Sin señal disponible", {
+        description: "No se encontró un stream para este partido.",
+      });
     }
   };
 
