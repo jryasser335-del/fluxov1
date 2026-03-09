@@ -407,7 +407,7 @@ export function PlayerModal() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary shadow-lg shadow-primary/50" />
               </span>
-              <span className="text-sm font-medium text-white/50 tracking-wide">Buscando señales</span>
+              <span className="text-sm font-medium text-white/50 tracking-wide">Esperando transmisión</span>
               <span className="flex gap-0.5">
                 <span className="w-1 h-1 rounded-full bg-white/20 animate-[pulse_1.5s_ease-in-out_infinite]" />
                 <span className="w-1 h-1 rounded-full bg-white/20 animate-[pulse_1.5s_ease-in-out_0.3s_infinite]" />
