@@ -102,7 +102,7 @@ async function fetchStreamedStreams(): Promise<StreamEntry[]> {
       ];
 
       // Keep runtime under control but make sure football matches aren't skipped
-      const liveMatches = prioritized.slice(0, 140);
+      const liveMatches = prioritized.slice(0, 500);
 
       const prioritySources = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "admin"];
 
