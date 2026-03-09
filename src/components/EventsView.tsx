@@ -104,6 +104,18 @@ function findBestExternalMatches(
 const normalizeText = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
+  // Resolver click pendiente cuando los streams terminan de cargar
+  useEffect(() => {
+    if (externalStreamsLoaded && pendingClickRef.current) {
+      const { enriched, title } = pendingClickRef.current;
+      pendingClickRef.current = null;
+      const link = eventLinks.get(enriched.event.id);
+      if (link?.url1) {
+        openPlayer(title, link);
+      }
+    }
+  }, [externalStreamsLoaded, eventLinks, openPlayer]);
+
 
 const LEAGUE_LOGO_FALLBACKS: Record<string, string> = {
   "eng.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/23.png",
