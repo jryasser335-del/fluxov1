@@ -77,6 +77,39 @@ function findBestExternalMatches(
   return result;
 }
 
+function findExternalMatchesByEventName(streams: ExternalStream[], eventName: string): ExternalStream[] {
+  const normalizedEventName = normalizeText(eventName || "");
+  if (!normalizedEventName) return [];
+
+  const tokens = normalizedEventName.split(/\s+/).filter((t) => t.length > 2);
+  if (tokens.length === 0) return [];
+
+  const scored: { stream: ExternalStream; score: number }[] = [];
+  for (const s of streams) {
+    const sName = normalizeText(s.name || "");
+    const tokenHits = tokens.reduce((acc, token) => (sName.includes(token) ? acc + 1 : acc), 0);
+    if (tokenHits > 0) scored.push({ stream: s, score: tokenHits / tokens.length });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+
+  const result: ExternalStream[] = [];
+  const usedSources = new Set<string>();
+  for (const { stream } of scored) {
+    if (result.length >= 3) break;
+    if (!usedSources.has(stream.source)) {
+      result.push(stream);
+      usedSources.add(stream.source);
+    }
+  }
+  for (const { stream } of scored) {
+    if (result.length >= 3) break;
+    if (!result.includes(stream)) result.push(stream);
+  }
+
+  return result;
+}
+
 export function MultiStreamView() {
   const [layout, setLayout] = useState<2 | 4>(4);
   const [slots, setSlots] = useState<StreamSlot[]>([
