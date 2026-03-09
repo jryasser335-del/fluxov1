@@ -13,7 +13,10 @@ export interface MediaCardProps {
   platform?: string | null;
 }
 
-export function MediaCard({ item, type, streamUrl, platform }: MediaCardProps) {
+export const MediaCard = forwardRef<HTMLDivElement, MediaCardProps>(function MediaCard(
+  { item, type, streamUrl, platform },
+  ref,
+) {
   const { openPlayer } = usePlayerModal();
   const title = item.title || item.name || "";
   const date = item.release_date || item.first_air_date || "";
