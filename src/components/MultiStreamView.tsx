@@ -94,24 +94,57 @@ export function MultiStreamView() {
   const fetchInFlightRef = useRef(false);
   const hasLoadedOnceRef = useRef(false);
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      setLoading(true);
+  const fetchEvents = useCallback(async (background = false) => {
+    if (fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
+
+    // Only show blocking loader on first load
+    const shouldBlock = !background && !hasLoadedOnceRef.current;
+    if (shouldBlock) setLoading(true);
+
+    try {
       const { data, error } = await supabase
         .from("events")
-        .select("*")
+        .select("id,name,stream_url,stream_url_2,stream_url_3,team_home,team_away,league,is_live,event_date,is_active")
         .eq("is_active", true)
         .order("event_date", { ascending: true });
-      if (!error && data) setAvailableEvents(data as AvailableEvent[]);
-      setLoading(false);
-    };
-    fetchEvents();
+
+      if (!error && data) {
+        setAvailableEvents(data as unknown as AvailableEvent[]);
+        hasLoadedOnceRef.current = true;
+      }
+    } catch (e) {
+      console.error("MultiStream fetchEvents error", e);
+    } finally {
+      if (shouldBlock) setLoading(false);
+      fetchInFlightRef.current = false;
+    }
+  }, []);
+
+  const fetchExternalStreams = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-all-streams", { body: {} });
+      if (!error && data?.streams) {
+        setExternalStreams(data.streams as ExternalStream[]);
+      }
+    } catch (e) {
+      console.error("MultiStream fetchExternalStreams error", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchExternalStreams();
+    fetchEvents(false);
+
     const channel = supabase
       .channel("events-multistream")
-      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => fetchEvents())
+      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => fetchEvents(true))
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchEvents, fetchExternalStreams]);
 
   const activeSlots = slots.filter(s => s.isActive);
   const displaySlots = layout === 2 ? slots.slice(0, 2) : slots;
