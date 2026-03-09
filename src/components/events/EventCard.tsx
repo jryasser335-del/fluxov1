@@ -225,11 +225,11 @@ export function EventCard({
           </div>
         )}
 
-        {/* Final badge */}
+        {/* Final badge - Partido Finalizado */}
         {isFinal && (
           <div className="absolute top-3 left-3 z-10">
-            <div className="px-2.5 py-1 rounded-lg bg-white/[0.08] backdrop-blur-md border border-white/[0.06]">
-              <span className="text-[10px] font-bold text-muted-foreground tracking-[0.1em]">FT</span>
+            <div className="px-2.5 py-1 rounded-lg bg-white/[0.12] backdrop-blur-md border border-white/[0.08]">
+              <span className="text-[10px] font-bold text-white/80 tracking-[0.08em]">FINALIZADO</span>
             </div>
           </div>
         )}
