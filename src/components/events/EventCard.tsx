@@ -186,7 +186,7 @@ export function EventCard({
         onClick={onClick}
       >
         {/* Top shine line */}
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent z-10" />
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent z-10 pointer-events-none" />
         
         {/* Match visual area */}
         <div
