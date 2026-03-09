@@ -484,78 +484,88 @@ export function EventsView() {
   return (
     <div className="space-y-0">
       {/* Header */}
-      <div className="relative mb-5">
-        <div className="relative flex items-center justify-between gap-3 mb-5">
-          <div className="flex items-center gap-3">
+      <div className="relative mb-6">
+        <div className="relative flex items-center justify-between gap-3 mb-6">
+          <div className="flex items-center gap-3.5">
             <div className="relative group">
-              <div className="absolute -inset-1.5 rounded-2xl bg-gradient-to-br from-primary/30 to-primary-glow/15 blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-              <img src={fluxoLogo} alt="FluxoTV" className="relative w-10 h-10 rounded-xl shadow-2xl ring-1 ring-white/[0.06]" />
+              <div className="absolute -inset-2 rounded-2xl bg-gradient-to-br from-primary/20 to-primary-glow/10 blur-xl opacity-60 group-hover:opacity-100 transition-opacity duration-700" />
+              <div className="relative p-0.5 rounded-[18px] bg-gradient-to-br from-white/[0.12] to-white/[0.02]">
+                <img src={fluxoLogo} alt="FluxoTV" className="relative w-10 h-10 rounded-[14px] shadow-2xl" />
+              </div>
             </div>
-            <div className="hidden sm:flex items-baseline gap-0.5">
-              <span className="font-display text-2xl text-foreground tracking-wider">FLUXO</span>
-              <span className="font-display text-2xl tracking-wider gradient-text">TV</span>
+            <div className="hidden sm:flex items-baseline gap-1">
+              <span className="font-display text-[26px] text-foreground tracking-[0.08em]">FLUXO</span>
+              <span className="font-display text-[26px] tracking-[0.08em] gradient-text">TV</span>
             </div>
           </div>
-          <div className="relative flex-1 max-w-sm group">
-            <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-primary/10 to-primary-glow/5 opacity-0 group-focus-within:opacity-100 blur-sm transition-opacity duration-500" />
+          
+          {/* Search bar - refined glass */}
+          <div className="relative flex-1 max-w-xs group">
+            <div className="absolute -inset-px rounded-2xl bg-gradient-to-r from-primary/10 via-primary-glow/5 to-transparent opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
             <div className="relative flex items-center">
-              <Search className="absolute left-3 w-3.5 h-3.5 text-muted-foreground/40 pointer-events-none" />
+              <Search className="absolute left-3.5 w-3.5 h-3.5 text-muted-foreground/30 pointer-events-none" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar..."
-                className="pl-9 h-10 rounded-xl border-white/[0.04] bg-white/[0.02] text-foreground placeholder:text-muted-foreground/30 focus:ring-1 focus:ring-primary/20 focus:border-primary/15 transition-all duration-300 text-sm"
+                className="pl-10 h-11 rounded-2xl border-white/[0.04] bg-white/[0.025] hover:bg-white/[0.04] focus:bg-white/[0.04] focus:ring-1 focus:ring-primary/20 focus:border-primary/15 transition-all duration-300 placeholder:text-muted-foreground/25 text-sm backdrop-blur-sm"
               />
             </div>
           </div>
+
+          {/* Stats & refresh */}
           <div className="flex items-center gap-2">
             {stats.live > 0 && (
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 border border-primary/15"
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-primary/[0.08] border border-primary/[0.12] backdrop-blur-sm"
               >
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-60" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
                 </span>
-                <span className="text-[11px] font-bold text-primary tracking-wide">{stats.live}</span>
+                <span className="text-xs font-bold text-primary tabular-nums">{stats.live}</span>
+                <span className="text-[10px] text-primary/60 font-medium hidden sm:inline">LIVE</span>
               </motion.div>
             )}
             <button
               onClick={() => { loadAllEvents(); fetchEventLinks(); }}
-              className="h-10 w-10 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center text-muted-foreground/40 hover:text-foreground hover:bg-white/[0.05] hover:border-white/[0.08] transition-all duration-300"
+              className="h-11 w-11 rounded-2xl bg-white/[0.025] border border-white/[0.04] flex items-center justify-center text-muted-foreground/30 hover:text-foreground/70 hover:bg-white/[0.05] hover:border-white/[0.08] transition-all duration-300 backdrop-blur-sm"
             >
-              <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
+              <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
             </button>
           </div>
         </div>
 
-        {/* Sport Tabs */}
-        <div className="relative flex gap-1 overflow-x-auto pb-3 scrollbar-hide mb-3">
+        {/* Sport Tabs - Premium pill design */}
+        <div className="relative flex gap-1.5 overflow-x-auto pb-3 scrollbar-hide mb-3">
           {SPORT_TABS.map((tab) => {
             const isActive = activeSport === tab.value;
             return (
               <motion.button
                 key={tab.value}
                 onClick={() => setActiveSport(tab.value)}
-                whileTap={{ scale: 0.97 }}
+                whileTap={{ scale: 0.96 }}
                 className={cn(
-                  "relative flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold whitespace-nowrap transition-all duration-300 overflow-hidden",
+                  "relative flex items-center gap-2 px-4 py-2.5 rounded-2xl text-[13px] font-semibold whitespace-nowrap transition-all duration-300 overflow-hidden",
                   isActive
-                    ? "text-white"
-                    : "text-muted-foreground/50 hover:text-muted-foreground border border-white/[0.03] hover:border-white/[0.06] bg-white/[0.01] hover:bg-white/[0.03]"
+                    ? "text-white shadow-lg shadow-primary/20"
+                    : "text-muted-foreground/40 hover:text-muted-foreground/70 border border-white/[0.03] hover:border-white/[0.06] bg-white/[0.015] hover:bg-white/[0.035]"
                 )}
               >
                 {isActive && (
                   <motion.div
                     layoutId="sport-tab-bg"
-                    className="absolute inset-0 bg-gradient-to-r from-primary to-primary-glow rounded-xl"
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-primary-glow rounded-2xl"
+                    transition={{ type: "spring", stiffness: 380, damping: 28 }}
                   />
                 )}
                 {isActive && (
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent rounded-xl" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent rounded-2xl" />
+                )}
+                {isActive && (
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
                 )}
                 <span className="relative z-10 text-sm">{tab.emoji}</span>
                 <span className="relative z-10">{tab.label}</span>
@@ -564,7 +574,7 @@ export function EventsView() {
           })}
         </div>
 
-        {/* Sub-league filter */}
+        {/* Sub-league filter - subtle & minimal */}
         {(activeSport === "football" || activeSport === "mlb") && availableLeagues.length > 1 && (
           <div className="flex gap-1 overflow-x-auto pb-2 scrollbar-hide">
             {availableLeagues.map((league) => {
@@ -575,13 +585,13 @@ export function EventsView() {
                   key={league.value}
                   onClick={() => setActiveLeagueFilter(league.value)}
                   className={cn(
-                    "relative px-3 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap transition-all duration-300",
+                    "relative px-3 py-1.5 rounded-xl text-[11px] font-medium whitespace-nowrap transition-all duration-300",
                     isActive
-                      ? "bg-white/[0.08] text-foreground/90 border border-white/[0.1]"
-                      : "text-muted-foreground/30 hover:text-muted-foreground/60 hover:bg-white/[0.02]"
+                      ? "bg-white/[0.08] text-foreground/90 border border-white/[0.1] shadow-sm"
+                      : "text-muted-foreground/25 hover:text-muted-foreground/50 hover:bg-white/[0.02]"
                   )}
                 >
-                  {league.label} {count > 0 && <span className="text-muted-foreground/20 ml-0.5">{count}</span>}
+                  {league.label} {count > 0 && <span className="text-muted-foreground/15 ml-0.5">{count}</span>}
                 </button>
               );
             })}
@@ -597,24 +607,24 @@ export function EventsView() {
           ))}
         </div>
       ) : gridEvents.length === 0 && dbOnlyEvents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-28 text-center">
-          <div className="relative mb-6">
-            <div className="absolute -inset-6 rounded-full bg-primary/[0.03] blur-3xl" />
-            <div className="relative w-20 h-20 rounded-3xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center">
-              <span className="text-4xl">🏟️</span>
+        <div className="flex flex-col items-center justify-center py-32 text-center">
+          <div className="relative mb-8">
+            <div className="absolute -inset-8 rounded-full bg-primary/[0.03] blur-3xl" />
+            <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-white/[0.04] to-transparent border border-white/[0.04] flex items-center justify-center">
+              <span className="text-5xl">🏟️</span>
             </div>
           </div>
-          <p className="text-base font-semibold text-foreground/60 mb-1">No hay eventos</p>
-          <p className="text-sm text-muted-foreground/40">No se encontraron partidos para esta categoría</p>
+          <p className="text-lg font-semibold text-foreground/50 mb-2">No hay eventos</p>
+          <p className="text-sm text-muted-foreground/30 max-w-xs">No se encontraron partidos para esta categoría</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {gridEvents.map((enriched, index) => (
             <motion.div
               key={enriched.event.id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.025, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, y: 20, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: index * 0.03, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             >
               <EventCard
                 event={enriched.event}
@@ -644,9 +654,9 @@ export function EventsView() {
             <motion.div
               key={`db-${dbEvent.name}-${index}`}
               className="cursor-pointer"
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: (gridEvents.length + index) * 0.025, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, y: 20, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ delay: (gridEvents.length + index) * 0.03, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
               onClick={() => handleDbEventClick(dbEvent)}
             >
               <DbEventCard event={dbEvent} />
@@ -655,11 +665,13 @@ export function EventsView() {
         </div>
       )}
 
-      {/* Bottom counter */}
-      <div className="flex items-center justify-center pt-8 pb-2">
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.02] border border-white/[0.03] text-[11px] text-muted-foreground/30">
-          <Sparkles className="w-3 h-3" />
-          {stats.total} eventos · {stats.withLinks} con señal
+      {/* Bottom counter - premium minimal */}
+      <div className="flex items-center justify-center pt-10 pb-3">
+        <div className="flex items-center gap-2.5 px-5 py-2.5 rounded-2xl bg-white/[0.015] border border-white/[0.03] backdrop-blur-sm">
+          <Sparkles className="w-3.5 h-3.5 text-primary/40" />
+          <span className="text-[11px] text-muted-foreground/25 font-medium tabular-nums">{stats.total} eventos</span>
+          <span className="w-px h-3 bg-white/[0.06]" />
+          <span className="text-[11px] text-primary/40 font-medium tabular-nums">{stats.withLinks} con señal</span>
         </div>
       </div>
     </div>

@@ -103,13 +103,13 @@ function TeamLogo({ team, leagueKey }: { team: TeamData | undefined; leagueKey: 
   if (logoUrl) {
     return (
       <div className="relative">
-        <div className="absolute inset-0 blur-xl opacity-40 scale-150">
+        <div className="absolute inset-0 blur-2xl opacity-30 scale-[1.8]">
           <img src={logoUrl} alt="" className="w-full h-full object-contain" loading="lazy" />
         </div>
         <img
           src={logoUrl}
           alt={team?.displayName || ""}
-          className="relative w-11 h-11 sm:w-14 sm:h-14 object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
+          className="relative w-12 h-12 sm:w-[60px] sm:h-[60px] object-contain drop-shadow-[0_6px_20px_rgba(0,0,0,0.7)]"
           onError={() => setCandidateIndex((prev) => prev + 1)}
           loading="lazy"
         />
@@ -118,7 +118,7 @@ function TeamLogo({ team, leagueKey }: { team: TeamData | undefined; leagueKey: 
   }
 
   return (
-    <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center font-display text-foreground/60 text-sm bg-white/[0.06] border border-white/[0.06]">
+    <div className="w-12 h-12 sm:w-[60px] sm:h-[60px] rounded-2xl flex items-center justify-center font-display text-foreground/50 text-sm bg-white/[0.04] border border-white/[0.05] backdrop-blur-sm">
       {abbr}
     </div>
   );
@@ -146,7 +146,6 @@ export function EventCard({
   const awayColor = away?.team?.color ? `#${away.team.color}` : "#1a3a5c";
   const homeColor = home?.team?.color ? `#${home.team.color}` : "#5c1a3a";
 
-
   let timeText = "";
   if (isLive) {
     const period = comp?.status?.period ? `Q${comp.status.period}` : "";
@@ -163,155 +162,169 @@ export function EventCard({
 
   const viewers = useMemo(() => isLive ? Math.floor(Math.random() * 15000) + 500 : 0, [isLive]);
 
-  // Score display for live/final
   const awayScore = away?.score;
   const homeScore = home?.score;
   const showScore = (isLive || isFinal) && awayScore !== undefined && homeScore !== undefined;
 
   return (
-    <div className="card-wrapper">
+    <div className="group/card relative">
+      {/* Outer glow on hover */}
+      <div className={cn(
+        "absolute -inset-px rounded-[18px] opacity-0 group-hover/card:opacity-100 transition-opacity duration-500",
+        isLive ? "bg-gradient-to-br from-primary/20 via-transparent to-primary-glow/10" : "bg-gradient-to-br from-white/[0.06] via-transparent to-white/[0.03]"
+      )} />
+      
       <div
         className={cn(
-          "premium-card card-shine group cursor-pointer rounded-2xl border border-white/[0.06] bg-card touch-manipulation",
-          isLive && "border-primary/20",
-          isFinal && "opacity-75"
+          "relative rounded-[17px] overflow-hidden cursor-pointer transition-all duration-500 touch-manipulation",
+          "border border-white/[0.05] hover:border-white/[0.1]",
+          "bg-gradient-to-b from-card to-background",
+          "hover:-translate-y-1 hover:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.7)]",
+          isLive && "border-primary/15 hover:border-primary/30",
+          isFinal && "opacity-60 hover:opacity-80"
         )}
         onClick={onClick}
       >
-      <div
-        className="relative aspect-[16/10] overflow-hidden rounded-t-2xl"
-        style={{
-          background: `linear-gradient(145deg, ${awayColor}dd 0%, ${awayColor}88 35%, hsl(225, 15%, 6%) 50%, ${homeColor}88 65%, ${homeColor}dd 100%)`
-        }}
-      >
-        {/* Mesh overlay for depth */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,_rgba(255,255,255,0.05)_0%,_transparent_50%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_80%,_rgba(255,255,255,0.03)_0%,_transparent_50%)]" />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20" />
-
-        {/* LIVE badge */}
-        {isLive && (
-          <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/90 backdrop-blur-sm shadow-lg shadow-primary/20">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
-              </span>
-              <span className="text-[10px] font-bold text-white tracking-[0.15em]">EN VIVO</span>
-            </div>
-          </div>
-        )}
-
-        {/* Time badge for scheduled */}
-        {isPre && (
-          <div className="absolute top-3 left-3 z-10">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md border border-white/[0.08]">
-              <span className="text-[10px] font-mono-premium font-medium text-white/80 tracking-wide">{timeText}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Final badge - Partido Finalizado */}
-        {isFinal && (
-          <div className="absolute top-3 left-3 z-10">
-            <div className="px-2.5 py-1 rounded-lg bg-white/[0.12] backdrop-blur-md border border-white/[0.08]">
-              <span className="text-[10px] font-bold text-white/80 tracking-[0.08em]">FINALIZADO</span>
-            </div>
-          </div>
-        )}
-
-        {/* Viewers / Signal indicator - top right */}
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
-          {isLive && viewers > 0 && (
-            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-black/50 backdrop-blur-md border border-white/[0.06]">
-              <Eye className="w-3 h-3 text-white/50" />
-              <span className="text-[10px] font-mono-premium font-medium text-white/70 tabular-nums">{viewers.toLocaleString()}</span>
-            </div>
-          )}
-          {hasLink && !isLive && (
-            <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-success/10 backdrop-blur-md border border-success/20">
-              <Zap className="w-3 h-3 text-success" />
-            </div>
-          )}
-        </div>
-
-        {/* Favorite button */}
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
-          className={cn(
-            "absolute z-10 w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300",
-            isLive ? "bottom-3 right-3" : "bottom-3 right-3",
-            isFavorite
-              ? "bg-warning/20 text-warning border border-warning/30"
-              : "bg-black/30 backdrop-blur-sm text-white/30 border border-white/[0.06] opacity-100 sm:opacity-0 sm:group-hover:opacity-100 hover:text-white/70"
-          )}
+        {/* Top shine line */}
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent z-10" />
+        
+        {/* Match visual area */}
+        <div
+          className="relative aspect-[16/9] overflow-hidden"
+          style={{
+            background: `linear-gradient(145deg, ${awayColor}cc 0%, ${awayColor}55 30%, hsl(228, 16%, 4%) 50%, ${homeColor}55 70%, ${homeColor}cc 100%)`
+          }}
         >
-          <Star className={cn("w-3.5 h-3.5", isFavorite && "fill-current")} />
-        </button>
+          {/* Depth layers */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_25%_15%,_rgba(255,255,255,0.06)_0%,_transparent_45%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_85%,_rgba(255,255,255,0.04)_0%,_transparent_45%)]" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
 
-        {/* Team logos + center element */}
-        <div className="absolute inset-0 flex items-center justify-center gap-5 sm:gap-8 px-6">
-          <div className="flex-shrink-0">
-            <TeamLogo team={away?.team} leagueKey={leagueInfo.key} />
-          </div>
-
-          {/* Center: Score or League logo */}
-          <div className="flex flex-col items-center gap-1">
-            {showScore ? (
-              <div className="flex items-center gap-2">
-                <span className="font-display text-2xl sm:text-3xl text-white tracking-wider drop-shadow-lg">{awayScore}</span>
-                <span className="text-[10px] text-white/20 font-bold">:</span>
-                <span className="font-display text-2xl sm:text-3xl text-white tracking-wider drop-shadow-lg">{homeScore}</span>
+          {/* LIVE badge */}
+          {isLive && (
+            <div className="absolute top-3 left-3 z-10">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-destructive/90 backdrop-blur-md shadow-lg shadow-destructive/30 border border-white/[0.1]">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
+                </span>
+                <span className="text-[10px] font-black text-white tracking-[0.2em]">LIVE</span>
               </div>
-            ) : leagueLogoUrl && !leagueLogoError ? (
-              <img
-                src={leagueLogoUrl}
-                alt={leagueInfo.name}
-                className="w-7 h-7 sm:w-9 sm:h-9 object-contain opacity-60 drop-shadow-lg"
-                onError={() => setLeagueLogoError(true)}
-              />
-            ) : (
-              <div className="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center border border-white/[0.04]">
-                <span className="text-[7px] text-muted-foreground font-bold">{leagueInfo.sub?.slice(0, 3) || "VS"}</span>
-              </div>
-            )}
-            {isLive && timeText && (
-              <span className="text-[9px] font-mono-premium text-primary/80 font-medium tracking-wide">{timeText}</span>
-            )}
-          </div>
-
-          <div className="flex-shrink-0">
-            <TeamLogo team={home?.team} leagueKey={leagueInfo.key} />
-          </div>
-        </div>
-
-        {/* League watermark */}
-        <div className="absolute bottom-2 left-0 right-0 text-center pointer-events-none">
-          <span className="text-[7px] text-white/15 font-display tracking-[0.25em] uppercase">
-            {leagueInfo.sub || leagueInfo.name}
-          </span>
-        </div>
-      </div>
-
-      {/* Info footer */}
-      <div className="bg-card px-3 pt-2.5 pb-2 space-y-1">
-        <h3 className="text-[11px] sm:text-[12px] font-semibold text-foreground/90 leading-tight line-clamp-1 tracking-tight">
-          {away?.team?.shortDisplayName || away?.team?.displayName || "TBD"}
-          <span className="text-muted-foreground/50 font-normal mx-1">vs</span>
-          {home?.team?.shortDisplayName || home?.team?.displayName || "TBD"}
-        </h3>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[9px] font-medium text-muted-foreground/60 truncate">
-            {leagueInfo.name}
-          </span>
-          {(isPre || isFinal) && timeText && (
-            <>
-              <span className="text-[9px] text-muted-foreground/20">·</span>
-              <span className="text-[9px] font-mono-premium text-muted-foreground/50 tabular-nums">{timeText}</span>
-            </>
+            </div>
           )}
+
+          {/* Time badge for scheduled */}
+          {isPre && (
+            <div className="absolute top-3 left-3 z-10">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/50 backdrop-blur-xl border border-white/[0.06]">
+                <span className="text-[10px] font-mono-premium font-medium text-white/70 tracking-wide">{timeText}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Final badge */}
+          {isFinal && (
+            <div className="absolute top-3 left-3 z-10">
+              <div className="px-3 py-1.5 rounded-xl bg-white/[0.08] backdrop-blur-xl border border-white/[0.06]">
+                <span className="text-[10px] font-bold text-white/60 tracking-[0.12em]">FINAL</span>
+              </div>
+            </div>
+          )}
+
+          {/* Viewers / Signal indicator */}
+          <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+            {isLive && viewers > 0 && (
+              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-black/40 backdrop-blur-xl border border-white/[0.05]">
+                <Eye className="w-3 h-3 text-white/40" />
+                <span className="text-[10px] font-mono-premium font-medium text-white/60 tabular-nums">{viewers.toLocaleString()}</span>
+              </div>
+            )}
+            {hasLink && !isLive && (
+              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-success/[0.08] backdrop-blur-xl border border-success/15">
+                <Zap className="w-3 h-3 text-success/80" />
+              </div>
+            )}
+          </div>
+
+          {/* Favorite button */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+            className={cn(
+              "absolute z-10 w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300 bottom-3 right-3",
+              isFavorite
+                ? "bg-warning/15 text-warning border border-warning/25 backdrop-blur-xl"
+                : "bg-black/30 backdrop-blur-xl text-white/20 border border-white/[0.05] opacity-100 sm:opacity-0 sm:group-hover/card:opacity-100 hover:text-white/60"
+            )}
+          >
+            <Star className={cn("w-3.5 h-3.5", isFavorite && "fill-current")} />
+          </button>
+
+          {/* Team logos + center element */}
+          <div className="absolute inset-0 flex items-center justify-center gap-6 sm:gap-10 px-8">
+            <div className="flex-shrink-0 transition-transform duration-500 group-hover/card:scale-110">
+              <TeamLogo team={away?.team} leagueKey={leagueInfo.key} />
+            </div>
+
+            {/* Center: Score or League logo */}
+            <div className="flex flex-col items-center gap-1.5">
+              {showScore ? (
+                <div className="flex items-center gap-3">
+                  <span className="font-display text-3xl sm:text-4xl text-white tracking-wider drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]">{awayScore}</span>
+                  <span className="text-xs text-white/10 font-bold">:</span>
+                  <span className="font-display text-3xl sm:text-4xl text-white tracking-wider drop-shadow-[0_0_20px_rgba(255,255,255,0.15)]">{homeScore}</span>
+                </div>
+              ) : leagueLogoUrl && !leagueLogoError ? (
+                <img
+                  src={leagueLogoUrl}
+                  alt={leagueInfo.name}
+                  className="w-8 h-8 sm:w-10 sm:h-10 object-contain opacity-50 drop-shadow-lg"
+                  onError={() => setLeagueLogoError(true)}
+                />
+              ) : (
+                <div className="w-9 h-9 rounded-xl bg-white/[0.04] flex items-center justify-center border border-white/[0.03]">
+                  <span className="text-[7px] text-muted-foreground/40 font-bold tracking-wider">{leagueInfo.sub?.slice(0, 3) || "VS"}</span>
+                </div>
+              )}
+              {isLive && timeText && (
+                <span className="text-[9px] font-mono-premium text-primary/70 font-medium tracking-wide">{timeText}</span>
+              )}
+            </div>
+
+            <div className="flex-shrink-0 transition-transform duration-500 group-hover/card:scale-110">
+              <TeamLogo team={home?.team} leagueKey={leagueInfo.key} />
+            </div>
+          </div>
+
+          {/* League watermark */}
+          <div className="absolute bottom-2.5 left-0 right-0 text-center pointer-events-none">
+            <span className="text-[7px] text-white/10 font-display tracking-[0.3em] uppercase">
+              {leagueInfo.sub || leagueInfo.name}
+            </span>
+          </div>
         </div>
-      </div>
+
+        {/* Info footer - refined */}
+        <div className="relative px-3.5 pt-3 pb-2.5 space-y-1.5">
+          {/* Subtle separator */}
+          <div className="absolute top-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
+          
+          <h3 className="text-[12px] font-semibold text-foreground/85 leading-tight line-clamp-1 tracking-tight">
+            {away?.team?.shortDisplayName || away?.team?.displayName || "TBD"}
+            <span className="text-muted-foreground/30 font-normal mx-1.5">vs</span>
+            {home?.team?.shortDisplayName || home?.team?.displayName || "TBD"}
+          </h3>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-medium text-muted-foreground/40 truncate">
+              {leagueInfo.name}
+            </span>
+            {(isPre || isFinal) && timeText && (
+              <>
+                <span className="text-[9px] text-muted-foreground/15">·</span>
+                <span className="text-[9px] font-mono-premium text-muted-foreground/35 tabular-nums">{timeText}</span>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -34,13 +34,14 @@ const Index = () => {
   return (
     <>
       <div className="min-h-screen bg-background relative">
-        {/* Ambient background orbs */}
+        {/* Ambient background orbs - deeper and more cinematic */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-[300px] -left-[200px] w-[600px] h-[600px] rounded-full bg-primary/[0.03] blur-[150px]" />
-          <div className="absolute -bottom-[200px] -right-[200px] w-[500px] h-[500px] rounded-full bg-accent/[0.02] blur-[120px]" />
+          <div className="absolute -top-[400px] -left-[300px] w-[800px] h-[800px] rounded-full bg-primary/[0.025] blur-[200px]" />
+          <div className="absolute -bottom-[300px] -right-[300px] w-[700px] h-[700px] rounded-full bg-accent/[0.015] blur-[180px]" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.008] blur-[150px]" />
         </div>
 
-        <main className="relative max-w-[1440px] mx-auto px-3 sm:px-5 md:px-8 pb-28 md:pb-8 pt-4">
+        <main className="relative max-w-[1440px] mx-auto px-3 sm:px-5 md:px-8 pb-28 md:pb-8 pt-5">
           <AnimatePresence mode="wait">
             {activeView === "eventos" && (
               <motion.div
@@ -49,7 +50,7 @@ const Index = () => {
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               >
                 <EventsView />
               </motion.div>
@@ -61,7 +62,7 @@ const Index = () => {
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               >
                 <MoviesView searchQuery={movieSearch} />
               </motion.div>
@@ -73,7 +74,7 @@ const Index = () => {
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               >
                 <MultiStreamView />
               </motion.div>
@@ -81,35 +82,40 @@ const Index = () => {
           </AnimatePresence>
         </main>
 
-        {/* Bottom Navigation */}
+        {/* Bottom Navigation - Ultra premium glassmorphism */}
         <nav className="fixed bottom-0 left-0 right-0 z-50">
-          <div className="absolute inset-0 bg-background/90 backdrop-blur-2xl border-t border-white/[0.04]" />
+          {/* Multi-layer glass effect */}
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-3xl" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
           
-          <div className="relative max-w-[520px] mx-auto flex items-center justify-around px-3 py-2 safe-area-pb">
+          <div className="relative max-w-[520px] mx-auto flex items-center justify-around px-3 py-2.5 safe-area-pb">
             {NAV_ITEMS.map(({ view, icon: Icon, label, color }) => (
               <button
                 key={view}
                 onClick={() => setActiveView(view)}
                 className={cn(
-                  "relative flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[13px] font-semibold transition-all duration-400",
+                  "relative flex items-center gap-2.5 px-6 py-3 rounded-2xl text-[13px] font-semibold transition-all duration-400",
                   activeView === view
                     ? "text-white"
-                    : "text-white/25 hover:text-white/50"
+                    : "text-white/20 hover:text-white/45"
                 )}
               >
                 {activeView === view && (
                   <motion.div
                     layoutId="nav-pill"
-                    className={cn("absolute inset-0 rounded-2xl bg-gradient-to-r shadow-lg", color)}
-                    style={{ boxShadow: '0 8px 30px -8px hsl(215 100% 55% / 0.3)' }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    className={cn("absolute inset-0 rounded-2xl bg-gradient-to-br shadow-xl", color)}
+                    style={{ boxShadow: '0 10px 40px -10px hsl(215 100% 55% / 0.35)' }}
+                    transition={{ type: "spring", stiffness: 380, damping: 28 }}
                   />
                 )}
                 {activeView === view && (
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/20 to-transparent" />
+                  <>
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/25 to-transparent" />
+                    <div className="absolute inset-x-0 top-0 h-px rounded-t-2xl bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+                  </>
                 )}
-                <span className="relative z-10 flex items-center gap-2">
-                  <Icon className="w-4 h-4" />
+                <span className="relative z-10 flex items-center gap-2.5">
+                  <Icon className="w-[18px] h-[18px]" />
                   <span className="hidden sm:inline">{label}</span>
                 </span>
               </button>
@@ -117,9 +123,9 @@ const Index = () => {
             {isAdmin && (
               <Link
                 to="/admin"
-                className="flex items-center gap-2 px-3 py-2.5 rounded-2xl text-[13px] font-semibold text-white/15 hover:text-white/40 transition-all duration-300"
+                className="flex items-center gap-2 px-3 py-3 rounded-2xl text-[13px] font-semibold text-white/10 hover:text-white/35 transition-all duration-300"
               >
-                <Settings className="w-4 h-4" />
+                <Settings className="w-[18px] h-[18px]" />
               </Link>
             )}
           </div>
