@@ -152,24 +152,28 @@ export function MultiStreamView() {
     return new Set(slots.map((s) => s.eventId).filter(Boolean) as string[]);
   }, [slots]);
 
-  const fallbackExternalEvents = useMemo<AvailableEvent[]>(() => {
-    if (availableEvents.length > 0 || externalStreams.length === 0) return [];
+  const effectiveEvents = useMemo<AvailableEvent[]>(() => {
+    const normalizedBaseNames = new Set(
+      availableEvents.map((e) => normalizeText(e.name || "")).filter(Boolean),
+    );
 
-    return externalStreams.slice(0, 120).map((stream, idx) => ({
-      id: `ext-${stream.source}-${stream.id || idx}`,
-      name: stream.name,
-      stream_url: stream.iframe,
-      stream_url_2: null,
-      stream_url_3: null,
-      team_home: null,
-      team_away: null,
-      league: stream.category || stream.source.toUpperCase(),
-      is_live: true,
-      event_date: new Date().toISOString(),
-    }));
-  }, [availableEvents.length, externalStreams]);
+    const externalAsEvents = externalStreams.slice(0, 120)
+      .map((stream, idx) => ({
+        id: `ext-${stream.source}-${stream.id || idx}`,
+        name: stream.name,
+        stream_url: stream.iframe,
+        stream_url_2: null,
+        stream_url_3: null,
+        team_home: null,
+        team_away: null,
+        league: stream.category || stream.source.toUpperCase(),
+        is_live: true,
+        event_date: new Date().toISOString(),
+      }))
+      .filter((event) => !normalizedBaseNames.has(normalizeText(event.name)));
 
-  const effectiveEvents = availableEvents.length > 0 ? availableEvents : fallbackExternalEvents;
+    return [...availableEvents, ...externalAsEvents];
+  }, [availableEvents, externalStreams]);
 
   const resolvedEvents = useMemo(() => {
     return effectiveEvents.map((event) => {
