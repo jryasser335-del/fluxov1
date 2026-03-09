@@ -1,28 +1,16 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { fetchTMDB, TMDBResult } from "@/lib/api";
 import { TMDB_IMG } from "@/lib/constants";
-import { Chips } from "./Chips";
 import { MediaCard } from "./MediaCard";
 import { SkeletonGrid } from "./Skeleton";
 import { STREAMING_PLATFORMS, type PlatformValue } from "@/lib/platforms";
 import { DEFAULT_WATCH_REGION, getWatchProviderIdForPlatform } from "@/lib/tmdbWatchProviders";
 import { useInfiniteScroll } from "@/hooks/useInfiniteScroll";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
-import { Loader2, ChevronLeft, ChevronRight, Play, Star, Calendar, Info } from "lucide-react";
+import { Loader2, ChevronLeft, ChevronRight, Play, Star, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-
-const MOVIE_FILTERS = [
-  { value: "popular", label: "Popular" },
-  { value: "top_rated", label: "Top" },
-  { value: "now_playing", label: "Reciente" },
-  { value: "upcoming", label: "Próximas" },
-];
-
-const PLATFORM_FILTERS = [
-  { value: "all", label: "Todas" },
-  ...STREAMING_PLATFORMS.map((p) => ({ value: p.value, label: p.label })),
-];
+import { motion } from "framer-motion";
 
 interface MediaLink {
   tmdb_id: number;
@@ -38,7 +26,7 @@ function getCinezoEmbedUrl(tmdbId: number): string {
   return `https://www.cinezo.net/movie/${tmdbId}`;
 }
 
-// ── Hero Banner ──
+// ── Premium Hero Banner ──
 function HeroBanner({ movies, mediaLinks }: { movies: TMDBResult[]; mediaLinks: Map<number, MediaLink> }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const { openPlayer } = usePlayerModal();
@@ -69,82 +57,93 @@ function HeroBanner({ movies, mediaLinks }: { movies: TMDBResult[]; mediaLinks: 
   };
 
   return (
-    <div className="relative w-full h-[50vh] sm:h-[60vh] md:h-[70vh] rounded-2xl overflow-hidden mb-8 group">
-      {/* Backdrop */}
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="relative w-full h-[45vh] sm:h-[55vh] md:h-[65vh] rounded-2xl overflow-hidden mb-8 group"
+    >
+      {/* Backdrop with smooth transition */}
       {backdrop && (
-        <img
+        <motion.img
+          key={activeIndex}
           src={backdrop}
           alt={title}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-[2000ms] group-hover:scale-105"
+          initial={{ opacity: 0, scale: 1.05 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8 }}
+          className="absolute inset-0 w-full h-full object-cover"
         />
       )}
 
-      {/* Gradients */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#080808] via-[#080808]/40 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#080808]/80 via-transparent to-transparent" />
+      {/* Premium gradient overlays */}
+      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/30 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-transparent to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_hsl(215_100%_55%/0.08)_0%,_transparent_60%)]" />
 
       {/* Content */}
-      <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10 md:p-14 z-10">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white uppercase tracking-tight leading-none mb-4 drop-shadow-2xl" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
-          {title}
-        </h1>
+      <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8 md:p-12 z-10">
+        <motion.div
+          key={`title-${activeIndex}`}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <h1 className="font-display text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-white uppercase tracking-wider leading-none mb-4 drop-shadow-2xl">
+            {title}
+          </h1>
 
-        <div className="flex items-center gap-3 mb-4">
-          {rating && parseFloat(rating) > 0 && (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 text-sm font-bold">
-              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span className="text-yellow-400">{rating}/10</span>
-            </span>
+          <div className="flex items-center gap-2.5 mb-4">
+            {rating && parseFloat(rating) > 0 && (
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/40 backdrop-blur-md border border-white/[0.08] text-sm font-semibold">
+                <Star className="w-3.5 h-3.5 text-warning fill-warning" />
+                <span className="text-warning">{rating}</span>
+              </span>
+            )}
+            {year && (
+              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-black/40 backdrop-blur-md border border-white/[0.08] text-sm font-medium text-white/70">
+                <Calendar className="w-3.5 h-3.5" />
+                {year}
+              </span>
+            )}
+          </div>
+
+          {movie.overview && (
+            <p className="text-sm sm:text-base text-white/60 max-w-xl line-clamp-2 mb-5 leading-relaxed">
+              {movie.overview}
+            </p>
           )}
-          {year && (
-            <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/50 backdrop-blur-md border border-white/10 text-sm font-medium text-white/80">
-              <Calendar className="w-4 h-4" />
-              {year}
-            </span>
-          )}
-        </div>
 
-        {movie.overview && (
-          <p className="text-sm sm:text-base text-white/70 max-w-xl line-clamp-3 mb-6 leading-relaxed">
-            {movie.overview}
-          </p>
-        )}
-
-        <div className="flex items-center gap-3">
           <button
             onClick={handlePlay}
-            className="flex items-center gap-2.5 px-7 py-3 rounded-xl bg-white text-black font-bold text-sm hover:bg-white/90 transition-all shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95"
+            className="flex items-center gap-2.5 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm hover:bg-primary/90 transition-all shadow-xl shadow-primary/30 hover:shadow-primary/40 hover:scale-105 active:scale-95"
           >
-            <Play className="w-5 h-5 fill-black" />
-            Play
+            <Play className="w-5 h-5 fill-current" />
+            Reproducir
           </button>
-          <button className="flex items-center gap-2.5 px-6 py-3 rounded-xl bg-white/10 backdrop-blur-md text-white font-medium text-sm border border-white/10 hover:bg-white/20 transition-all">
-            <Info className="w-5 h-5" />
-            See More
-          </button>
-        </div>
+        </motion.div>
       </div>
 
       {/* Dots navigation */}
       {featured.length > 1 && (
-        <div className="absolute bottom-4 right-6 sm:right-10 flex items-center gap-1.5 z-20">
+        <div className="absolute bottom-5 right-5 sm:right-8 flex items-center gap-1.5 z-20">
           {featured.map((_, i) => (
             <button
               key={i}
               onClick={() => { setActiveIndex(i); clearInterval(intervalRef.current); }}
               className={cn(
                 "h-1.5 rounded-full transition-all duration-300",
-                i === activeIndex ? "w-8 bg-white" : "w-1.5 bg-white/30 hover:bg-white/50"
+                i === activeIndex ? "w-6 bg-primary" : "w-1.5 bg-white/20 hover:bg-white/40"
               )}
             />
           ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
-// ── Movie Carousel (cinezo-style) ──
+// ── Premium Movie Carousel ──
 function MovieCarousel({
   title,
   movies,
@@ -168,42 +167,47 @@ function MovieCarousel({
   if (movies.length === 0) return null;
 
   return (
-    <div className="mb-10">
+    <div className="mb-8">
       <div className="flex items-center justify-between mb-4 px-1">
-        <h3 className="text-xl font-bold text-white">{title}</h3>
-        <div className="flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => scroll("left")}
-            className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+            className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center hover:bg-white/[0.08] hover:border-white/[0.1] transition-all"
           >
-            <ChevronLeft className="w-4 h-4 text-white/70" />
+            <ChevronLeft className="w-4 h-4 text-muted-foreground" />
           </button>
           <button
             onClick={() => scroll("right")}
-            className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors"
+            className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center hover:bg-white/[0.08] hover:border-white/[0.1] transition-all"
           >
-            <ChevronRight className="w-4 h-4 text-white/70" />
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
       </div>
 
       <div
         ref={scrollRef}
-        className="flex gap-3 overflow-x-auto scroll-smooth pb-2"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        className="flex gap-3 overflow-x-auto scroll-smooth pb-2 scrollbar-hide"
       >
-        {movies.map((movie) => {
+        {movies.map((movie, idx) => {
           const link = mediaLinks.get(movie.id);
           const streamUrl = link?.stream_url || getCinezoEmbedUrl(movie.id);
           return (
-            <div key={movie.id} className="flex-shrink-0 w-[150px] sm:w-[170px]">
+            <motion.div 
+              key={movie.id} 
+              className="flex-shrink-0 w-[140px] sm:w-[160px]"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: idx * 0.03, duration: 0.3 }}
+            >
               <MediaCard
                 item={movie}
                 type="movie"
                 streamUrl={streamUrl}
                 platform={link?.platform || "cinezo"}
               />
-            </div>
+            </motion.div>
           );
         })}
       </div>
@@ -211,7 +215,7 @@ function MovieCarousel({
   );
 }
 
-// ── Top 10 List ──
+// ── Premium Top 10 List ──
 function Top10List({ movies, mediaLinks }: { movies: TMDBResult[]; mediaLinks: Map<number, MediaLink> }) {
   const { openPlayer } = usePlayerModal();
   const top10 = movies.slice(0, 10);
@@ -219,8 +223,11 @@ function Top10List({ movies, mediaLinks }: { movies: TMDBResult[]; mediaLinks: M
   if (top10.length === 0) return null;
 
   return (
-    <div className="mb-10">
-      <h3 className="text-xl font-bold text-white mb-4 px-1">TOP 10</h3>
+    <div className="mb-8">
+      <h3 className="text-lg font-semibold text-foreground mb-4 px-1 flex items-center gap-2">
+        <span className="font-display text-primary tracking-wider">TOP 10</span>
+        <span className="text-muted-foreground/60 text-sm font-normal">Esta semana</span>
+      </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {top10.map((movie, i) => {
           const title = movie.title || movie.name || "";
@@ -229,25 +236,33 @@ function Top10List({ movies, mediaLinks }: { movies: TMDBResult[]; mediaLinks: M
           const poster = movie.poster_path ? `${TMDB_IMG}${movie.poster_path}` : "";
 
           return (
-            <button
+            <motion.button
               key={movie.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04, duration: 0.3 }}
               onClick={() => openPlayer(title, { url1: streamUrl }, "movie")}
-              className="flex items-center gap-4 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] transition-all group text-left"
+              className="flex items-center gap-3 p-2.5 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.06] hover:border-primary/20 transition-all group text-left"
             >
-              <span className="text-3xl font-black text-white/20 w-8 text-center" style={{ fontFamily: "'Bebas Neue', sans-serif" }}>
+              <span className="font-display text-2xl text-white/10 w-7 text-center tracking-wider">
                 {i + 1}
               </span>
               {poster && (
-                <img src={poster} alt={title} className="w-12 h-16 rounded-lg object-cover flex-shrink-0" loading="lazy" />
+                <img src={poster} alt={title} className="w-10 h-14 rounded-lg object-cover flex-shrink-0 border border-white/[0.06]" loading="lazy" />
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate group-hover:text-primary transition-colors">{title}</p>
-                <p className="text-xs text-white/40">
-                  {movie.vote_average ? `⭐ ${movie.vote_average.toFixed(1)}` : ""}
+                <p className="text-sm font-medium text-foreground/90 truncate group-hover:text-primary transition-colors">{title}</p>
+                <p className="text-xs text-muted-foreground/50 flex items-center gap-1">
+                  {movie.vote_average ? (
+                    <>
+                      <Star className="w-3 h-3 fill-warning text-warning" />
+                      {movie.vote_average.toFixed(1)}
+                    </>
+                  ) : ""}
                 </p>
               </div>
-              <Play className="w-4 h-4 text-white/20 group-hover:text-primary transition-colors flex-shrink-0" />
-            </button>
+              <Play className="w-4 h-4 text-muted-foreground/30 group-hover:text-primary transition-colors flex-shrink-0" />
+            </motion.button>
           );
         })}
       </div>
@@ -257,8 +272,6 @@ function Top10List({ movies, mediaLinks }: { movies: TMDBResult[]; mediaLinks: M
 
 // ── Main Component ──
 export function MoviesView({ searchQuery }: MoviesViewProps) {
-  const [type, setType] = useState("popular");
-  const [platform, setPlatform] = useState<"all" | PlatformValue>("all");
   const [page, setPage] = useState(1);
   const [allMovies, setAllMovies] = useState<TMDBResult[]>([]);
   const [trendingMovies, setTrendingMovies] = useState<TMDBResult[]>([]);
@@ -272,20 +285,9 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
 
   const buildBasePath = useCallback(async () => {
     const today = new Date().toISOString().slice(0, 10);
-    const watchRegion = DEFAULT_WATCH_REGION;
-    const providerId = platform === "all" ? null : await getWatchProviderIdForPlatform({ mediaType: "movie", platform, region: watchRegion });
-
-    let basePath = "discover/movie?include_adult=false&include_video=false";
-    if (type === "popular") basePath += "&sort_by=popularity.desc";
-    else if (type === "top_rated") basePath += "&sort_by=vote_average.desc&vote_count.gte=200";
-    else if (type === "now_playing") basePath += `&sort_by=primary_release_date.desc&primary_release_date.lte=${today}`;
-    else if (type === "upcoming") basePath += `&sort_by=primary_release_date.asc&primary_release_date.gte=${today}`;
-
-    if (providerId) basePath += `&with_watch_providers=${providerId}&watch_region=${watchRegion}&with_watch_monetization_types=flatrate`;
-    else if (platform !== "all") return null;
-
+    let basePath = "discover/movie?include_adult=false&include_video=false&sort_by=popularity.desc";
     return basePath;
-  }, [type, platform]);
+  }, []);
 
   // Fetch media links
   useEffect(() => {
@@ -350,7 +352,7 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
     };
     fetchInitial();
     return () => { cancelled = true; };
-  }, [type, platform, buildBasePath]);
+  }, [buildBasePath]);
 
   // Load more
   const loadMore = useCallback(async () => {
@@ -389,23 +391,41 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
 
   return (
     <div className="space-y-2">
-      {/* No filters - clean cinezo-style layout */}
-
       {loading ? (
         <SkeletonGrid count={24} />
       ) : error ? (
-        <div className="text-muted-foreground text-sm py-8 text-center">No se pudo cargar TMDB.</div>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/[0.04] flex items-center justify-center mb-4">
+            <span className="text-3xl">🎬</span>
+          </div>
+          <p className="text-muted-foreground/60 text-sm">No se pudo cargar el catálogo</p>
+        </div>
       ) : isSearching ? (
-        <div>
-          <h3 className="text-lg font-bold text-white mb-4">🔍 Resultados ({filteredMovies.length})</h3>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
-            {filteredMovies.map((movie) => {
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
+            <span>Resultados</span>
+            <span className="text-muted-foreground/50 text-sm font-normal">({filteredMovies.length})</span>
+          </h3>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+            {filteredMovies.map((movie, idx) => {
               const link = mediaLinks.get(movie.id);
               const streamUrl = link?.stream_url || getCinezoEmbedUrl(movie.id);
-              return <MediaCard key={movie.id} item={movie} type="movie" streamUrl={streamUrl} platform={link?.platform || "cinezo"} />;
+              return (
+                <motion.div
+                  key={movie.id}
+                  initial={{ opacity: 0, y: 15 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.02, duration: 0.3 }}
+                >
+                  <MediaCard item={movie} type="movie" streamUrl={streamUrl} platform={link?.platform || "cinezo"} />
+                </motion.div>
+              );
             })}
           </div>
-        </div>
+        </motion.div>
       ) : (
         <>
           {/* Hero Banner */}
@@ -415,22 +435,31 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
           <Top10List movies={trendingMovies} mediaLinks={mediaLinks} />
 
           {/* Trending carousel */}
-          <MovieCarousel title="Trending movies" movies={trendingMovies} mediaLinks={mediaLinks} />
+          <MovieCarousel title="🔥 Tendencias" movies={trendingMovies} mediaLinks={mediaLinks} />
 
           {/* Top Rated carousel */}
-          <MovieCarousel title="Top rated movies" movies={topRatedMovies} mediaLinks={mediaLinks} />
+          <MovieCarousel title="⭐ Mejor valoradas" movies={topRatedMovies} mediaLinks={mediaLinks} />
 
           {/* New Releases */}
-          <MovieCarousel title="Nuevos Estrenos" movies={filteredMovies.slice(0, 20)} mediaLinks={mediaLinks} />
+          <MovieCarousel title="✨ Nuevos Estrenos" movies={filteredMovies.slice(0, 20)} mediaLinks={mediaLinks} />
 
           {/* All movies grid */}
           <div className="mt-8">
-            <h3 className="text-xl font-bold text-white mb-4 px-1">Todas las Películas</h3>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
-              {filteredMovies.slice(20).map((movie) => {
+            <h3 className="text-lg font-semibold text-foreground mb-4 px-1">Catálogo Completo</h3>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+              {filteredMovies.slice(20).map((movie, idx) => {
                 const link = mediaLinks.get(movie.id);
                 const streamUrl = link?.stream_url || getCinezoEmbedUrl(movie.id);
-                return <MediaCard key={movie.id} item={movie} type="movie" streamUrl={streamUrl} platform={link?.platform || "cinezo"} />;
+                return (
+                  <motion.div
+                    key={movie.id}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(idx * 0.015, 0.3), duration: 0.3 }}
+                  >
+                    <MediaCard item={movie} type="movie" streamUrl={streamUrl} platform={link?.platform || "cinezo"} />
+                  </motion.div>
+                );
               })}
             </div>
 
@@ -438,12 +467,19 @@ export function MoviesView({ searchQuery }: MoviesViewProps) {
 
             {loadingMore && (
               <div className="flex justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                  <span className="text-xs text-muted-foreground">Cargando más...</span>
+                </div>
               </div>
             )}
 
             {!hasMore && filteredMovies.length > 0 && (
-              <div className="text-center text-muted-foreground text-sm py-6">Has llegado al final del catálogo</div>
+              <div className="flex items-center justify-center pt-8 pb-2">
+                <div className="px-4 py-2 rounded-xl bg-white/[0.02] border border-white/[0.03] text-[11px] text-muted-foreground/30">
+                  Has llegado al final del catálogo
+                </div>
+              </div>
             )}
           </div>
         </>
