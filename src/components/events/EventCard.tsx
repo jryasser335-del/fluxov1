@@ -170,7 +170,7 @@ export function EventCard({
     <div className="group/card relative">
       {/* Outer glow on hover */}
       <div className={cn(
-        "absolute -inset-px rounded-[18px] opacity-0 group-hover/card:opacity-100 transition-opacity duration-500",
+        "absolute -inset-px rounded-[18px] opacity-0 group-hover/card:opacity-100 transition-opacity duration-500 pointer-events-none",
         isLive ? "bg-gradient-to-br from-primary/20 via-transparent to-primary-glow/10" : "bg-gradient-to-br from-white/[0.06] via-transparent to-white/[0.03]"
       )} />
       
@@ -186,7 +186,7 @@ export function EventCard({
         onClick={onClick}
       >
         {/* Top shine line */}
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent z-10" />
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent z-10 pointer-events-none" />
         
         {/* Match visual area */}
         <div
@@ -196,9 +196,9 @@ export function EventCard({
           }}
         >
           {/* Depth layers */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_25%_15%,_rgba(255,255,255,0.06)_0%,_transparent_45%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_85%,_rgba(255,255,255,0.04)_0%,_transparent_45%)]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_25%_15%,_rgba(255,255,255,0.06)_0%,_transparent_45%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_85%,_rgba(255,255,255,0.04)_0%,_transparent_45%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
 
           {/* LIVE badge */}
           {isLive && (
@@ -306,7 +306,7 @@ export function EventCard({
         {/* Info footer - refined */}
         <div className="relative px-3.5 pt-3 pb-2.5 space-y-1.5">
           {/* Subtle separator */}
-          <div className="absolute top-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent" />
+          <div className="absolute top-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-white/[0.04] to-transparent pointer-events-none" />
           
           <h3 className="text-[12px] font-semibold text-foreground/85 leading-tight line-clamp-1 tracking-tight">
             {away?.team?.shortDisplayName || away?.team?.displayName || "TBD"}
