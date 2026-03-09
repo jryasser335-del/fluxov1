@@ -196,9 +196,9 @@ export function EventCard({
           }}
         >
           {/* Depth layers */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_25%_15%,_rgba(255,255,255,0.06)_0%,_transparent_45%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_85%,_rgba(255,255,255,0.04)_0%,_transparent_45%)]" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_25%_15%,_rgba(255,255,255,0.06)_0%,_transparent_45%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_75%_85%,_rgba(255,255,255,0.04)_0%,_transparent_45%)] pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
 
           {/* LIVE badge */}
           {isLive && (
