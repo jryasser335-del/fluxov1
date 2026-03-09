@@ -469,21 +469,7 @@ export function PlayerModal() {
           <div className="relative w-full h-full overflow-hidden bg-black group" onMouseMove={handleMouseMove} onMouseLeave={() => setShowControls(false)} onTouchStart={() => setShowControls(true)}>
             <StreamStats isVisible={showStats} quality={streamStats.quality} bitrate={streamStats.bitrate} buffered={streamStats.buffered} />
 
-            {isLoading && !loadError && (
-              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black">
-                <div className="relative w-20 h-20">
-                  <div className="absolute inset-0 rounded-full border-2 border-white/10" />
-                  <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-red-500 animate-spin" />
-                  <div className="absolute inset-4 rounded-full bg-white/5 flex items-center justify-center"><Play className="w-6 h-6 text-white/50" /></div>
-                </div>
-                <p className="mt-4 text-sm text-white/40 truncate max-w-[240px]">{title}</p>
-                <div className="flex gap-1 mt-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-bounce [animation-delay:0ms]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-bounce [animation-delay:150ms]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-bounce [animation-delay:300ms]" />
-                </div>
-              </div>
-            )}
+            {/* Loading overlay removed - stream loads directly */}
 
             {/* Error with fallback suggestion */}
             {loadError && !isEmbedUrl && !isYouTube && (
