@@ -77,6 +77,39 @@ function findBestExternalMatches(
   return result;
 }
 
+function findExternalMatchesByEventName(streams: ExternalStream[], eventName: string): ExternalStream[] {
+  const normalizedEventName = normalizeText(eventName || "");
+  if (!normalizedEventName) return [];
+
+  const tokens = normalizedEventName.split(/\s+/).filter((t) => t.length > 2);
+  if (tokens.length === 0) return [];
+
+  const scored: { stream: ExternalStream; score: number }[] = [];
+  for (const s of streams) {
+    const sName = normalizeText(s.name || "");
+    const tokenHits = tokens.reduce((acc, token) => (sName.includes(token) ? acc + 1 : acc), 0);
+    if (tokenHits > 0) scored.push({ stream: s, score: tokenHits / tokens.length });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+
+  const result: ExternalStream[] = [];
+  const usedSources = new Set<string>();
+  for (const { stream } of scored) {
+    if (result.length >= 3) break;
+    if (!usedSources.has(stream.source)) {
+      result.push(stream);
+      usedSources.add(stream.source);
+    }
+  }
+  for (const { stream } of scored) {
+    if (result.length >= 3) break;
+    if (!result.includes(stream)) result.push(stream);
+  }
+
+  return result;
+}
+
 export function MultiStreamView() {
   const [layout, setLayout] = useState<2 | 4>(4);
   const [slots, setSlots] = useState<StreamSlot[]>([
@@ -153,10 +186,6 @@ export function MultiStreamView() {
   }, [slots]);
 
   const effectiveEvents = useMemo<AvailableEvent[]>(() => {
-    const normalizedBaseNames = new Set(
-      availableEvents.map((e) => normalizeText(e.name || "")).filter(Boolean),
-    );
-
     const externalAsEvents = externalStreams.slice(0, 120)
       .map((stream, idx) => ({
         id: `ext-${stream.source}-${stream.id || idx}`,
@@ -169,8 +198,7 @@ export function MultiStreamView() {
         league: stream.category || stream.source.toUpperCase(),
         is_live: true,
         event_date: new Date().toISOString(),
-      }))
-      .filter((event) => !normalizedBaseNames.has(normalizeText(event.name)));
+      }));
 
     return [...availableEvents, ...externalAsEvents];
   }, [availableEvents, externalStreams]);
@@ -191,15 +219,30 @@ export function MultiStreamView() {
       // Try to resolve from pre-fetched external streams
       const home = normalizeText(event.team_home || "");
       const away = normalizeText(event.team_away || "");
-      if (externalStreams.length > 0 && home && away) {
-        const matches = findBestExternalMatches(externalStreams, home, away);
-        if (matches.length > 0) {
+      if (externalStreams.length > 0) {
+        if (home && away) {
+          const matches = findBestExternalMatches(externalStreams, home, away);
+          if (matches.length > 0) {
+            return {
+              event,
+              streams: {
+                url1: matches[0].iframe,
+                url2: matches[1]?.iframe,
+                url3: matches[2]?.iframe,
+                source: "external",
+              } satisfies ResolvedUrls,
+            };
+          }
+        }
+
+        const nameMatches = findExternalMatchesByEventName(externalStreams, event.name || "");
+        if (nameMatches.length > 0) {
           return {
             event,
             streams: {
-              url1: matches[0].iframe,
-              url2: matches[1]?.iframe,
-              url3: matches[2]?.iframe,
+              url1: nameMatches[0].iframe,
+              url2: nameMatches[1]?.iframe,
+              url3: nameMatches[2]?.iframe,
               source: "external",
             } satisfies ResolvedUrls,
           };
