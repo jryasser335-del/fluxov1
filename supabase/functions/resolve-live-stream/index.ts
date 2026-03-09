@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const STREAMED_BASES = ["https://streamed.su"];
+const STREAMED_BASES = ["https://streamed.pk", "https://streamed.su"];
 
 const normalize = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -44,8 +44,18 @@ async function fetchFast(url: string, timeoutMs = 2500): Promise<Response | null
   try {
     const controller = new AbortController();
     const t = setTimeout(() => controller.abort(), timeoutMs);
+
+    const headers: Record<string, string> = { "User-Agent": "Mozilla/5.0", Accept: "application/json" };
+    if (url.includes("streamed.pk")) {
+      headers.Origin = "https://streamed.pk";
+      headers.Referer = "https://streamed.pk/";
+    } else if (url.includes("streamed.su")) {
+      headers.Origin = "https://streamed.su";
+      headers.Referer = "https://streamed.su/";
+    }
+
     const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0", Accept: "application/json" },
+      headers,
       signal: controller.signal,
     });
     clearTimeout(t);

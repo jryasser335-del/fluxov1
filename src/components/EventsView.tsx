@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import fluxoLogo from "@/assets/fluxotv-logo.png";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 
 // Sport category tabs - each league is its own tab for precise filtering
 const SPORT_TABS = [
