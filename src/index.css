@@ -6,24 +6,24 @@
 
 @layer base {
   :root {
-    --background: 225 15% 3%;
+    --background: 228 16% 2%;
     --foreground: 220 20% 96%;
 
-    --card: 225 15% 6%;
+    --card: 228 16% 5%;
     --card-foreground: 220 20% 96%;
 
-    --popover: 225 15% 6%;
+    --popover: 228 16% 5%;
     --popover-foreground: 220 20% 96%;
 
     --primary: 215 100% 55%;
     --primary-foreground: 0 0% 100%;
     --primary-glow: 200 100% 60%;
 
-    --secondary: 225 15% 9%;
+    --secondary: 228 16% 8%;
     --secondary-foreground: 220 20% 96%;
 
-    --muted: 225 10% 12%;
-    --muted-foreground: 220 10% 50%;
+    --muted: 228 12% 11%;
+    --muted-foreground: 220 10% 48%;
 
     --accent: 215 85% 60%;
     --accent-foreground: 0 0% 100%;
@@ -37,29 +37,29 @@
     --warning: 45 100% 55%;
     --warning-foreground: 0 0% 0%;
 
-    --border: 225 15% 10%;
-    --input: 225 15% 10%;
+    --border: 228 16% 9%;
+    --input: 228 16% 9%;
     --ring: 215 100% 55%;
 
     --radius: 0.875rem;
 
-    --panel: 220 20% 100% / 0.03;
-    --panel-hover: 220 20% 100% / 0.06;
-    --stroke: 220 20% 100% / 0.05;
-    --stroke-hover: 220 20% 100% / 0.1;
+    --panel: 220 20% 100% / 0.025;
+    --panel-hover: 220 20% 100% / 0.05;
+    --stroke: 220 20% 100% / 0.04;
+    --stroke-hover: 220 20% 100% / 0.08;
 
     --gradient-primary: linear-gradient(135deg, hsl(215 100% 55%), hsl(200 100% 60%));
     --gradient-accent: linear-gradient(135deg, hsl(215 100% 55% / 0.2), hsl(200 100% 60% / 0.1));
-    --gradient-surface: linear-gradient(180deg, hsl(225 15% 7%), hsl(225 15% 3%));
-    --gradient-glow: radial-gradient(ellipse at 50% 0%, hsl(215 100% 55% / 0.08), transparent 70%);
+    --gradient-surface: linear-gradient(180deg, hsl(228 16% 6%), hsl(228 16% 2%));
+    --gradient-glow: radial-gradient(ellipse at 50% 0%, hsl(215 100% 55% / 0.06), transparent 70%);
 
-    --sidebar-background: 225 15% 4%;
+    --sidebar-background: 228 16% 3%;
     --sidebar-foreground: 220 20% 96%;
     --sidebar-primary: 215 100% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 225 15% 9%;
+    --sidebar-accent: 228 16% 8%;
     --sidebar-accent-foreground: 220 20% 96%;
-    --sidebar-border: 225 15% 8%;
+    --sidebar-border: 228 16% 7%;
     --sidebar-ring: 215 100% 55%;
   }
 }
@@ -76,34 +76,36 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Plus Jakarta Sans', 'Sora', 'Outfit', system-ui, -apple-system, sans-serif;
-    background: hsl(225 15% 3%);
+    background: hsl(228 16% 2%);
     background-attachment: fixed;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
-  /* Subtle film grain texture - low z-index to not block anything */
+  /* Ultra-subtle noise texture */
   body::before {
     content: '';
     position: fixed;
     inset: 0;
     pointer-events: none;
-    opacity: 0.008;
+    opacity: 0.012;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
     z-index: 0;
   }
 
-  /* Ambient top glow */
+  /* Dual ambient glow */
   body::after {
     content: '';
     position: fixed;
-    top: -200px;
+    top: -300px;
     left: 50%;
     transform: translateX(-50%);
-    width: 800px;
-    height: 400px;
-    background: radial-gradient(ellipse, hsl(215 100% 55% / 0.04) 0%, transparent 70%);
+    width: 1000px;
+    height: 500px;
+    background: 
+      radial-gradient(ellipse at 40% 50%, hsl(215 100% 55% / 0.035) 0%, transparent 60%),
+      radial-gradient(ellipse at 60% 50%, hsl(200 100% 60% / 0.025) 0%, transparent 60%);
     pointer-events: none;
     z-index: 0;
   }
