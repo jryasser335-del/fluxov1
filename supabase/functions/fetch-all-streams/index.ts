@@ -64,7 +64,8 @@ async function fetchPPVStreams(): Promise<StreamEntry[]> {
 
 async function fetchStreamedStreams(): Promise<StreamEntry[]> {
   const entries: StreamEntry[] = [];
-  const bases = ["https://streamed.su", "https://streamed.pk"];
+  // Prefer streamed.pk first (it often has football/Liga MX when streamed.su doesn't)
+  const bases = ["https://streamed.pk", "https://streamed.su"];
 
   const mapLimit = async <T>(items: T[], limit: number, fn: (item: T, idx: number) => Promise<void>) => {
     let next = 0;
