@@ -35,6 +35,8 @@ export const useAppAuth = create<AppAuthState>()(
     (set, get) => ({
       appUser: null,
       isLoading: false,
+      hasHydrated: false,
+      setHasHydrated: (value) => set({ hasHydrated: value }),
 
       login: async (username: string, password: string) => {
         set({ isLoading: true });
