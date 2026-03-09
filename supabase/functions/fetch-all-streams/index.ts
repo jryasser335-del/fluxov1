@@ -64,54 +64,116 @@ async function fetchPPVStreams(): Promise<StreamEntry[]> {
 
 async function fetchStreamedStreams(): Promise<StreamEntry[]> {
   const entries: StreamEntry[] = [];
-  const bases = ["https://streamed.su", "https://streamed.pk"];
-  
+  // Prefer streamed.pk first (it often has football/Liga MX when streamed.su doesn't)
+  const bases = ["https://streamed.pk", "https://streamed.su"];
+
+  const mapLimit = async <T>(items: T[], limit: number, fn: (item: T, idx: number) => Promise<void>) => {
+    let next = 0;
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (true) {
+        const idx = next++;
+        if (idx >= items.length) break;
+        try {
+          await fn(items[idx], idx);
+        } catch {
+          // ignore per-item failures
+        }
+      }
+    });
+    await Promise.all(workers);
+  };
+
+  const isSoccerLike = (m: any) => {
+    const cat = String(m?.category ?? m?.sport ?? "").toLowerCase();
+    return cat.includes("football") || cat.includes("soccer") || cat.includes("futbol") || cat.includes("fútbol");
+  };
+
   for (const base of bases) {
     try {
-      const res = await fetchFast(`${base}/api/matches/all`, 3000);
-      if (!res?.ok) continue;
-      const matches = await res.json();
+      const matchEndpoints = [
+        "/api/matches/live",
+        "/api/matches/football",
+        "/api/matches/all-today",
+        "/api/matches/all",
+      ];
 
-      const liveMatches = matches.filter((m: any) => {
-        const sources = m.sources || [];
-        return sources.length > 0;
-      }).slice(0, 30);
+      let matches: any[] = [];
+      for (const ep of matchEndpoints) {
+        const res = await fetchFast(`${base}${ep}`, 8000);
+        if (!res?.ok) continue;
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          matches = data;
+          break;
+        }
+      }
 
-      await Promise.all(
-        liveMatches.map(async (m: any) => {
-          const hdSources = ["alpha", "bravo", "charlie"];
-          const src = (m.sources || []).find((s: any) => hdSources.includes(s.source)) || m.sources?.[0];
-          if (!src) return;
+      if (!matches.length) continue;
 
-          try {
-            const r = await fetchFast(`${base}/api/stream/${src.source}/${src.id}`, 2000);
-            if (!r?.ok) return;
-            const streams = await r.json();
-            if (!Array.isArray(streams) || !streams.length) return;
-            const hd = streams.find((s: any) => s.hd) || streams[0];
-            if (!hd?.embedUrl) return;
+      // If live feed doesn't include football (often mixed-sport), fallback to football-specific endpoint
+      if (matches.filter(isSoccerLike).length === 0) {
+        const rf = await fetchFast(`${base}/api/matches/football`, 8000);
+        if (rf?.ok) {
+          const fb = await rf.json();
+          if (Array.isArray(fb) && fb.length > 0) matches = fb;
+        }
+      }
 
-            const home = m.teams?.home?.name || "";
-            const away = m.teams?.away?.name || "";
-            const name = home && away ? `${home} vs ${away}` : m.title || "Unknown";
+      const withSources = matches.filter((m: any) => Array.isArray(m?.sources) && m.sources.length > 0);
+      const prioritized = [
+        ...withSources.filter(isSoccerLike),
+        ...withSources.filter((m: any) => !isSoccerLike(m)),
+      ];
 
-            entries.push({
-              id: `str-${m.id || name}`,
-              name,
-              category: m.category || m.sport || "Football",
-              iframe: hd.embedUrl,
-              poster: null,
-              viewers: 0,
-              source: "streamed",
-            });
-          } catch { /* skip */ }
-        }),
-      );
+      // Keep runtime under control but make sure football matches aren't skipped
+      const liveMatches = prioritized.slice(0, 500);
+
+      const prioritySources = ["alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "admin"];
+
+      await mapLimit(liveMatches, 8, async (m: any) => {
+        const sources = Array.isArray(m?.sources) ? m.sources : [];
+        const src =
+          sources.find((s: any) => prioritySources.includes(String(s?.source ?? "").toLowerCase())) ?? sources[0];
+        if (!src?.source || !src?.id) return;
+
+        const sourceKey = String(src.source).toLowerCase();
+        const sourceId = String(src.id);
+
+        const r = await fetchFast(`${base}/api/stream/${sourceKey}/${sourceId}`, 4000);
+        if (!r?.ok) return;
+        const streams = await r.json();
+        if (!Array.isArray(streams) || !streams.length) return;
+
+        const hd =
+          streams.find((s: any) => s?.hd) ??
+          streams.find((s: any) => String(s?.quality ?? "").toLowerCase() === "hd") ??
+          streams[0];
+
+        const embedUrl = hd?.embedUrl ?? hd?.embed_url ?? hd?.url;
+        if (!embedUrl) return;
+
+        const home = m?.teams?.home?.name || m?.homeTeam || m?.home || "";
+        const away = m?.teams?.away?.name || m?.awayTeam || m?.away || "";
+        const name = home && away ? `${home} vs ${away}` : m?.title || m?.name || "Unknown";
+
+        entries.push({
+          id: `str-${m?.id || `${sourceKey}-${sourceId}` || name}`,
+          name,
+          category: m?.category || m?.sport || "Football",
+          iframe: embedUrl,
+          poster: null,
+          viewers: 0,
+          source: "streamed",
+          channels: home && away ? `${home}|${away}` : "",
+        });
+      });
+
       break;
     } catch {
       continue;
     }
   }
+
   return entries;
 }
 
