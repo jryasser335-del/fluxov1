@@ -66,7 +66,7 @@ const SPORT_TABS = [
   { value: "nba", label: "NBA", emoji: "🏀", leagues: ["nba"] },
   { value: "mlb", label: "MLB", emoji: "⚾", leagues: ["mlb", "baseball.wbc"] },
   { value: "nhl", label: "NHL", emoji: "🏒", leagues: ["nhl"] },
-  { value: "boxing", label: "Boxing", emoji: "🥊", leagues: ["boxing"] },
+  { value: "boxing", label: "Boxing", emoji: "🥊", leagues: ["ufc"] },
   { value: "mma", label: "MMA", emoji: "🥋", leagues: ["ufc"] },
   { value: "wrestling", label: "WWE", emoji: "🤼", leagues: ["wwe"] },
 ];
@@ -166,11 +166,26 @@ export function EventsView() {
   const [loading, setLoading] = useState(true);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    const saved = localStorage.getItem("fluxo_favorites");
+    return saved ? JSON.parse(saved) : [];
+  });
   const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
   const [externalStreams, setExternalStreams] = useState<ExternalStream[]>(() => readStreamCache() || []);
   const [externalStreamsLoaded, setExternalStreamsLoaded] = useState(() => readStreamCache() !== null);
-  const persistedRef = useRef(new Set<string>());
   const refreshInFlightRef = useRef(false);
+
+  const formatTime = (dateStr: string) => {
+    return new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  };
+
+  const toggleFavorite = (eventId: string) => {
+    setFavorites((prev) => {
+      const updated = prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId];
+      localStorage.setItem("fluxo_favorites", JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   const fetchEventLinks = useCallback(async () => {
     const { data, error } = await supabase
@@ -327,6 +342,7 @@ export function EventsView() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <img src={fluxoLogo} alt="Logo" className="w-10 h-10 rounded-xl shadow-lg" />
@@ -345,6 +361,7 @@ export function EventsView() {
         </div>
       </div>
 
+      {/* Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
         {SPORT_TABS.map((tab) => (
           <button
@@ -362,6 +379,7 @@ export function EventsView() {
         ))}
       </div>
 
+      {/* Main Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <AnimatePresence mode="popLayout">
           {loading ? (
@@ -380,6 +398,9 @@ export function EventsView() {
                   hasLink={eventLinks.has(item.event.id)}
                   onClick={() => handleEventClick(item)}
                   isResolving={resolvingIds.has(item.event.id)}
+                  isFavorite={favorites.includes(item.event.id)}
+                  onToggleFavorite={() => toggleFavorite(item.event.id)}
+                  formatTime={formatTime}
                 />
               </motion.div>
             ))
