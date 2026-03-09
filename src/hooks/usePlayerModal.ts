@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-type ContentType = "live" | "movie" | "series" | "dorama";
+type ContentType = "live" | "upcoming" | "movie" | "series" | "dorama";
 
 export interface StreamUrls {
   url1: string;

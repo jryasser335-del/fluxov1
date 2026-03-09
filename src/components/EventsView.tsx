@@ -318,17 +318,23 @@ export function EventsView() {
     return () => clearInterval(interval);
   }, [allEnrichedEvents, loadAllEvents, fetchEventLinks, fetchExternalStreams]);
 
-  // Resolver click pendiente cuando los streams terminan de cargar
+  // Resolver click pendiente cuando aparezca el link (sin obligar a esperar el “rayo verde”)
   useEffect(() => {
-    if (externalStreamsLoaded && pendingClickRef.current) {
-      const { enriched, title } = pendingClickRef.current;
+    const pending = pendingClickRef.current;
+    if (!pending) return;
+    if (!isOpen) return;
+
+    const link = eventLinks.get(pending.enriched.event.id);
+    if (link?.url1) {
       pendingClickRef.current = null;
-      const link = eventLinks.get(enriched.event.id);
-      if (link?.url1) {
-        openPlayer(title, link);
-      }
+      openPlayer(pending.title, link, "live");
     }
-  }, [externalStreamsLoaded, eventLinks, openPlayer]);
+  }, [eventLinks, isOpen, openPlayer]);
+
+  // Si el usuario cierra el player, no volver a abrirlo solo
+  useEffect(() => {
+    if (!isOpen) pendingClickRef.current = null;
+  }, [isOpen]);
 
   // Reset league filter when sport changes
   useEffect(() => {
