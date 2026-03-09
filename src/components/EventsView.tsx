@@ -501,13 +501,13 @@ export function EventsView() {
               <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-destructive/10 border border-destructive/15"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-primary/10 border border-primary/15"
               >
                 <span className="relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-destructive" />
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
                 </span>
-                <span className="text-[11px] font-bold text-destructive tracking-wide">{stats.live}</span>
+                <span className="text-[11px] font-bold text-primary tracking-wide">{stats.live}</span>
               </motion.div>
             )}
             <button
@@ -741,23 +741,19 @@ function DbEventCard({ event }: { event: { name: string; team_home: string | nul
   return (
     <div className="card-wrapper">
       <div className={cn(
-        "premium-card card-shine cursor-pointer group overflow-hidden rounded-2xl border border-white/[0.06]",
-        event.is_live && "ring-1 ring-destructive/30"
+        "premium-card card-shine cursor-pointer group rounded-2xl border border-white/[0.06] bg-card",
+        event.is_live && "border-primary/20"
       )}>
-        <div className="relative aspect-[16/10] overflow-hidden bg-gradient-to-br from-primary/10 via-card to-accent/10">
+        <div className="relative aspect-[16/10] overflow-hidden rounded-t-2xl bg-gradient-to-br from-primary/10 via-card to-accent/10">
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20" />
-          
-          {event.is_live && (
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-destructive to-transparent animate-live-pulse" />
-          )}
 
           {event.is_live && (
-            <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-destructive/90 backdrop-blur-sm shadow-lg shadow-destructive/30">
+            <div className="absolute top-3 left-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/90 backdrop-blur-sm shadow-lg shadow-primary/20">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
               </span>
-              <span className="text-[10px] font-bold text-white tracking-[0.15em]">LIVE</span>
+              <span className="text-[10px] font-bold text-white tracking-[0.15em]">EN VIVO</span>
             </div>
           )}
 
