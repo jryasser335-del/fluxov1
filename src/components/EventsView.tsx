@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { fetchESPNScoreboard, ESPNEvent, ESPNResponse } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
-import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./events/EventCard";
 import { SkeletonEventCard } from "./Skeleton";
@@ -179,133 +178,8 @@ const DB_LEAGUE_ALIASES: Record<string, string[]> = {
 
 const getLeagueLogoFallback = (k: string) => LEAGUE_LOGO_FALLBACKS[k] || "";
 
-// ── Hero Banner ───────────────────────────────────────────────────────────────
-function HeroBanner({
-  enriched,
-  viewers,
-  hasLink,
-  onClick,
-}: {
-  enriched: EnrichedEvent;
-  viewers: number;
-  hasLink: boolean;
-  onClick: () => void;
-}) {
-  const comp = enriched.event.competitions?.[0];
-  const competitors = comp?.competitors || [];
-  const away = competitors.find((c) => c.homeAway === "away") || competitors[0];
-  const home = competitors.find((c) => c.homeAway === "home") || competitors[1];
-  const awayScore = away?.score;
-  const homeScore = home?.score;
-  const timeText = [comp?.status?.period ? `Q${comp.status.period}` : "", comp?.status?.displayClock || ""]
-    .filter(Boolean)
-    .join(" · ");
-  const awayColor = away?.team?.color ? `#${away.team.color}` : "#1a3a5c";
-  const homeColor = home?.team?.color ? `#${home.team.color}` : "#5c1a3a";
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="relative mb-6 rounded-2xl overflow-hidden cursor-pointer group"
-      onClick={onClick}
-      style={{
-        background: `linear-gradient(135deg, ${awayColor}cc 0%, ${awayColor}44 35%, #0d1220 55%, ${homeColor}44 75%, ${homeColor}cc 100%)`,
-      }}
-    >
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,_rgba(255,255,255,0.07)_0%,_transparent_55%)] pointer-events-none" />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 pointer-events-none" />
-      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
-      <div className="absolute -inset-px rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-primary/15 via-transparent to-primary-glow/10 pointer-events-none" />
-      <div className="relative px-5 py-5 sm:px-8 sm:py-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-destructive/90 border border-white/[0.12] shadow-lg shadow-destructive/30">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
-              </span>
-              <span className="text-[10px] font-black text-white tracking-[0.2em]">LIVE</span>
-            </div>
-            <span className="text-[11px] font-semibold text-white/50 tracking-wide">{enriched.leagueName}</span>
-          </div>
-          {viewers > 0 && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-black/30 backdrop-blur-sm border border-white/[0.06]">
-              <Eye className="w-3 h-3 text-white/40" />
-              <span className="text-[10px] font-medium text-white/55 tabular-nums">{viewers.toLocaleString()}</span>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center justify-center gap-6 sm:gap-12">
-          {[
-            { team: away, score: awayScore },
-            { team: home, score: homeScore },
-          ]
-            .map((side, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 flex-1">
-                {side.team?.team?.logo ? (
-                  <div className="relative">
-                    <div className="absolute inset-0 blur-2xl opacity-50 scale-[2]">
-                      <img src={side.team.team.logo} alt="" className="w-full h-full object-contain" />
-                    </div>
-                    <img
-                      src={side.team.team.logo}
-                      alt={side.team.team.displayName}
-                      className="relative w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_8px_24px_rgba(0,0,0,0.8)]"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-white/[0.08] border border-white/[0.1] flex items-center justify-center text-white/60 font-bold text-lg">
-                    {(side.team?.team?.abbreviation || "?").slice(0, 3)}
-                  </div>
-                )}
-                <span className="text-sm sm:text-base font-bold text-white/90 text-center leading-tight max-w-[100px] sm:max-w-[140px] line-clamp-2">
-                  {side.team?.team?.shortDisplayName || side.team?.team?.displayName || "TBD"}
-                </span>
-              </div>
-            ))
-            .reduce(
-              (acc, el, i) =>
-                i === 0
-                  ? [
-                      el,
-                      <div key="score" className="flex flex-col items-center gap-1.5 flex-shrink-0">
-                        <div className="flex items-center gap-3 sm:gap-4">
-                          <span className="font-display text-4xl sm:text-5xl text-white font-bold tracking-wider drop-shadow-[0_0_24px_rgba(255,255,255,0.2)]">
-                            {awayScore ?? "–"}
-                          </span>
-                          <span className="text-xl text-white/15 font-bold">:</span>
-                          <span className="font-display text-4xl sm:text-5xl text-white font-bold tracking-wider drop-shadow-[0_0_24px_rgba(255,255,255,0.2)]">
-                            {homeScore ?? "–"}
-                          </span>
-                        </div>
-                        {timeText && (
-                          <span className="text-[10px] font-mono-premium text-primary/80 font-semibold tracking-widest uppercase">
-                            {timeText}
-                          </span>
-                        )}
-                      </div>,
-                    ]
-                  : [...acc, el],
-              [] as React.ReactNode[],
-            )}
-        </div>
-        {hasLink && (
-          <div className="flex justify-center mt-5">
-            <div className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary/90 hover:bg-primary transition-all duration-200 border border-white/[0.15] shadow-lg shadow-primary/30 group-hover:scale-105">
-              <Play className="w-4 h-4 text-white fill-white" />
-              <span className="text-sm font-bold text-white tracking-wide">Ver en vivo</span>
-            </div>
-          </div>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
+// ─────────────────────────────────────────────────────────────────────────────
 export function EventsView() {
-  const { openPlayer, isOpen } = usePlayerModal();
   const [activeSport, setActiveSport] = useState("football");
   const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -313,7 +187,7 @@ export function EventsView() {
   const [loading, setLoading] = useState(true);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
-  const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
+  
 
   // Streams: inicia desde caché si existe
   const [externalStreams, setExternalStreams] = useState<ExternalStream[]>(() => readStreamCache() || []);
@@ -590,87 +464,30 @@ export function EventsView() {
     });
   };
 
-  // ── Click INMEDIATO: abre al instante si hay link, sino espera hasta 20s ──
+  const openStreamUrl = useCallback((url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }, []);
+
   const handleEventClick = useCallback(
-    async (enriched: EnrichedEvent) => {
+    (enriched: EnrichedEvent) => {
       const comp = enriched.event.competitions?.[0];
       const status = comp?.status?.type;
       if (status?.state === "post") return;
-      const teams = comp?.competitors || [];
-      const away = teams.find((c) => c.homeAway === "away") || teams[0];
-      const home = teams.find((c) => c.homeAway === "home") || teams[1];
-      const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
 
-      // Si ya tenemos el link → abrir inmediatamente
       const existingLink = eventLinks.get(enriched.event.id);
       if (existingLink?.url1) {
-        openPlayer(title, existingLink, "live");
+        openStreamUrl(existingLink.url1);
         return;
       }
 
-      // Sin link aún → spinner en tarjeta + esperar hasta 20s
-      setResolvingIds((prev) => new Set(prev).add(enriched.event.id));
-      toast("Buscando enlace...", { duration: 3000 });
-
-      const deadline = Date.now() + 20_000;
-      const homeName = normalizeText(home?.team?.displayName || "");
-      const awayName = normalizeText(away?.team?.displayName || "");
-      const homeShort = normalizeText(home?.team?.shortDisplayName || "");
-      const awayShort = normalizeText(away?.team?.shortDisplayName || "");
-
-      while (Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 1500));
-        // Comprobar DB
-        const { data: fresh } = await supabase
-          .from("events")
-          .select("stream_url,stream_url_2,stream_url_3")
-          .eq("espn_id", enriched.event.id)
-          .maybeSingle();
-        if (fresh?.stream_url) {
-          setResolvingIds((prev) => {
-            const s = new Set(prev);
-            s.delete(enriched.event.id);
-            return s;
-          });
-          openPlayer(
-            title,
-            { url1: fresh.stream_url, url2: fresh.stream_url_2 || undefined, url3: fresh.stream_url_3 || undefined },
-            "live",
-          );
-          return;
-        }
-        // Comprobar streams en memoria (pueden haber llegado en background)
-        const current = readStreamCache();
-        if (current?.length) {
-          const ext = findBestExternalMatches(current, homeName, awayName, homeShort, awayShort);
-          if (ext.length > 0) {
-            setResolvingIds((prev) => {
-              const s = new Set(prev);
-              s.delete(enriched.event.id);
-              return s;
-            });
-            openPlayer(title, { url1: ext[0].iframe, url2: ext[1]?.iframe, url3: ext[2]?.iframe }, "live");
-            return;
-          }
-        }
-      }
-      setResolvingIds((prev) => {
-        const s = new Set(prev);
-        s.delete(enriched.event.id);
-        return s;
-      });
-      toast.error("No hay enlace disponible para este partido", { duration: 4000 });
+      toast.error("Este partido aún no tiene enlace disponible");
     },
-    [eventLinks, openPlayer],
+    [eventLinks, openStreamUrl],
   );
 
   const handleDbEventClick = (event: DbEvent) => {
     if (!event.stream_url) return;
-    openPlayer(`${event.team_home || "Team"} vs ${event.team_away || "Team"}`, {
-      url1: event.stream_url,
-      url2: event.stream_url_2 || undefined,
-      url3: event.stream_url_3 || undefined,
-    });
+    openStreamUrl(event.stream_url);
   };
 
   const formatTime = (iso: string) => {
@@ -779,20 +596,7 @@ export function EventsView() {
     for (const e of allEnrichedEvents) m.set(e.leagueKey, (m.get(e.leagueKey) || 0) + 1);
     return m;
   }, [allEnrichedEvents]);
-  const featuredLiveEvent = useMemo(() => {
-    const live = filteredEvents.filter((e) => e.event.competitions?.[0]?.status?.type?.state === "in");
-    if (!live.length) return null;
-    return live.find((e) => eventLinks.has(e.event.id)) || live[0];
-  }, [filteredEvents, eventLinks]);
-  const featuredViewers = useMemo(() => {
-    if (!featuredLiveEvent) return 0;
-    return eventLinks.get(featuredLiveEvent.event.id)?.viewers || Math.floor(Math.random() * 12000) + 3000;
-  }, [featuredLiveEvent, eventLinks]);
-  const gridEvents = useMemo(
-    () =>
-      featuredLiveEvent ? filteredEvents.filter((e) => e.event.id !== featuredLiveEvent.event.id) : filteredEvents,
-    [filteredEvents, featuredLiveEvent],
-  );
+  const gridEvents = filteredEvents;
 
   return (
     <div className="space-y-0">
@@ -917,16 +721,6 @@ export function EventsView() {
         )}
       </div>
 
-      <AnimatePresence>
-        {!loading && featuredLiveEvent && !searchQuery && !activeLeagueFilter && (
-          <HeroBanner
-            enriched={featuredLiveEvent}
-            viewers={featuredViewers}
-            hasLink={Boolean(eventLinks.get(featuredLiveEvent.event.id)?.url1)}
-            onClick={() => handleEventClick(featuredLiveEvent)}
-          />
-        )}
-      </AnimatePresence>
 
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -963,7 +757,7 @@ export function EventsView() {
                   logo: enriched.leagueLogo,
                 }}
                 hasLink={Boolean(eventLinks.get(enriched.event.id)?.url1)}
-                isResolving={resolvingIds.has(enriched.event.id)}
+                isResolving={false}
                 isFavorite={favorites.has(enriched.event.id)}
                 onToggleFavorite={() => toggleFavorite(enriched.event.id)}
                 onClick={() => handleEventClick(enriched)}
