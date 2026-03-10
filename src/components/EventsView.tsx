@@ -187,7 +187,7 @@ export function EventsView() {
   const [loading, setLoading] = useState(true);
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
   const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
-  const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
+  
 
   // Streams: inicia desde caché si existe
   const [externalStreams, setExternalStreams] = useState<ExternalStream[]>(() => readStreamCache() || []);
