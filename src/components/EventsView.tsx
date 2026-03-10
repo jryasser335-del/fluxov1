@@ -464,87 +464,30 @@ export function EventsView() {
     });
   };
 
-  // ── Click INMEDIATO: abre al instante si hay link, sino espera hasta 20s ──
+  const openStreamUrl = useCallback((url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }, []);
+
   const handleEventClick = useCallback(
-    async (enriched: EnrichedEvent) => {
+    (enriched: EnrichedEvent) => {
       const comp = enriched.event.competitions?.[0];
       const status = comp?.status?.type;
       if (status?.state === "post") return;
-      const teams = comp?.competitors || [];
-      const away = teams.find((c) => c.homeAway === "away") || teams[0];
-      const home = teams.find((c) => c.homeAway === "home") || teams[1];
-      const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
 
-      // Si ya tenemos el link → abrir inmediatamente
       const existingLink = eventLinks.get(enriched.event.id);
       if (existingLink?.url1) {
-        openPlayer(title, existingLink, "live");
+        openStreamUrl(existingLink.url1);
         return;
       }
 
-      // Sin link aún → spinner en tarjeta + esperar hasta 20s
-      setResolvingIds((prev) => new Set(prev).add(enriched.event.id));
-      toast("Buscando enlace...", { duration: 3000 });
-
-      const deadline = Date.now() + 20_000;
-      const homeName = normalizeText(home?.team?.displayName || "");
-      const awayName = normalizeText(away?.team?.displayName || "");
-      const homeShort = normalizeText(home?.team?.shortDisplayName || "");
-      const awayShort = normalizeText(away?.team?.shortDisplayName || "");
-
-      while (Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 1500));
-        // Comprobar DB
-        const { data: fresh } = await supabase
-          .from("events")
-          .select("stream_url,stream_url_2,stream_url_3")
-          .eq("espn_id", enriched.event.id)
-          .maybeSingle();
-        if (fresh?.stream_url) {
-          setResolvingIds((prev) => {
-            const s = new Set(prev);
-            s.delete(enriched.event.id);
-            return s;
-          });
-          openPlayer(
-            title,
-            { url1: fresh.stream_url, url2: fresh.stream_url_2 || undefined, url3: fresh.stream_url_3 || undefined },
-            "live",
-          );
-          return;
-        }
-        // Comprobar streams en memoria (pueden haber llegado en background)
-        const current = readStreamCache();
-        if (current?.length) {
-          const ext = findBestExternalMatches(current, homeName, awayName, homeShort, awayShort);
-          if (ext.length > 0) {
-            setResolvingIds((prev) => {
-              const s = new Set(prev);
-              s.delete(enriched.event.id);
-              return s;
-            });
-            openPlayer(title, { url1: ext[0].iframe, url2: ext[1]?.iframe, url3: ext[2]?.iframe }, "live");
-            return;
-          }
-        }
-      }
-      setResolvingIds((prev) => {
-        const s = new Set(prev);
-        s.delete(enriched.event.id);
-        return s;
-      });
-      toast.error("No hay enlace disponible para este partido", { duration: 4000 });
+      toast.error("Este partido aún no tiene enlace disponible");
     },
-    [eventLinks, openPlayer],
+    [eventLinks, openStreamUrl],
   );
 
   const handleDbEventClick = (event: DbEvent) => {
     if (!event.stream_url) return;
-    openPlayer(`${event.team_home || "Team"} vs ${event.team_away || "Team"}`, {
-      url1: event.stream_url,
-      url2: event.stream_url_2 || undefined,
-      url3: event.stream_url_3 || undefined,
-    });
+    openStreamUrl(event.stream_url);
   };
 
   const formatTime = (iso: string) => {
