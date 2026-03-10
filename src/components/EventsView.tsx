@@ -596,20 +596,7 @@ export function EventsView() {
     for (const e of allEnrichedEvents) m.set(e.leagueKey, (m.get(e.leagueKey) || 0) + 1);
     return m;
   }, [allEnrichedEvents]);
-  const featuredLiveEvent = useMemo(() => {
-    const live = filteredEvents.filter((e) => e.event.competitions?.[0]?.status?.type?.state === "in");
-    if (!live.length) return null;
-    return live.find((e) => eventLinks.has(e.event.id)) || live[0];
-  }, [filteredEvents, eventLinks]);
-  const featuredViewers = useMemo(() => {
-    if (!featuredLiveEvent) return 0;
-    return eventLinks.get(featuredLiveEvent.event.id)?.viewers || Math.floor(Math.random() * 12000) + 3000;
-  }, [featuredLiveEvent, eventLinks]);
-  const gridEvents = useMemo(
-    () =>
-      featuredLiveEvent ? filteredEvents.filter((e) => e.event.id !== featuredLiveEvent.event.id) : filteredEvents,
-    [filteredEvents, featuredLiveEvent],
-  );
+  const gridEvents = filteredEvents;
 
   return (
     <div className="space-y-0">
