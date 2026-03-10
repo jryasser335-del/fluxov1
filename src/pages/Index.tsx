@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { InstallPrompt } from "@/components/InstallPrompt";
-import { PlayerModal } from "@/components/PlayerModal";
 import { EventsView } from "@/components/EventsView";
 import { MoviesView } from "@/components/MoviesView";
 import { MultiStreamView } from "@/components/MultiStreamView";
@@ -34,57 +33,33 @@ const Index = () => {
   return (
     <>
       <div className="min-h-screen bg-background relative">
-        {/* Ambient background orbs - deeper and more cinematic */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
           <div className="absolute -top-[400px] -left-[300px] w-[800px] h-[800px] rounded-full bg-primary/[0.025] blur-[200px]" />
           <div className="absolute -bottom-[300px] -right-[300px] w-[700px] h-[700px] rounded-full bg-accent/[0.015] blur-[180px]" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.008] blur-[150px]" />
         </div>
 
         <main className="relative max-w-[1440px] mx-auto px-3 sm:px-5 md:px-8 pb-28 md:pb-8 pt-5">
           <AnimatePresence mode="wait">
             {activeView === "eventos" && (
-              <motion.div
-                key="eventos"
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              >
+              <motion.div key="eventos" variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
                 <EventsView />
               </motion.div>
             )}
             {activeView === "peliculas" && (
-              <motion.div
-                key="peliculas"
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              >
+              <motion.div key="peliculas" variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
                 <MoviesView searchQuery={movieSearch} />
               </motion.div>
             )}
             {activeView === "multistream" && (
-              <motion.div
-                key="multistream"
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              >
+              <motion.div key="multistream" variants={pageVariants} initial="initial" animate="animate" exit="exit" transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
                 <MultiStreamView />
               </motion.div>
             )}
           </AnimatePresence>
         </main>
 
-        {/* Bottom Navigation - Ultra premium glassmorphism */}
+        {/* Bottom Navigation */}
         <nav className="fixed bottom-0 left-0 right-0 z-50">
-          {/* Multi-layer glass effect */}
           <div className="absolute inset-0 bg-background/80 backdrop-blur-3xl" />
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
           
@@ -95,9 +70,7 @@ const Index = () => {
                 onClick={() => setActiveView(view)}
                 className={cn(
                   "relative flex items-center gap-2.5 px-6 py-3 rounded-2xl text-[13px] font-semibold transition-all duration-400",
-                  activeView === view
-                    ? "text-white"
-                    : "text-white/20 hover:text-white/45"
+                  activeView === view ? "text-white" : "text-white/20 hover:text-white/45"
                 )}
               >
                 {activeView === view && (
@@ -132,7 +105,6 @@ const Index = () => {
         </nav>
       </div>
 
-      <PlayerModal />
       <NotificationCenter />
       <InstallPrompt />
     </>
