@@ -304,7 +304,6 @@ function HeroBanner({
 }
 
 export function EventsView() {
-  const { openPlayer, isOpen } = usePlayerModal();
   const [activeSport, setActiveSport] = useState("football");
   const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
