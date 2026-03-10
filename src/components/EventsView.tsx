@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { fetchESPNScoreboard, ESPNEvent, ESPNResponse } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
-import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./events/EventCard";
 import { SkeletonEventCard } from "./Skeleton";
