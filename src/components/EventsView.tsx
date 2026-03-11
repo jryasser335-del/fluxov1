@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { fetchESPNScoreboard, ESPNEvent, ESPNResponse } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
-import { useEventsStore, SharedEvent } from "@/components/MultiStreamView";
+
 import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./events/EventCard";
 import { SkeletonEventCard } from "./Skeleton";
@@ -307,7 +307,7 @@ function HeroBanner({
 
 export function EventsView() {
   const { openPlayer, isOpen } = usePlayerModal();
-  const setSharedEvents = useEventsStore((s) => s.setEvents);
+
   const [activeSport, setActiveSport] = useState("football");
   const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -784,39 +784,6 @@ export function EventsView() {
     [filteredEvents, eventLinks],
   );
 
-  // Publish ALL sport events (with or without link) to the shared store for MultiStreamView
-  useEffect(() => {
-    if (!allEnrichedEvents.length) return;
-    const shared: SharedEvent[] = allEnrichedEvents.map(({ event, leagueKey, leagueName }) => {
-      const comp = event.competitions?.[0];
-      const competitors = comp?.competitors || [];
-      const home = competitors.find((c) => c.homeAway === "home");
-      const away = competitors.find((c) => c.homeAway === "away");
-      const link = eventLinks.get(event.id);
-      return {
-        id: event.id,
-        name: event.name || `${away?.team?.displayName ?? "TBD"} vs ${home?.team?.displayName ?? "TBD"}`,
-        url1: link?.url1 ?? "",
-        url2: link?.url2,
-        url3: link?.url3,
-        teamHome: home?.team?.displayName ?? "",
-        teamAway: away?.team?.displayName ?? "",
-        league: leagueKey,
-        leagueName,
-        sport: leagueKey.includes("nba")
-          ? "NBA"
-          : leagueKey.includes("nhl")
-            ? "NHL"
-            : leagueKey.includes("mlb")
-              ? "MLB"
-              : "Football",
-        isLive: comp?.status?.type?.state === "in",
-        state: (comp?.status?.type?.state as "in" | "pre" | "post") ?? "pre",
-        date: comp?.date ?? event.date,
-      };
-    });
-    setSharedEvents(shared);
-  }, [allEnrichedEvents, eventLinks, setSharedEvents]);
   const leagueCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of allEnrichedEvents) m.set(e.leagueKey, (m.get(e.leagueKey) || 0) + 1);
