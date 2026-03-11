@@ -45,13 +45,13 @@ interface ExternalStream {
 type ResolvedUrls = { url1: string; url2?: string; url3?: string; source: "db" | "external" };
 
 const normalizeText = (s: string) =>
-  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
-function findBestExternalMatches(
-  streams: ExternalStream[],
-  homeName: string,
-  awayName: string,
-): ExternalStream[] {
+function findBestExternalMatches(streams: ExternalStream[], homeName: string, awayName: string): ExternalStream[] {
   const scored: { stream: ExternalStream; score: number }[] = [];
   for (const s of streams) {
     const sName = normalizeText(s.name);
@@ -136,10 +136,18 @@ export function MultiStreamView() {
     if (shouldBlock) setLoading(true);
 
     try {
+      // Filter by today's date using UTC — matches the same day shown in EventsView
+      const now = new Date();
+      const todayUTC = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+      const tomorrowUTC = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      const tomorrowStr = `${tomorrowUTC.getUTCFullYear()}-${String(tomorrowUTC.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrowUTC.getUTCDate()).padStart(2, "0")}`;
+
       const { data, error } = await supabase
         .from("events")
         .select("id,name,stream_url,stream_url_2,stream_url_3,team_home,team_away,league,is_live,event_date,is_active")
         .eq("is_active", true)
+        .gte("event_date", `${todayUTC}T00:00:00`)
+        .lt("event_date", `${tomorrowStr}T00:00:00`)
         .order("event_date", { ascending: true });
 
       if (!error && data) {
@@ -186,19 +194,18 @@ export function MultiStreamView() {
   }, [slots]);
 
   const effectiveEvents = useMemo<AvailableEvent[]>(() => {
-    const externalAsEvents = externalStreams.slice(0, 120)
-      .map((stream, idx) => ({
-        id: `ext-${stream.source}-${stream.id || idx}`,
-        name: stream.name,
-        stream_url: stream.iframe,
-        stream_url_2: null,
-        stream_url_3: null,
-        team_home: null,
-        team_away: null,
-        league: stream.category || stream.source.toUpperCase(),
-        is_live: true,
-        event_date: new Date().toISOString(),
-      }));
+    const externalAsEvents = externalStreams.slice(0, 120).map((stream, idx) => ({
+      id: `ext-${stream.source}-${stream.id || idx}`,
+      name: stream.name,
+      stream_url: stream.iframe,
+      stream_url_2: null,
+      stream_url_3: null,
+      team_home: null,
+      team_away: null,
+      league: stream.category || stream.source.toUpperCase(),
+      is_live: true,
+      event_date: new Date().toISOString(),
+    }));
 
     return [...availableEvents, ...externalAsEvents];
   }, [availableEvents, externalStreams]);
@@ -255,9 +262,14 @@ export function MultiStreamView() {
 
   const filteredEvents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    // Only show events from today (UTC)
+    const now = new Date();
+    const todayUTC = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
     return resolvedEvents.filter(({ event, streams }) => {
       if (!streams) return false;
       if (selectedEventIds.has(event.id)) return false;
+      // Filter by today's date
+      if (event.event_date && event.event_date.slice(0, 10) !== todayUTC) return false;
       if (!q) return true;
       const hay = `${event.name} ${event.team_home ?? ""} ${event.team_away ?? ""} ${event.league ?? ""}`.toLowerCase();
       return hay.includes(q);
@@ -292,22 +304,36 @@ export function MultiStreamView() {
   };
 
   const handleRemoveStream = (slotId: number) => {
-    setSlots(prev => prev.map(slot => 
-      slot.id === slotId ? { ...slot, eventId: null, url: "", title: "", isActive: false, teamHome: undefined, teamAway: undefined, league: undefined, isLive: undefined } : slot
-    ));
+    setSlots((prev) =>
+      prev.map((slot) =>
+        slot.id === slotId
+          ? {
+              ...slot,
+              eventId: null,
+              url: "",
+              title: "",
+              isActive: false,
+              teamHome: undefined,
+              teamAway: undefined,
+              league: undefined,
+              isLive: undefined,
+            }
+          : slot,
+      ),
+    );
   };
 
   const formatStreamUrl = (url: string) => {
     if (!url) return "";
-    if (!url.startsWith('http://') && !url.startsWith('https://')) url = 'https://' + url;
-    const separator = url.includes('?') ? '&' : '?';
+    if (!url.startsWith("http://") && !url.startsWith("https://")) url = "https://" + url;
+    const separator = url.includes("?") ? "&" : "?";
     return `${url}${separator}autoplay=1&auto_play=true&muted=0`;
   };
 
   return (
     <div className={cn("min-h-screen", isFullscreen && "fixed inset-0 z-50 bg-background p-3")}>
       {/* Header */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center justify-between mb-5"
@@ -324,10 +350,9 @@ export function MultiStreamView() {
           <div>
             <h1 className="text-lg font-semibold text-foreground">Multi Stream</h1>
             <p className="text-[11px] text-muted-foreground/50">
-              {activeSlots.length > 0 
+              {activeSlots.length > 0
                 ? `${activeSlots.length} de ${layout} streams activos`
-                : "Añade partidos para ver en simultáneo"
-              }
+                : "Añade partidos para ver en simultáneo"}
             </p>
           </div>
         </div>
@@ -343,7 +368,7 @@ export function MultiStreamView() {
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-300",
                   layout === n
                     ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                    : "text-muted-foreground/50 hover:text-foreground hover:bg-white/[0.04]"
+                    : "text-muted-foreground/50 hover:text-foreground hover:bg-white/[0.04]",
                 )}
               >
                 {n === 2 ? <Grid2X2 className="w-3.5 h-3.5" /> : <LayoutGrid className="w-3.5 h-3.5" />}
@@ -363,11 +388,13 @@ export function MultiStreamView() {
       </motion.div>
 
       {/* Grid */}
-      <div className={cn(
-        "grid gap-3",
-        layout === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2",
-        isFullscreen && "h-[calc(100vh-80px)]"
-      )}>
+      <div
+        className={cn(
+          "grid gap-3",
+          layout === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2",
+          isFullscreen && "h-[calc(100vh-80px)]",
+        )}
+      >
         {displaySlots.map((slot, index) => (
           <motion.div
             key={slot.id}
@@ -379,7 +406,7 @@ export function MultiStreamView() {
               slot.isActive
                 ? "border border-white/[0.08] bg-card shadow-xl"
                 : "border border-dashed border-white/[0.06] bg-gradient-to-br from-white/[0.01] to-transparent hover:border-primary/20 hover:from-primary/[0.02]",
-              "aspect-video"
+              "aspect-video",
             )}
           >
             {slot.isActive ? (
@@ -398,7 +425,9 @@ export function MultiStreamView() {
                     {slot.isLive && (
                       <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary shadow-lg shadow-primary/20">
                         <Radio className="w-2.5 h-2.5 text-primary-foreground animate-pulse" />
-                        <span className="text-[9px] font-bold text-primary-foreground uppercase tracking-wider">En Vivo</span>
+                        <span className="text-[9px] font-bold text-primary-foreground uppercase tracking-wider">
+                          En Vivo
+                        </span>
                       </div>
                     )}
                     <span className="text-[11px] font-semibold text-white truncate">{slot.title}</span>
@@ -466,7 +495,9 @@ export function MultiStreamView() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-[12px] font-semibold text-foreground truncate">{event.name}</span>
+                                  <span className="text-[12px] font-semibold text-foreground truncate">
+                                    {event.name}
+                                  </span>
                                   {event.is_live && (
                                     <span className="px-1.5 py-0.5 rounded-md bg-primary/15 border border-primary/20 text-[8px] font-bold text-primary uppercase shrink-0">
                                       Live
@@ -476,7 +507,14 @@ export function MultiStreamView() {
                                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/40 mt-0.5">
                                   {event.league && <span className="text-primary/60">{event.league}</span>}
                                   {event.league && <span>•</span>}
-                                  <span>{new Date(event.event_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                  <span>
+                                    {new Date(event.event_date).toLocaleDateString(undefined, {
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </span>
                                 </div>
                               </div>
                               <div className="w-2 h-2 rounded-full bg-success/80 shrink-0" />
@@ -487,7 +525,10 @@ export function MultiStreamView() {
                     </div>
 
                     <button
-                      onClick={() => { setShowEventPicker(null); setSearchQuery(""); }}
+                      onClick={() => {
+                        setShowEventPicker(null);
+                        setSearchQuery("");
+                      }}
                       className="mt-2 w-full py-2 rounded-xl bg-white/[0.02] border border-white/[0.04] text-muted-foreground/50 text-xs font-medium hover:bg-white/[0.05] hover:text-foreground/70 transition-all"
                     >
                       Cancelar
@@ -515,7 +556,11 @@ export function MultiStreamView() {
                         Añadir Stream
                       </span>
                       <span className="block text-[10px] text-muted-foreground/20 mt-0.5">
-                        {resolvedEvents.filter(({ event, streams }) => !!streams && !selectedEventIds.has(event.id)).length} disponibles
+                        {
+                          resolvedEvents.filter(({ event, streams }) => !!streams && !selectedEventIds.has(event.id))
+                            .length
+                        }{" "}
+                        disponibles
                       </span>
                     </div>
                   </motion.button>
