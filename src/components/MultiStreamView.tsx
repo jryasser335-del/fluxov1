@@ -124,14 +124,24 @@ export function MultiStreamView() {
         }),
       );
 
-      const espnEvents: (typeof results)[0] extends PromiseFulfilledResult<infer T> ? T : never = [];
+      type EspnItem = {
+        espnId: string;
+        name: string;
+        teamHome: string;
+        teamAway: string;
+        leagueName: string;
+        sport: string;
+        isLive: boolean;
+        state: "in" | "pre" | "post";
+      };
+      const espnEvents: EspnItem[] = [];
       const seen = new Set<string>();
       for (const r of results) {
         if (r.status === "fulfilled") {
           for (const e of r.value) {
             if (!seen.has(e.espnId)) {
               seen.add(e.espnId);
-              (espnEvents as any[]).push(e);
+              espnEvents.push(e);
             }
           }
         }
@@ -165,7 +175,7 @@ export function MultiStreamView() {
       }
 
       // 3. Match links to ESPN events
-      const matched: MatchEvent[] = (espnEvents as any[]).map((e) => {
+      const matched: MatchEvent[] = espnEvents.map((e) => {
         let link = dbMap.get(e.espnId);
         if (!link) {
           const key = normalizeText(`${e.teamHome} ${e.teamAway}`);
