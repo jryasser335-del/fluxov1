@@ -45,21 +45,20 @@ export function MultiStreamView() {
     setLoading(true);
     (async () => {
       try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+        // Broad window: from 12h ago to 24h ahead to cover timezone differences
+        const now = new Date();
+        const start = new Date(now.getTime() - 12 * 60 * 60 * 1000);
+        const end = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
         const { data, error } = await supabase
           .from("events")
           .select("id,name,stream_url,stream_url_2,stream_url_3,team_home,team_away,league,is_live")
           .eq("is_active", true)
-          .gte("event_date", today.toISOString())
-          .lt("event_date", tomorrow.toISOString())
+          .gte("event_date", start.toISOString())
+          .lt("event_date", end.toISOString())
           .order("event_date", { ascending: true });
 
         if (!error && data && !cancelled) {
-          // Only events that have at least one stream link
           setDbEvents((data as unknown as DbEvent[]).filter(e => e.stream_url || e.stream_url_2 || e.stream_url_3));
         }
       } catch (e) {
