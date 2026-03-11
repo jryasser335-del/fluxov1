@@ -26,82 +26,79 @@ const SPORT_EMOJI: Record<string, string> = {
   Football: "⚽",
 };
 
-// ── RGB Falling Particles ─────────────────────────────────────────────────────
-interface Particle {
-  id: number;
-  x: number;
-  size: number;
-  duration: number;
-  delay: number;
-  hue: number;
-  opacity: number;
-}
-
+// ── RGB Canvas Particles ──────────────────────────────────────────────────────
 function RGBParticles() {
-  const [particles, setParticles] = useState<Particle[]>([]);
-  const nextId = useRef(0);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    // Initial burst
-    const initial: Particle[] = Array.from({ length: 30 }, () => ({
-      id: nextId.current++,
-      x: Math.random() * 100,
-      size: Math.random() * 5 + 2,
-      duration: Math.random() * 4 + 3,
-      delay: Math.random() * 4,
-      hue: Math.floor(Math.random() * 360),
-      opacity: Math.random() * 0.6 + 0.3,
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    type Dot = {
+      x: number;
+      y: number;
+      vy: number;
+      vx: number;
+      size: number;
+      hue: number;
+      opacity: number;
+      hueSpeed: number;
+    };
+
+    const dots: Dot[] = Array.from({ length: 45 }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      vy: Math.random() * 1.2 + 0.4,
+      vx: (Math.random() - 0.5) * 0.4,
+      size: Math.random() * 4 + 2,
+      hue: Math.random() * 360,
+      opacity: Math.random() * 0.5 + 0.3,
+      hueSpeed: Math.random() * 2 + 0.5,
     }));
-    setParticles(initial);
 
-    // Keep adding new particles
-    const interval = setInterval(() => {
-      setParticles((prev) => {
-        const next = prev.filter((p) => p.delay + p.duration > 0); // keep alive
-        const newParticle: Particle = {
-          id: nextId.current++,
-          x: Math.random() * 100,
-          size: Math.random() * 5 + 2,
-          duration: Math.random() * 4 + 3,
-          delay: 0,
-          hue: Math.floor(Math.random() * 360),
-          opacity: Math.random() * 0.6 + 0.3,
-        };
-        return [...next.slice(-40), newParticle];
-      });
-    }, 300);
+    let raf: number;
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const d of dots) {
+        d.y += d.vy;
+        d.x += d.vx;
+        d.hue = (d.hue + d.hueSpeed) % 360;
+        if (d.y > canvas.height + 10) {
+          d.y = -10;
+          d.x = Math.random() * canvas.width;
+        }
+        if (d.x < -10) d.x = canvas.width + 10;
+        if (d.x > canvas.width + 10) d.x = -10;
 
-    return () => clearInterval(interval);
+        const color = `hsla(${d.hue}, 100%, 60%, ${d.opacity})`;
+        ctx.beginPath();
+        ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.shadowColor = `hsl(${d.hue}, 100%, 60%)`;
+        ctx.shadowBlur = d.size * 3;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    draw();
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", resize);
+    };
   }, []);
 
-  return (
-    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-      {particles.map((p) => (
-        <div
-          key={p.id}
-          className="absolute rounded-full"
-          style={{
-            left: `${p.x}%`,
-            top: "-10px",
-            width: p.size,
-            height: p.size,
-            opacity: p.opacity,
-            background: `hsl(${p.hue}, 100%, 60%)`,
-            boxShadow: `0 0 ${p.size * 2}px hsl(${p.hue}, 100%, 60%), 0 0 ${p.size * 4}px hsl(${p.hue}, 100%, 50%)`,
-            animation: `fall-particle ${p.duration}s ${p.delay}s linear forwards`,
-          }}
-        />
-      ))}
-      <style>{`
-        @keyframes fall-particle {
-          0%   { transform: translateY(0px) rotate(0deg); opacity: var(--op, 0.8); }
-          10%  { opacity: var(--op, 0.8); }
-          90%  { opacity: var(--op, 0.4); }
-          100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
-        }
-      `}</style>
-    </div>
-  );
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" style={{ opacity: 0.7 }} />;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -124,12 +121,9 @@ export function MultiStreamView() {
   const filteredEvents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const sorted = [...allEvents].sort((a, b) => {
-      const aLive = a.isLive ? 0 : 1;
-      const bLive = b.isLive ? 0 : 1;
-      if (aLive !== bLive) return aLive - bLive;
-      const aLink = a.url1 ? 0 : 1;
-      const bLink = b.url1 ? 0 : 1;
-      return aLink - bLink;
+      if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
+      if (!!a.url1 !== !!b.url1) return a.url1 ? -1 : 1;
+      return 0;
     });
     return sorted.filter((event) => {
       if (selectedEventIds.has(event.id)) return false;
@@ -201,7 +195,6 @@ export function MultiStreamView() {
 
   return (
     <div className={cn("min-h-screen relative", isFullscreen && "fixed inset-0 z-50 bg-background p-3")}>
-      {/* RGB Falling Particles */}
       <RGBParticles />
 
       {/* Header */}
@@ -247,7 +240,6 @@ export function MultiStreamView() {
               </button>
             ))}
           </div>
-
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="h-9 w-9 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-white/[0.06] transition-all duration-300"
@@ -257,13 +249,14 @@ export function MultiStreamView() {
         </div>
       </motion.div>
 
-      {/* ── Grid — centered when layout=2 ── */}
+      {/* ── GRID: centered when layout=2, normal 2x2 when layout=4 ── */}
       <div
-        className={cn(
-          "relative z-10",
-          layout === 2 ? "flex justify-center gap-3" : "grid grid-cols-1 md:grid-cols-2 gap-3",
-          isFullscreen && "h-[calc(100vh-80px)]",
-        )}
+        className={cn("relative z-10", isFullscreen && "h-[calc(100vh-80px)]")}
+        style={
+          layout === 2
+            ? { display: "flex", justifyContent: "center", alignItems: "flex-start", gap: "12px" }
+            : { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px" }
+        }
       >
         {displaySlots.map((slot, index) => (
           <motion.div
@@ -271,9 +264,9 @@ export function MultiStreamView() {
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.06, duration: 0.3 }}
+            style={layout === 2 ? { width: "calc(50% - 6px)", flexShrink: 0 } : {}}
             className={cn(
               "relative rounded-2xl overflow-hidden transition-all duration-300 group aspect-video",
-              layout === 2 ? "w-full max-w-[48%]" : "w-full",
               slot.isActive
                 ? "border border-white/[0.08] bg-card shadow-xl"
                 : "border border-dashed border-white/[0.06] bg-gradient-to-br from-white/[0.01] to-transparent hover:border-primary/20 hover:from-primary/[0.02]",
@@ -336,7 +329,6 @@ export function MultiStreamView() {
                         autoFocus
                       />
                     </div>
-
                     <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 scrollbar-hide">
                       {allEvents.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-24 text-muted-foreground/30 gap-1.5">
@@ -406,7 +398,6 @@ export function MultiStreamView() {
                         })
                       )}
                     </div>
-
                     <button
                       onClick={() => {
                         setShowEventPicker(null);
