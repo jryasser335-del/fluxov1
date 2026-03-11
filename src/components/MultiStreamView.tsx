@@ -14,14 +14,16 @@ interface StreamSlot {
   category?: string;
 }
 
-interface ExternalStream {
+interface DbEvent {
   id: string;
   name: string;
-  category: string;
-  iframe: string;
-  poster?: string;
-  viewers?: number;
-  source: string;
+  stream_url: string | null;
+  stream_url_2: string | null;
+  stream_url_3: string | null;
+  team_home: string | null;
+  team_away: string | null;
+  league: string | null;
+  is_live: boolean;
 }
 
 export function MultiStreamView() {
@@ -34,7 +36,7 @@ export function MultiStreamView() {
   ]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEventPicker, setShowEventPicker] = useState<number | null>(null);
-  const [streams, setStreams] = useState<ExternalStream[]>([]);
+  const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -43,9 +45,22 @@ export function MultiStreamView() {
     setLoading(true);
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("fetch-all-streams", { body: {} });
-        if (!error && data?.streams && !cancelled) {
-          setStreams(data.streams as ExternalStream[]);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const { data, error } = await supabase
+          .from("events")
+          .select("id,name,stream_url,stream_url_2,stream_url_3,team_home,team_away,league,is_live")
+          .eq("is_active", true)
+          .gte("event_date", today.toISOString())
+          .lt("event_date", tomorrow.toISOString())
+          .order("event_date", { ascending: true });
+
+        if (!error && data && !cancelled) {
+          // Only events that have at least one stream link
+          setDbEvents((data as unknown as DbEvent[]).filter(e => e.stream_url || e.stream_url_2 || e.stream_url_3));
         }
       } catch (e) {
         console.error("MultiStream fetch error", e);
@@ -60,20 +75,21 @@ export function MultiStreamView() {
 
   const filteredStreams = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return streams.filter(s => {
-      if (selectedIds.has(s.id)) return false;
+    return dbEvents.filter(e => {
+      if (selectedIds.has(e.id)) return false;
       if (!q) return true;
-      return `${s.name} ${s.category}`.toLowerCase().includes(q);
+      return `${e.name} ${e.team_home ?? ""} ${e.team_away ?? ""} ${e.league ?? ""}`.toLowerCase().includes(q);
     });
-  }, [streams, searchQuery, selectedIds]);
+  }, [dbEvents, searchQuery, selectedIds]);
 
   const activeSlots = slots.filter(s => s.isActive);
   const displaySlots = layout === 2 ? slots.slice(0, 2) : slots;
 
-  const handleSelect = (slotId: number, stream: ExternalStream) => {
+  const handleSelect = (slotId: number, event: DbEvent) => {
+    const url = event.stream_url || event.stream_url_2 || event.stream_url_3 || "";
     setSlots(prev => prev.map(slot =>
       slot.id === slotId
-        ? { ...slot, eventId: stream.id, url: stream.iframe, title: stream.name, category: stream.category, isActive: true }
+        ? { ...slot, eventId: event.id, url, title: event.name, category: event.league || undefined, isActive: true }
         : slot
     ));
     setShowEventPicker(null);
@@ -224,28 +240,26 @@ export function MultiStreamView() {
                           <span className="text-[11px] font-medium">No hay streams disponibles</span>
                         </div>
                       ) : (
-                        filteredStreams.map(stream => (
+                        filteredStreams.map(ev => (
                           <button
-                            key={stream.id}
-                            onClick={() => handleSelect(slot.id, stream)}
+                            key={ev.id}
+                            onClick={() => handleSelect(slot.id, ev)}
                             className="w-full p-2.5 rounded-xl bg-white/[0.02] hover:bg-primary/[0.05] border border-white/[0.04] hover:border-primary/20 transition-all text-left group/item"
                           >
                             <div className="flex items-center gap-2.5">
-                              {stream.poster ? (
-                                <img src={stream.poster} alt="" className="w-9 h-9 rounded-xl object-cover border border-white/10 shrink-0" />
-                              ) : (
-                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
-                                  <Play className="w-3.5 h-3.5 text-primary" />
-                                </div>
-                              )}
+                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
+                                <Play className="w-3.5 h-3.5 text-primary" />
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-[12px] font-semibold text-foreground truncate">{stream.name}</span>
+                                  <span className="text-[12px] font-semibold text-foreground truncate">{ev.name}</span>
+                                  {ev.is_live && (
+                                    <span className="px-1.5 py-0.5 rounded-md bg-primary/15 border border-primary/20 text-[8px] font-bold text-primary uppercase shrink-0">Live</span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/40 mt-0.5">
-                                  <span className="text-primary/60">{stream.source.toUpperCase()}</span>
-                                  {stream.category && <><span>•</span><span>{stream.category}</span></>}
-                                  {stream.viewers != null && stream.viewers > 0 && <><span>•</span><span>{stream.viewers} viendo</span></>}
+                                  {ev.league && <span className="text-primary/60">{ev.league}</span>}
+                                  {ev.team_home && ev.team_away && <><span>•</span><span>{ev.team_home} vs {ev.team_away}</span></>}
                                 </div>
                               </div>
                               <div className="w-2 h-2 rounded-full bg-success/80 shrink-0" />
@@ -281,7 +295,7 @@ export function MultiStreamView() {
                         Añadir Stream
                       </span>
                       <span className="block text-[10px] text-muted-foreground/20 mt-0.5">
-                        {streams.length - selectedIds.size} disponibles
+                        {dbEvents.length - selectedIds.size} disponibles
                       </span>
                     </div>
                   </motion.button>
