@@ -297,7 +297,7 @@ export function MultiStreamView() {
                         Añadir Stream
                       </span>
                       <span className="block text-[10px] text-muted-foreground/20 mt-0.5">
-                        {streams.length - selectedIds.size} disponibles
+                        {dbEvents.length - selectedIds.size} disponibles
                       </span>
                     </div>
                   </motion.button>
