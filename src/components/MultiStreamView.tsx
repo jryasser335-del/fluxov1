@@ -240,28 +240,26 @@ export function MultiStreamView() {
                           <span className="text-[11px] font-medium">No hay streams disponibles</span>
                         </div>
                       ) : (
-                        filteredStreams.map(stream => (
+                        filteredStreams.map(ev => (
                           <button
-                            key={stream.id}
-                            onClick={() => handleSelect(slot.id, stream)}
+                            key={ev.id}
+                            onClick={() => handleSelect(slot.id, ev)}
                             className="w-full p-2.5 rounded-xl bg-white/[0.02] hover:bg-primary/[0.05] border border-white/[0.04] hover:border-primary/20 transition-all text-left group/item"
                           >
                             <div className="flex items-center gap-2.5">
-                              {stream.poster ? (
-                                <img src={stream.poster} alt="" className="w-9 h-9 rounded-xl object-cover border border-white/10 shrink-0" />
-                              ) : (
-                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
-                                  <Play className="w-3.5 h-3.5 text-primary" />
-                                </div>
-                              )}
+                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/10 flex items-center justify-center shrink-0">
+                                <Play className="w-3.5 h-3.5 text-primary" />
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5">
-                                  <span className="text-[12px] font-semibold text-foreground truncate">{stream.name}</span>
+                                  <span className="text-[12px] font-semibold text-foreground truncate">{ev.name}</span>
+                                  {ev.is_live && (
+                                    <span className="px-1.5 py-0.5 rounded-md bg-primary/15 border border-primary/20 text-[8px] font-bold text-primary uppercase shrink-0">Live</span>
+                                  )}
                                 </div>
                                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/40 mt-0.5">
-                                  <span className="text-primary/60">{stream.source.toUpperCase()}</span>
-                                  {stream.category && <><span>•</span><span>{stream.category}</span></>}
-                                  {stream.viewers != null && stream.viewers > 0 && <><span>•</span><span>{stream.viewers} viendo</span></>}
+                                  {ev.league && <span className="text-primary/60">{ev.league}</span>}
+                                  {ev.team_home && ev.team_away && <><span>•</span><span>{ev.team_home} vs {ev.team_away}</span></>}
                                 </div>
                               </div>
                               <div className="w-2 h-2 rounded-full bg-success/80 shrink-0" />
