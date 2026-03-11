@@ -75,20 +75,21 @@ export function MultiStreamView() {
 
   const filteredStreams = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return streams.filter(s => {
-      if (selectedIds.has(s.id)) return false;
+    return dbEvents.filter(e => {
+      if (selectedIds.has(e.id)) return false;
       if (!q) return true;
-      return `${s.name} ${s.category}`.toLowerCase().includes(q);
+      return `${e.name} ${e.team_home ?? ""} ${e.team_away ?? ""} ${e.league ?? ""}`.toLowerCase().includes(q);
     });
-  }, [streams, searchQuery, selectedIds]);
+  }, [dbEvents, searchQuery, selectedIds]);
 
   const activeSlots = slots.filter(s => s.isActive);
   const displaySlots = layout === 2 ? slots.slice(0, 2) : slots;
 
-  const handleSelect = (slotId: number, stream: ExternalStream) => {
+  const handleSelect = (slotId: number, event: DbEvent) => {
+    const url = event.stream_url || event.stream_url_2 || event.stream_url_3 || "";
     setSlots(prev => prev.map(slot =>
       slot.id === slotId
-        ? { ...slot, eventId: stream.id, url: stream.iframe, title: stream.name, category: stream.category, isActive: true }
+        ? { ...slot, eventId: event.id, url, title: event.name, category: event.league || undefined, isActive: true }
         : slot
     ));
     setShowEventPicker(null);
