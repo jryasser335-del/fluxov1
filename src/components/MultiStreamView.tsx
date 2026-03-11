@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Plus, X, Maximize2, Minimize2, Grid2X2, LayoutGrid, Search, Trophy, Play, Monitor, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { useEventsStore, SharedEvent } from "@/hooks/useEventsStore";
 
 interface StreamSlot {
   id: number;
@@ -15,100 +15,95 @@ interface StreamSlot {
   teamHome?: string;
   teamAway?: string;
   league?: string;
+  leagueName?: string;
   isLive?: boolean;
 }
 
-interface AvailableEvent {
-  id: string;
-  name: string;
-  stream_url: string | null;
-  stream_url_2: string | null;
-  stream_url_3: string | null;
-  team_home: string | null;
-  team_away: string | null;
-  league: string | null;
-  is_live: boolean;
-  event_date: string;
+const SPORT_EMOJI: Record<string, string> = {
+  NBA: "🏀",
+  NHL: "🏒",
+  MLB: "⚾",
+  Football: "⚽",
+};
+
+// ── RGB Falling Particles ─────────────────────────────────────────────────────
+interface Particle {
+  id: number;
+  x: number;
+  size: number;
+  duration: number;
+  delay: number;
+  hue: number;
+  opacity: number;
 }
 
-interface ExternalStream {
-  id: string;
-  name: string;
-  category: string;
-  iframe: string;
-  poster?: string;
-  viewers?: number;
-  source: "ppv" | "streamed" | "moviebite";
-  channels?: string;
+function RGBParticles() {
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const nextId = useRef(0);
+
+  useEffect(() => {
+    // Initial burst
+    const initial: Particle[] = Array.from({ length: 30 }, () => ({
+      id: nextId.current++,
+      x: Math.random() * 100,
+      size: Math.random() * 5 + 2,
+      duration: Math.random() * 4 + 3,
+      delay: Math.random() * 4,
+      hue: Math.floor(Math.random() * 360),
+      opacity: Math.random() * 0.6 + 0.3,
+    }));
+    setParticles(initial);
+
+    // Keep adding new particles
+    const interval = setInterval(() => {
+      setParticles((prev) => {
+        const next = prev.filter((p) => p.delay + p.duration > 0); // keep alive
+        const newParticle: Particle = {
+          id: nextId.current++,
+          x: Math.random() * 100,
+          size: Math.random() * 5 + 2,
+          duration: Math.random() * 4 + 3,
+          delay: 0,
+          hue: Math.floor(Math.random() * 360),
+          opacity: Math.random() * 0.6 + 0.3,
+        };
+        return [...next.slice(-40), newParticle];
+      });
+    }, 300);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
+      {particles.map((p) => (
+        <div
+          key={p.id}
+          className="absolute rounded-full"
+          style={{
+            left: `${p.x}%`,
+            top: "-10px",
+            width: p.size,
+            height: p.size,
+            opacity: p.opacity,
+            background: `hsl(${p.hue}, 100%, 60%)`,
+            boxShadow: `0 0 ${p.size * 2}px hsl(${p.hue}, 100%, 60%), 0 0 ${p.size * 4}px hsl(${p.hue}, 100%, 50%)`,
+            animation: `fall-particle ${p.duration}s ${p.delay}s linear forwards`,
+          }}
+        />
+      ))}
+      <style>{`
+        @keyframes fall-particle {
+          0%   { transform: translateY(0px) rotate(0deg); opacity: var(--op, 0.8); }
+          10%  { opacity: var(--op, 0.8); }
+          90%  { opacity: var(--op, 0.4); }
+          100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+        }
+      `}</style>
+    </div>
+  );
 }
-
-type ResolvedUrls = { url1: string; url2?: string; url3?: string; source: "db" | "external" };
-
-const normalizeText = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-
-function findBestExternalMatches(streams: ExternalStream[], homeName: string, awayName: string): ExternalStream[] {
-  const scored: { stream: ExternalStream; score: number }[] = [];
-  for (const s of streams) {
-    const sName = normalizeText(s.name);
-    const homeMatch = homeName.length > 2 && sName.includes(homeName);
-    const awayMatch = awayName.length > 2 && sName.includes(awayName);
-    const score = (homeMatch ? 1 : 0) + (awayMatch ? 1 : 0);
-    if (score >= 1) scored.push({ stream: s, score });
-  }
-  scored.sort((a, b) => b.score - a.score);
-  const result: ExternalStream[] = [];
-  const usedSources = new Set<string>();
-  for (const { stream } of scored) {
-    if (result.length >= 3) break;
-    if (!usedSources.has(stream.source)) {
-      result.push(stream);
-      usedSources.add(stream.source);
-    }
-  }
-  for (const { stream } of scored) {
-    if (result.length >= 3) break;
-    if (!result.includes(stream)) result.push(stream);
-  }
-  return result;
-}
-
-function findExternalMatchesByEventName(streams: ExternalStream[], eventName: string): ExternalStream[] {
-  const normalizedEventName = normalizeText(eventName || "");
-  if (!normalizedEventName) return [];
-
-  const tokens = normalizedEventName.split(/\s+/).filter((t) => t.length > 2);
-  if (tokens.length === 0) return [];
-
-  const scored: { stream: ExternalStream; score: number }[] = [];
-  for (const s of streams) {
-    const sName = normalizeText(s.name || "");
-    const tokenHits = tokens.reduce((acc, token) => (sName.includes(token) ? acc + 1 : acc), 0);
-    if (tokenHits > 0) scored.push({ stream: s, score: tokenHits / tokens.length });
-  }
-
-  scored.sort((a, b) => b.score - a.score);
-
-  const result: ExternalStream[] = [];
-  const usedSources = new Set<string>();
-  for (const { stream } of scored) {
-    if (result.length >= 3) break;
-    if (!usedSources.has(stream.source)) {
-      result.push(stream);
-      usedSources.add(stream.source);
-    }
-  }
-  for (const { stream } of scored) {
-    if (result.length >= 3) break;
-    if (!result.includes(stream)) result.push(stream);
-  }
-
-  return result;
-}
+// ─────────────────────────────────────────────────────────────────────────────
 
 export function MultiStreamView() {
   const [layout, setLayout] = useState<2 | 4>(4);
@@ -120,180 +115,50 @@ export function MultiStreamView() {
   ]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEventPicker, setShowEventPicker] = useState<number | null>(null);
-  const [availableEvents, setAvailableEvents] = useState<AvailableEvent[]>([]);
-  const [externalStreams, setExternalStreams] = useState<ExternalStream[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const fetchInFlightRef = useRef(false);
-  const hasLoadedOnceRef = useRef(false);
 
-  const fetchEvents = useCallback(async (background = false) => {
-    if (fetchInFlightRef.current) return;
-    fetchInFlightRef.current = true;
+  const allEvents = useEventsStore((s) => s.events);
 
-    // Only show blocking loader on first load
-    const shouldBlock = !background && !hasLoadedOnceRef.current;
-    if (shouldBlock) setLoading(true);
-
-    try {
-      // Filter by today's date using UTC — matches the same day shown in EventsView
-      const now = new Date();
-      const todayUTC = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
-      const tomorrowUTC = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      const tomorrowStr = `${tomorrowUTC.getUTCFullYear()}-${String(tomorrowUTC.getUTCMonth() + 1).padStart(2, "0")}-${String(tomorrowUTC.getUTCDate()).padStart(2, "0")}`;
-
-      const { data, error } = await supabase
-        .from("events")
-        .select("id,name,stream_url,stream_url_2,stream_url_3,team_home,team_away,league,is_live,event_date,is_active")
-        .eq("is_active", true)
-        .gte("event_date", `${todayUTC}T00:00:00`)
-        .lt("event_date", `${tomorrowStr}T00:00:00`)
-        .order("event_date", { ascending: true });
-
-      if (!error && data) {
-        setAvailableEvents(data as unknown as AvailableEvent[]);
-        hasLoadedOnceRef.current = true;
-      }
-    } catch (e) {
-      console.error("MultiStream fetchEvents error", e);
-    } finally {
-      if (shouldBlock) setLoading(false);
-      fetchInFlightRef.current = false;
-    }
-  }, []);
-
-  const fetchExternalStreams = useCallback(async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke("fetch-all-streams", { body: {} });
-      if (!error && data?.streams) {
-        setExternalStreams(data.streams as ExternalStream[]);
-      }
-    } catch (e) {
-      console.error("MultiStream fetchExternalStreams error", e);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchExternalStreams();
-    fetchEvents(false);
-
-    const channel = supabase
-      .channel("events-multistream")
-      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, () => fetchEvents(true))
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [fetchEvents, fetchExternalStreams]);
-
-  const activeSlots = slots.filter((s) => s.isActive);
-  const displaySlots = layout === 2 ? slots.slice(0, 2) : slots;
-  const selectedEventIds = useMemo(() => {
-    return new Set(slots.map((s) => s.eventId).filter(Boolean) as string[]);
-  }, [slots]);
-
-  const effectiveEvents = useMemo<AvailableEvent[]>(() => {
-    const externalAsEvents = externalStreams.slice(0, 120).map((stream, idx) => ({
-      id: `ext-${stream.source}-${stream.id || idx}`,
-      name: stream.name,
-      stream_url: stream.iframe,
-      stream_url_2: null,
-      stream_url_3: null,
-      team_home: null,
-      team_away: null,
-      league: stream.category || stream.source.toUpperCase(),
-      is_live: true,
-      event_date: new Date().toISOString(),
-    }));
-
-    return [...availableEvents, ...externalAsEvents];
-  }, [availableEvents, externalStreams]);
-
-  const resolvedEvents = useMemo(() => {
-    return effectiveEvents.map((event) => {
-      const direct = event.stream_url || event.stream_url_2 || event.stream_url_3;
-      if (direct) {
-        const streams: ResolvedUrls = {
-          url1: direct,
-          url2: event.stream_url_2 || undefined,
-          url3: event.stream_url_3 || undefined,
-          source: "db",
-        };
-        return { event, streams };
-      }
-
-      // Try to resolve from pre-fetched external streams
-      const home = normalizeText(event.team_home || "");
-      const away = normalizeText(event.team_away || "");
-      if (externalStreams.length > 0) {
-        if (home && away) {
-          const matches = findBestExternalMatches(externalStreams, home, away);
-          if (matches.length > 0) {
-            return {
-              event,
-              streams: {
-                url1: matches[0].iframe,
-                url2: matches[1]?.iframe,
-                url3: matches[2]?.iframe,
-                source: "external",
-              } satisfies ResolvedUrls,
-            };
-          }
-        }
-
-        const nameMatches = findExternalMatchesByEventName(externalStreams, event.name || "");
-        if (nameMatches.length > 0) {
-          return {
-            event,
-            streams: {
-              url1: nameMatches[0].iframe,
-              url2: nameMatches[1]?.iframe,
-              url3: nameMatches[2]?.iframe,
-              source: "external",
-            } satisfies ResolvedUrls,
-          };
-        }
-      }
-
-      return { event, streams: null as ResolvedUrls | null };
-    });
-  }, [effectiveEvents, externalStreams]);
+  const selectedEventIds = useMemo(() => new Set(slots.map((s) => s.eventId).filter(Boolean) as string[]), [slots]);
 
   const filteredEvents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    // Only show events from today (UTC)
-    const now = new Date();
-    const todayUTC = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
-    return resolvedEvents.filter(({ event, streams }) => {
-      if (!streams) return false;
+    const sorted = [...allEvents].sort((a, b) => {
+      const aLive = a.isLive ? 0 : 1;
+      const bLive = b.isLive ? 0 : 1;
+      if (aLive !== bLive) return aLive - bLive;
+      const aLink = a.url1 ? 0 : 1;
+      const bLink = b.url1 ? 0 : 1;
+      return aLink - bLink;
+    });
+    return sorted.filter((event) => {
       if (selectedEventIds.has(event.id)) return false;
-      // Filter by today's date
-      if (event.event_date && event.event_date.slice(0, 10) !== todayUTC) return false;
       if (!q) return true;
-      const hay = `${event.name} ${event.team_home ?? ""} ${event.team_away ?? ""} ${event.league ?? ""}`.toLowerCase();
+      const hay = `${event.name} ${event.teamHome} ${event.teamAway} ${event.leagueName}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [resolvedEvents, searchQuery, selectedEventIds]);
+  }, [allEvents, searchQuery, selectedEventIds]);
 
-  const handleSelectEvent = (slotId: number, event: AvailableEvent, streams: ResolvedUrls) => {
-    if (!streams?.url1) {
-      toast.info("No hay streams disponibles para este partido");
+  const eventsWithLink = useMemo(() => filteredEvents.filter((e) => !!e.url1), [filteredEvents]);
+
+  const handleSelectEvent = (slotId: number, event: SharedEvent) => {
+    if (!event.url1) {
+      toast.info("Este partido aún no tiene enlace disponible");
       return;
     }
-
     setSlots((prev) =>
       prev.map((slot) =>
         slot.id === slotId
           ? {
               ...slot,
               eventId: event.id,
-              url: streams.url1,
+              url: event.url1,
               title: event.name,
-              teamHome: event.team_home || undefined,
-              teamAway: event.team_away || undefined,
-              league: event.league || undefined,
-              isLive: event.is_live,
+              teamHome: event.teamHome,
+              teamAway: event.teamAway,
+              league: event.league,
+              leagueName: event.leagueName,
+              isLive: event.isLive,
               isActive: true,
             }
           : slot,
@@ -316,6 +181,7 @@ export function MultiStreamView() {
               teamHome: undefined,
               teamAway: undefined,
               league: undefined,
+              leagueName: undefined,
               isLive: undefined,
             }
           : slot,
@@ -326,17 +192,23 @@ export function MultiStreamView() {
   const formatStreamUrl = (url: string) => {
     if (!url) return "";
     if (!url.startsWith("http://") && !url.startsWith("https://")) url = "https://" + url;
-    const separator = url.includes("?") ? "&" : "?";
-    return `${url}${separator}autoplay=1&auto_play=true&muted=0`;
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}autoplay=1&auto_play=true&muted=0`;
   };
 
+  const activeSlots = slots.filter((s) => s.isActive);
+  const displaySlots = layout === 2 ? slots.slice(0, 2) : slots;
+
   return (
-    <div className={cn("min-h-screen", isFullscreen && "fixed inset-0 z-50 bg-background p-3")}>
+    <div className={cn("min-h-screen relative", isFullscreen && "fixed inset-0 z-50 bg-background p-3")}>
+      {/* RGB Falling Particles */}
+      <RGBParticles />
+
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between mb-5"
+        className="relative z-10 flex items-center justify-between mb-5"
       >
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -358,7 +230,6 @@ export function MultiStreamView() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Layout toggle */}
           <div className="flex items-center p-1 rounded-xl bg-white/[0.02] border border-white/[0.04]">
             {([2, 4] as const).map((n) => (
               <button
@@ -377,7 +248,6 @@ export function MultiStreamView() {
             ))}
           </div>
 
-          {/* Fullscreen */}
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="h-9 w-9 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-white/[0.06] transition-all duration-300"
@@ -387,11 +257,11 @@ export function MultiStreamView() {
         </div>
       </motion.div>
 
-      {/* Grid */}
+      {/* ── Grid — centered when layout=2 ── */}
       <div
         className={cn(
-          "grid gap-3",
-          layout === 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-2",
+          "relative z-10",
+          layout === 2 ? "flex justify-center gap-3" : "grid grid-cols-1 md:grid-cols-2 gap-3",
           isFullscreen && "h-[calc(100vh-80px)]",
         )}
       >
@@ -402,11 +272,11 @@ export function MultiStreamView() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: index * 0.06, duration: 0.3 }}
             className={cn(
-              "relative rounded-2xl overflow-hidden transition-all duration-300 group",
+              "relative rounded-2xl overflow-hidden transition-all duration-300 group aspect-video",
+              layout === 2 ? "w-full max-w-[48%]" : "w-full",
               slot.isActive
                 ? "border border-white/[0.08] bg-card shadow-xl"
                 : "border border-dashed border-white/[0.06] bg-gradient-to-br from-white/[0.01] to-transparent hover:border-primary/20 hover:from-primary/[0.02]",
-              "aspect-video",
             )}
           >
             {slot.isActive ? (
@@ -418,8 +288,6 @@ export function MultiStreamView() {
                   allowFullScreen
                   referrerPolicy="no-referrer-when-downgrade"
                 />
-
-                {/* Top overlay */}
                 <div className="absolute top-0 left-0 right-0 p-2.5 bg-gradient-to-b from-black/80 via-black/40 to-transparent pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                   <div className="flex items-center gap-2">
                     {slot.isLive && (
@@ -431,19 +299,16 @@ export function MultiStreamView() {
                       </div>
                     )}
                     <span className="text-[11px] font-semibold text-white truncate">{slot.title}</span>
-                    {slot.league && (
+                    {slot.leagueName && (
                       <span className="text-[9px] text-white/40 truncate hidden sm:block px-1.5 py-0.5 rounded bg-white/10">
-                        {slot.league}
+                        {slot.leagueName}
                       </span>
                     )}
                   </div>
                 </div>
-
-                {/* Slot number indicator */}
                 <div className="absolute bottom-2 left-2 w-6 h-6 rounded-lg bg-black/50 border border-white/10 flex items-center justify-center pointer-events-none backdrop-blur-sm">
                   <span className="text-[10px] font-bold text-white/50">{slot.id}</span>
                 </div>
-
                 <button
                   onClick={() => handleRemoveStream(slot.id)}
                   className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-black/50 hover:bg-destructive border border-white/10 hover:border-destructive flex items-center justify-center text-white/50 hover:text-white transition-all z-10 opacity-0 group-hover:opacity-100 backdrop-blur-sm"
@@ -473,54 +338,72 @@ export function MultiStreamView() {
                     </div>
 
                     <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 scrollbar-hide">
-                      {loading ? (
-                        <div className="flex items-center justify-center h-20">
-                          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      {allEvents.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-24 text-muted-foreground/30 gap-1.5">
+                          <Trophy className="w-5 h-5" />
+                          <span className="text-[11px] font-medium">Ve a la pestaña Live primero</span>
+                          <span className="text-[10px] text-muted-foreground/20">
+                            Los partidos aparecerán aquí automáticamente
+                          </span>
                         </div>
                       ) : filteredEvents.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-20 text-muted-foreground/30">
                           <Trophy className="w-5 h-5 mb-1.5" />
-                          <span className="text-[11px] font-medium">No hay partidos disponibles</span>
+                          <span className="text-[11px] font-medium">No se encontraron partidos</span>
                         </div>
                       ) : (
-                        filteredEvents.map(({ event, streams }) => (
-                          <button
-                            key={event.id}
-                            onClick={() => handleSelectEvent(slot.id, event, streams)}
-                            className="w-full p-2.5 rounded-xl bg-white/[0.02] hover:bg-primary/[0.05] border border-white/[0.04] hover:border-primary/20 transition-all text-left group/item"
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/10 flex items-center justify-center shrink-0 group-hover/item:border-primary/25 transition-colors">
-                                <Play className="w-3.5 h-3.5 text-primary" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-[12px] font-semibold text-foreground truncate">
-                                    {event.name}
-                                  </span>
-                                  {event.is_live && (
-                                    <span className="px-1.5 py-0.5 rounded-md bg-primary/15 border border-primary/20 text-[8px] font-bold text-primary uppercase shrink-0">
-                                      Live
-                                    </span>
+                        filteredEvents.map((event) => {
+                          const hasLink = !!event.url1;
+                          const emoji = SPORT_EMOJI[event.sport] ?? "🏟️";
+                          return (
+                            <button
+                              key={event.id}
+                              onClick={() => handleSelectEvent(slot.id, event)}
+                              disabled={!hasLink}
+                              className={cn(
+                                "w-full p-2.5 rounded-xl border transition-all text-left group/item",
+                                hasLink
+                                  ? "bg-white/[0.02] hover:bg-primary/[0.05] border-white/[0.04] hover:border-primary/20 cursor-pointer"
+                                  : "bg-white/[0.01] border-white/[0.02] opacity-40 cursor-not-allowed",
+                              )}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <div
+                                  className={cn(
+                                    "w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 text-base transition-colors",
+                                    hasLink
+                                      ? "bg-gradient-to-br from-primary/10 to-primary/5 border-primary/10 group-hover/item:border-primary/25"
+                                      : "bg-white/[0.03] border-white/[0.05]",
                                   )}
+                                >
+                                  {hasLink ? <Play className="w-3.5 h-3.5 text-primary" /> : <span>{emoji}</span>}
                                 </div>
-                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/40 mt-0.5">
-                                  {event.league && <span className="text-primary/60">{event.league}</span>}
-                                  {event.league && <span>•</span>}
-                                  <span>
-                                    {new Date(event.event_date).toLocaleDateString(undefined, {
-                                      month: "short",
-                                      day: "numeric",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    })}
-                                  </span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[12px] font-semibold text-foreground truncate">
+                                      {event.name}
+                                    </span>
+                                    {event.isLive && (
+                                      <span className="px-1.5 py-0.5 rounded-md bg-primary/15 border border-primary/20 text-[8px] font-bold text-primary uppercase shrink-0">
+                                        Live
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/40 mt-0.5">
+                                    <span className="text-primary/60">{event.leagueName}</span>
+                                    {!hasLink && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="text-muted-foreground/30">Sin enlace aún</span>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
+                                {hasLink && <div className="w-2 h-2 rounded-full bg-success/80 shrink-0" />}
                               </div>
-                              <div className="w-2 h-2 rounded-full bg-success/80 shrink-0" />
-                            </div>
-                          </button>
-                        ))
+                            </button>
+                          );
+                        })
                       )}
                     </div>
 
@@ -543,11 +426,9 @@ export function MultiStreamView() {
                     onClick={() => setShowEventPicker(slot.id)}
                     className="absolute inset-0 flex flex-col items-center justify-center gap-3 group/add"
                   >
-                    {/* Slot number */}
                     <div className="absolute top-3 left-3 w-6 h-6 rounded-lg bg-white/[0.03] border border-white/[0.05] flex items-center justify-center">
                       <span className="text-[10px] font-bold text-muted-foreground/20">{slot.id}</span>
                     </div>
-
                     <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/[0.05] to-primary/[0.02] border border-dashed border-primary/15 flex items-center justify-center group-hover/add:border-primary/30 group-hover/add:from-primary/[0.08] transition-all duration-300">
                       <Plus className="w-6 h-6 text-muted-foreground/25 group-hover/add:text-primary transition-colors duration-300" />
                     </div>
@@ -556,11 +437,11 @@ export function MultiStreamView() {
                         Añadir Stream
                       </span>
                       <span className="block text-[10px] text-muted-foreground/20 mt-0.5">
-                        {
-                          resolvedEvents.filter(({ event, streams }) => !!streams && !selectedEventIds.has(event.id))
-                            .length
-                        }{" "}
-                        disponibles
+                        {eventsWithLink.length > 0
+                          ? `${eventsWithLink.length} disponibles`
+                          : allEvents.length > 0
+                            ? `${allEvents.length} partidos`
+                            : "Ve a Live primero"}
                       </span>
                     </div>
                   </motion.button>
