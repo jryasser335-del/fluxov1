@@ -18,13 +18,43 @@ import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchESPNScoreboard } from "@/lib/api";
+
+// ── All leagues (same as EventsView) ─────────────────────────────────────────
+const ALL_LEAGUES = [
+  { key: "eng.1", name: "Premier League" },
+  { key: "esp.1", name: "LaLiga" },
+  { key: "ger.1", name: "Bundesliga" },
+  { key: "ita.1", name: "Serie A" },
+  { key: "fra.1", name: "Ligue 1" },
+  { key: "uefa.champions", name: "Champions League" },
+  { key: "uefa.europa", name: "Europa League" },
+  { key: "esp.copa_del_rey", name: "Copa del Rey" },
+  { key: "eng.fa", name: "FA Cup" },
+  { key: "eng.league_cup", name: "EFL Cup" },
+  { key: "ger.dfb_pokal", name: "DFB Pokal" },
+  { key: "ita.coppa_italia", name: "Coppa Italia" },
+  { key: "fra.coupe_de_france", name: "Coupe de France" },
+  { key: "ned.1", name: "Eredivisie" },
+  { key: "por.1", name: "Primeira Liga" },
+  { key: "tur.1", name: "Süper Lig" },
+  { key: "mex.1", name: "Liga MX" },
+  { key: "arg.1", name: "Primera División" },
+  { key: "bra.1", name: "Brasileirão" },
+  { key: "conmebol.libertadores", name: "Libertadores" },
+  { key: "mls", name: "MLS" },
+  { key: "nba", name: "NBA" },
+  { key: "mlb", name: "MLB" },
+  { key: "nhl", name: "NHL" },
+  { key: "boxing", name: "Boxing" },
+  { key: "ufc", name: "UFC / MMA" },
+  { key: "wwe", name: "WWE" },
+];
 
 interface MatchEvent {
   id: string;
   name: string;
-  url1: string;
-  url2?: string;
-  url3?: string;
+  url: string;
   leagueName: string;
   isLive: boolean;
   hasLink: boolean;
@@ -40,6 +70,14 @@ interface StreamSlot {
   isLive?: boolean;
 }
 
+// ── Normalize for fuzzy matching ──────────────────────────────────────────────
+const norm = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
 export function MultiStreamView() {
   const [layout, setLayout] = useState<2 | 4>(4);
   const [slots, setSlots] = useState<StreamSlot[]>([
@@ -49,98 +87,146 @@ export function MultiStreamView() {
     { id: 4, eventId: null, title: "", url: "", isActive: false },
   ]);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showEventPicker, setShowEventPicker] = useState<number | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [showPicker, setShowPicker] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadEvents = async () => {
+  // ── Load: ESPN events + Supabase links, merged ───────────────────────────
+  const load = async () => {
     setLoading(true);
     try {
-      // Same query as EventsView — no stream_url filter, just is_active
-      const { data, error } = await supabase
+      // 1. Get DB links (same query as EventsView.fetchEventLinks)
+      const { data: dbRows } = await supabase
         .from("events")
         .select(
-          "id,espn_id,name,team_home,team_away,stream_url,stream_url_2,stream_url_3,pending_url,league,sport,is_live,event_date",
+          "espn_id,name,team_home,team_away,stream_url,stream_url_2,stream_url_3,pending_url,is_active,sport,league,is_live,event_date",
         )
         .eq("is_active", true);
 
-      if (error) throw error;
+      // Build lookup by espn_id and by team names
+      const byEspnId = new Map<string, string>();
+      const byTeams = new Map<string, string>();
+      const dbOnlyEvents: MatchEvent[] = [];
 
-      // Use stream_url if available, fallback to pending_url
-      const mapped: MatchEvent[] = (data ?? [])
-        .map((d) => {
-          const url = d.stream_url || d.pending_url || "";
-          return {
-            id: String(d.id),
-            name: d.name || `${d.team_home ?? "TBD"} vs ${d.team_away ?? "TBD"}`,
-            url1: url,
-            url2: d.stream_url_2 ?? undefined,
-            url3: d.stream_url_3 ?? undefined,
-            leagueName: d.league ?? d.sport ?? "Sport",
-            isLive: d.is_live ?? false,
+      for (const row of dbRows ?? []) {
+        const url = row.stream_url || row.pending_url || "";
+        if (row.espn_id && url) byEspnId.set(row.espn_id, url);
+        const teamKey = norm(`${row.team_home ?? ""} ${row.team_away ?? ""}`);
+        if (teamKey.trim() && url) byTeams.set(teamKey, url);
+
+        // If this row has no espn_id, treat it as a standalone DB event
+        if (!row.espn_id && url) {
+          dbOnlyEvents.push({
+            id: `db-${row.name}`,
+            name: row.name || `${row.team_home ?? "TBD"} vs ${row.team_away ?? "TBD"}`,
+            url,
+            leagueName: row.league ?? row.sport ?? "Sport",
+            isLive: row.is_live ?? false,
+            hasLink: true,
+          });
+        }
+      }
+
+      // 2. Fetch ESPN events for all leagues in parallel (fast: 1 request per league)
+      const results = await Promise.allSettled(
+        ALL_LEAGUES.map((lg) => fetchESPNScoreboard(lg.key).then((d) => ({ lg, d }))),
+      );
+
+      const espnEvents: MatchEvent[] = [];
+      const seen = new Set<string>();
+
+      for (const r of results) {
+        if (r.status !== "fulfilled") continue;
+        const { lg, d } = r.value;
+        for (const ev of d.events ?? []) {
+          if (seen.has(ev.id)) continue;
+          seen.add(ev.id);
+
+          const comp = ev.competitions?.[0];
+          const competitors = comp?.competitors ?? [];
+          const home = competitors.find((c: any) => c.homeAway === "home");
+          const away = competitors.find((c: any) => c.homeAway === "away");
+          const homeName = home?.team?.displayName ?? "";
+          const awayName = away?.team?.displayName ?? "";
+          const isLive = comp?.status?.type?.state === "in";
+
+          // Find link
+          let url = byEspnId.get(ev.id) ?? "";
+          if (!url) url = byTeams.get(norm(`${homeName} ${awayName}`)) ?? "";
+          if (!url) url = byTeams.get(norm(`${awayName} ${homeName}`)) ?? "";
+
+          espnEvents.push({
+            id: ev.id,
+            name: ev.name || `${awayName} vs ${homeName}`,
+            url,
+            leagueName: lg.name,
+            isLive,
             hasLink: !!url,
-          };
-        })
-        .sort((a, b) => {
-          // live first, then with link, then rest
-          if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
-          if (a.hasLink !== b.hasLink) return a.hasLink ? -1 : 1;
-          return 0;
-        });
+          });
+        }
+      }
 
-      setEvents(mapped);
+      // 3. Merge: ESPN first, then DB-only
+      const all = [...espnEvents, ...dbOnlyEvents].sort((a, b) => {
+        if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
+        if (a.hasLink !== b.hasLink) return a.hasLink ? -1 : 1;
+        return 0;
+      });
+
+      setEvents(all);
     } catch (e) {
       console.error(e);
-      toast.error("Error al cargar partidos");
+      toast.error("Error cargando partidos");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadEvents();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    load();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const selectedEventIds = useMemo(() => new Set(slots.map((s) => s.eventId).filter(Boolean) as string[]), [slots]);
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const selectedIds = useMemo(() => new Set(slots.map((s) => s.eventId).filter(Boolean) as string[]), [slots]);
 
-  const filteredEvents = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return events.filter((e) => {
-      if (selectedEventIds.has(e.id)) return false;
+      if (selectedIds.has(e.id)) return false;
       if (!q) return true;
       return `${e.name} ${e.leagueName}`.toLowerCase().includes(q);
     });
-  }, [events, searchQuery, selectedEventIds]);
+  }, [events, search, selectedIds]);
 
-  const handleSelectEvent = (slotId: number, event: MatchEvent) => {
-    if (!event.hasLink) {
-      toast.info("Este partido no tiene enlace aún");
-      return;
-    }
-    setSlots((prev) =>
-      prev.map((s) =>
+  const withLink = filtered.filter((e) => e.hasLink);
+  const noLink = filtered.filter((e) => !e.hasLink);
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const pick = (slotId: number, ev: MatchEvent) => {
+    if (!ev.hasLink) return;
+    setSlots((p) =>
+      p.map((s) =>
         s.id === slotId
           ? {
               ...s,
-              eventId: event.id,
-              url: event.url1,
-              title: event.name,
-              leagueName: event.leagueName,
-              isLive: event.isLive,
+              eventId: ev.id,
+              url: ev.url,
+              title: ev.name,
+              leagueName: ev.leagueName,
+              isLive: ev.isLive,
               isActive: true,
             }
           : s,
       ),
     );
-    setShowEventPicker(null);
-    setSearchQuery("");
+    setShowPicker(null);
+    setSearch("");
   };
 
-  const handleRemove = (slotId: number) => {
-    setSlots((prev) =>
-      prev.map((s) =>
+  const remove = (slotId: number) => {
+    setSlots((p) =>
+      p.map((s) =>
         s.id === slotId
           ? { ...s, eventId: null, url: "", title: "", isActive: false, leagueName: undefined, isLive: undefined }
           : s,
@@ -157,9 +243,10 @@ export function MultiStreamView() {
   const activeCount = slots.filter((s) => s.isActive).length;
   const displaySlots = layout === 2 ? slots.slice(0, 2) : slots;
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className={cn("min-h-screen", isFullscreen && "fixed inset-0 z-50 bg-background p-3")}>
-      {/* ── Header ── */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -167,17 +254,17 @@ export function MultiStreamView() {
               <Monitor className="w-5 h-5 text-primary" />
             </div>
             {activeCount > 0 && (
-              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-success border-2 border-background" />
+              <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-background" />
             )}
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-foreground">Multi Stream</h1>
+            <h1 className="text-lg font-semibold">Multi Stream</h1>
             <p className="text-[11px] text-muted-foreground/50">
-              {activeCount > 0
-                ? `${activeCount} de ${layout} activos`
-                : loading
-                  ? "Cargando partidos..."
-                  : `${events.length} partidos disponibles`}
+              {loading
+                ? "Cargando partidos..."
+                : activeCount > 0
+                  ? `${activeCount} de ${layout} activos`
+                  : `${withLink.length + (events.filter((e) => e.hasLink).length - withLink.length)} con enlace · ${events.length} total`}
             </p>
           </div>
         </div>
@@ -191,7 +278,7 @@ export function MultiStreamView() {
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
                   layout === n
-                    ? "bg-primary text-white shadow-lg shadow-primary/20"
+                    ? "bg-primary text-white shadow-lg"
                     : "text-muted-foreground/50 hover:text-foreground hover:bg-white/[0.04]",
                 )}
               >
@@ -209,7 +296,7 @@ export function MultiStreamView() {
         </div>
       </div>
 
-      {/* ── SLOTS GRID ── */}
+      {/* Grid */}
       <div
         style={{
           display: layout === 2 ? "flex" : "grid",
@@ -218,13 +305,12 @@ export function MultiStreamView() {
           gap: "12px",
         }}
       >
-        {displaySlots.map((slot, i) => (
+        {displaySlots.map((slot) => (
           <div
             key={slot.id}
             style={layout === 2 ? { width: "calc(50% - 6px)", flexShrink: 0 } : {}}
             className={cn(
-              "relative rounded-2xl overflow-hidden group",
-              "aspect-video",
+              "relative rounded-2xl overflow-hidden group aspect-video",
               slot.isActive
                 ? "border border-white/[0.08] bg-card shadow-xl"
                 : "border border-dashed border-white/[0.06] bg-white/[0.01] hover:border-primary/20",
@@ -254,7 +340,7 @@ export function MultiStreamView() {
                   <span className="text-[10px] font-bold text-white/50">{slot.id}</span>
                 </div>
                 <button
-                  onClick={() => handleRemove(slot.id)}
+                  onClick={() => remove(slot.id)}
                   className="absolute top-2 right-2 w-7 h-7 rounded-lg bg-black/50 hover:bg-red-600 border border-white/10 flex items-center justify-center text-white/50 hover:text-white transition-all z-10 opacity-0 group-hover:opacity-100"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -262,7 +348,7 @@ export function MultiStreamView() {
               </>
             ) : (
               <AnimatePresence mode="wait">
-                {showEventPicker === slot.id ? (
+                {showPicker === slot.id ? (
                   <motion.div
                     key="picker"
                     initial={{ opacity: 0 }}
@@ -274,82 +360,95 @@ export function MultiStreamView() {
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/40" />
                         <Input
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
+                          value={search}
+                          onChange={(e) => setSearch(e.target.value)}
                           placeholder="Buscar partido..."
-                          className="pl-9 h-9 bg-white/[0.02] border-white/[0.06] text-sm rounded-xl"
                           autoFocus
+                          className="pl-9 h-9 bg-white/[0.02] border-white/[0.06] text-sm rounded-xl"
                         />
                       </div>
                       <button
-                        onClick={loadEvents}
+                        onClick={load}
                         className="h-9 w-9 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center text-muted-foreground/40 hover:text-foreground shrink-0"
                       >
                         <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} />
                       </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto space-y-1 scrollbar-hide min-h-0">
+                    <div className="flex-1 overflow-y-auto space-y-1 min-h-0" style={{ scrollbarWidth: "none" }}>
                       {loading ? (
                         <div className="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground/30">
                           <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                          <span className="text-[11px]">Cargando...</span>
+                          <span className="text-[11px]">Cargando partidos...</span>
                         </div>
-                      ) : filteredEvents.length === 0 ? (
+                      ) : filtered.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full gap-1.5 text-muted-foreground/30">
                           <Trophy className="w-5 h-5" />
-                          <span className="text-[11px]">No hay partidos con enlace</span>
+                          <span className="text-[11px]">No hay partidos hoy</span>
                         </div>
                       ) : (
-                        filteredEvents.map((event) => (
-                          <button
-                            key={event.id}
-                            onClick={() => handleSelectEvent(slot.id, event)}
-                            disabled={!event.hasLink}
-                            className={cn(
-                              "w-full p-2 rounded-xl border transition-all text-left",
-                              event.hasLink
-                                ? "bg-white/[0.02] hover:bg-primary/[0.06] border-white/[0.04] hover:border-primary/20 cursor-pointer"
-                                : "bg-white/[0.01] border-white/[0.02] opacity-40 cursor-not-allowed",
-                            )}
-                          >
-                            <div className="flex items-center gap-2">
-                              <div
-                                className={cn(
-                                  "w-7 h-7 rounded-lg border flex items-center justify-center shrink-0",
-                                  event.hasLink
-                                    ? "bg-primary/10 border-primary/15"
-                                    : "bg-white/[0.03] border-white/[0.05]",
-                                )}
-                              >
-                                <Play
-                                  className={cn("w-3 h-3", event.hasLink ? "text-primary" : "text-muted-foreground/20")}
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1 mb-0.5">
-                                  <span className="text-[12px] font-semibold text-foreground truncate">
-                                    {event.name}
-                                  </span>
-                                  {event.isLive && (
-                                    <span className="px-1 py-0.5 rounded bg-primary/20 text-[8px] font-bold text-primary uppercase shrink-0">
-                                      Live
-                                    </span>
-                                  )}
+                        <>
+                          {/* Events with links */}
+                          {withLink.map((ev) => (
+                            <button
+                              key={ev.id}
+                              onClick={() => pick(slot.id, ev)}
+                              className="w-full p-2 rounded-xl bg-white/[0.02] hover:bg-primary/[0.06] border border-white/[0.04] hover:border-primary/20 transition-all text-left"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/15 flex items-center justify-center shrink-0">
+                                  <Play className="w-3 h-3 text-primary" />
                                 </div>
-                                <span className="text-[10px] text-primary/50">{event.leagueName}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1 mb-0.5">
+                                    <span className="text-[12px] font-semibold truncate">{ev.name}</span>
+                                    {ev.isLive && (
+                                      <span className="px-1 py-0.5 rounded bg-primary/20 text-[8px] font-bold text-primary uppercase shrink-0">
+                                        Live
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] text-primary/50">{ev.leagueName}</span>
+                                </div>
+                                <div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
                               </div>
-                              {event.hasLink && <div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />}
-                            </div>
-                          </button>
-                        ))
+                            </button>
+                          ))}
+
+                          {/* Events without links — greyed out */}
+                          {noLink.length > 0 && (
+                            <>
+                              <div className="pt-1 pb-0.5 px-1">
+                                <span className="text-[10px] text-muted-foreground/25 uppercase tracking-wider font-semibold">
+                                  Sin enlace
+                                </span>
+                              </div>
+                              {noLink.map((ev) => (
+                                <div
+                                  key={ev.id}
+                                  className="w-full p-2 rounded-xl bg-white/[0.01] border border-white/[0.02] opacity-35"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-7 h-7 rounded-lg bg-white/[0.03] border border-white/[0.05] flex items-center justify-center shrink-0">
+                                      <Play className="w-3 h-3 text-muted-foreground/20" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <span className="text-[12px] font-semibold truncate block">{ev.name}</span>
+                                      <span className="text-[10px] text-muted-foreground/30">{ev.leagueName}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </>
                       )}
                     </div>
 
                     <button
                       onClick={() => {
-                        setShowEventPicker(null);
-                        setSearchQuery("");
+                        setShowPicker(null);
+                        setSearch("");
                       }}
                       className="mt-2 w-full py-2 rounded-xl bg-white/[0.02] border border-white/[0.04] text-muted-foreground/50 text-xs hover:bg-white/[0.05] transition-all"
                     >
@@ -362,7 +461,7 @@ export function MultiStreamView() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    onClick={() => setShowEventPicker(slot.id)}
+                    onClick={() => setShowPicker(slot.id)}
                     className="absolute inset-0 flex flex-col items-center justify-center gap-3 group/add"
                   >
                     <div className="absolute top-3 left-3 w-6 h-6 rounded-lg bg-white/[0.03] border border-white/[0.05] flex items-center justify-center">
@@ -376,7 +475,11 @@ export function MultiStreamView() {
                         Añadir Stream
                       </span>
                       <span className="block text-[10px] text-muted-foreground/20 mt-0.5">
-                        {loading ? "Cargando..." : `${Math.max(0, events.length - selectedEventIds.size)} disponibles`}
+                        {loading
+                          ? "Cargando..."
+                          : events.filter((e) => e.hasLink && !selectedIds.has(e.id)).length > 0
+                            ? `${events.filter((e) => e.hasLink && !selectedIds.has(e.id)).length} con enlace`
+                            : "Toca para ver partidos"}
                       </span>
                     </div>
                   </motion.button>
