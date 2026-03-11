@@ -4,7 +4,33 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { useEventsStore, SharedEvent } from "@/hooks/useEventsStore";
+import { create } from "zustand";
+
+// ── Shared Events Store (inline) ─────────────────────────────────────────────
+export interface SharedEvent {
+  id: string;
+  name: string;
+  url1: string;
+  url2?: string;
+  url3?: string;
+  teamHome: string;
+  teamAway: string;
+  league: string;
+  leagueName: string;
+  sport: string;
+  isLive: boolean;
+  state: "in" | "pre" | "post";
+  date: string;
+}
+interface EventsStoreState {
+  events: SharedEvent[];
+  setEvents: (events: SharedEvent[]) => void;
+}
+export const useEventsStore = create<EventsStoreState>((set) => ({
+  events: [],
+  setEvents: (events) => set({ events }),
+}));
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface StreamSlot {
   id: number;
@@ -53,7 +79,6 @@ function RGBParticles() {
       opacity: number;
       hueSpeed: number;
     };
-
     const dots: Dot[] = Array.from({ length: 45 }, () => ({
       x: Math.random() * window.innerWidth,
       y: Math.random() * window.innerHeight,
@@ -78,11 +103,9 @@ function RGBParticles() {
         }
         if (d.x < -10) d.x = canvas.width + 10;
         if (d.x > canvas.width + 10) d.x = -10;
-
-        const color = `hsla(${d.hue}, 100%, 60%, ${d.opacity})`;
         ctx.beginPath();
         ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
-        ctx.fillStyle = color;
+        ctx.fillStyle = `hsla(${d.hue}, 100%, 60%, ${d.opacity})`;
         ctx.shadowColor = `hsl(${d.hue}, 100%, 60%)`;
         ctx.shadowBlur = d.size * 3;
         ctx.fill();
@@ -197,7 +220,6 @@ export function MultiStreamView() {
     <div className={cn("min-h-screen relative", isFullscreen && "fixed inset-0 z-50 bg-background p-3")}>
       <RGBParticles />
 
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -249,7 +271,6 @@ export function MultiStreamView() {
         </div>
       </motion.div>
 
-      {/* ── GRID: centered when layout=2, normal 2x2 when layout=4 ── */}
       <div
         className={cn("relative z-10", isFullscreen && "h-[calc(100vh-80px)]")}
         style={

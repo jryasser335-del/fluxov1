@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { fetchESPNScoreboard, ESPNEvent, ESPNResponse } from "@/lib/api";
 import { LEAGUE_OPTIONS } from "@/lib/constants";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
+import { useEventsStore, SharedEvent } from "@/components/MultiStreamView";
 import { supabase } from "@/integrations/supabase/client";
 import { EventCard } from "./events/EventCard";
 import { SkeletonEventCard } from "./Skeleton";
@@ -306,6 +307,7 @@ function HeroBanner({
 
 export function EventsView() {
   const { openPlayer, isOpen } = usePlayerModal();
+  const setSharedEvents = useEventsStore((s) => s.setEvents);
   const [activeSport, setActiveSport] = useState("football");
   const [activeLeagueFilter, setActiveLeagueFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -526,18 +528,16 @@ export function EventsView() {
         };
         if (existing) await supabase.from("events").update(payload).eq("id", existing.id);
         else
-          await supabase
-            .from("events")
-            .insert({
-              ...payload,
-              espn_id: p.espnId,
-              name: p.title,
-              team_home: p.home,
-              team_away: p.away,
-              sport: p.sport,
-              league: p.league,
-              event_date: p.date,
-            });
+          await supabase.from("events").insert({
+            ...payload,
+            espn_id: p.espnId,
+            name: p.title,
+            team_home: p.home,
+            team_away: p.away,
+            sport: p.sport,
+            league: p.league,
+            event_date: p.date,
+          });
         persistedRef.current.add(p.espnId);
         saved++;
       }
@@ -719,11 +719,20 @@ export function EventsView() {
       wrestling: { sports: ["wrestling", "wwe"] },
     };
     const q = normalizeText(searchQuery);
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    const now = new Date();
+    // Use a ±1 day UTC window to avoid timezone mismatches (same logic as ESPN fetch)
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const fmtUTC = (d: Date) =>
+      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+    const minDate = fmtUTC(yesterday);
+    const maxDate = fmtUTC(tomorrow);
     return dbEvents.filter((d) => {
       if (!d.stream_url) return false;
-      if (d.event_date && d.event_date.slice(0, 10) !== todayStr) return false;
+      if (d.event_date) {
+        const dateStr = d.event_date.slice(0, 10);
+        if (dateStr < minDate || dateStr > maxDate) return false;
+      }
       const cfg = sportMap[activeSport];
       if (!cfg) return false;
       const eSport = normalizeText(d.sport || "");
@@ -774,6 +783,40 @@ export function EventsView() {
     }),
     [filteredEvents, eventLinks],
   );
+
+  // Publish ALL sport events (with or without link) to the shared store for MultiStreamView
+  useEffect(() => {
+    if (!allEnrichedEvents.length) return;
+    const shared: SharedEvent[] = allEnrichedEvents.map(({ event, leagueKey, leagueName }) => {
+      const comp = event.competitions?.[0];
+      const competitors = comp?.competitors || [];
+      const home = competitors.find((c) => c.homeAway === "home");
+      const away = competitors.find((c) => c.homeAway === "away");
+      const link = eventLinks.get(event.id);
+      return {
+        id: event.id,
+        name: event.name || `${away?.team?.displayName ?? "TBD"} vs ${home?.team?.displayName ?? "TBD"}`,
+        url1: link?.url1 ?? "",
+        url2: link?.url2,
+        url3: link?.url3,
+        teamHome: home?.team?.displayName ?? "",
+        teamAway: away?.team?.displayName ?? "",
+        league: leagueKey,
+        leagueName,
+        sport: leagueKey.includes("nba")
+          ? "NBA"
+          : leagueKey.includes("nhl")
+            ? "NHL"
+            : leagueKey.includes("mlb")
+              ? "MLB"
+              : "Football",
+        isLive: comp?.status?.type?.state === "in",
+        state: (comp?.status?.type?.state as "in" | "pre" | "post") ?? "pre",
+        date: comp?.date ?? event.date,
+      };
+    });
+    setSharedEvents(shared);
+  }, [allEnrichedEvents, eventLinks, setSharedEvents]);
   const leagueCounts = useMemo(() => {
     const m = new Map<string, number>();
     for (const e of allEnrichedEvents) m.set(e.leagueKey, (m.get(e.leagueKey) || 0) + 1);
