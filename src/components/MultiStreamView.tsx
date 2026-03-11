@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Plus,
   X,
@@ -23,8 +23,11 @@ interface MatchEvent {
   id: string;
   name: string;
   url1: string;
+  url2?: string;
+  url3?: string;
   leagueName: string;
   isLive: boolean;
+  hasLink: boolean;
 }
 
 interface StreamSlot {
@@ -51,27 +54,40 @@ export function MultiStreamView() {
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const loadEvents = useCallback(async () => {
+  const loadEvents = async () => {
     setLoading(true);
     try {
+      // Same query as EventsView — no stream_url filter, just is_active
       const { data, error } = await supabase
         .from("events")
-        .select("id,name,team_home,team_away,stream_url,league,sport,is_live")
-        .eq("is_active", true)
-        .not("stream_url", "is", null);
+        .select(
+          "id,espn_id,name,team_home,team_away,stream_url,stream_url_2,stream_url_3,pending_url,league,sport,is_live,event_date",
+        )
+        .eq("is_active", true);
 
       if (error) throw error;
 
+      // Use stream_url if available, fallback to pending_url
       const mapped: MatchEvent[] = (data ?? [])
-        .filter((d) => !!d.stream_url)
-        .map((d) => ({
-          id: d.id,
-          name: d.name || `${d.team_home ?? "TBD"} vs ${d.team_away ?? "TBD"}`,
-          url1: d.stream_url!,
-          leagueName: d.league ?? d.sport ?? "Sport",
-          isLive: d.is_live ?? false,
-        }))
-        .sort((a, b) => (a.isLive === b.isLive ? 0 : a.isLive ? -1 : 1));
+        .map((d) => {
+          const url = d.stream_url || d.pending_url || "";
+          return {
+            id: String(d.id),
+            name: d.name || `${d.team_home ?? "TBD"} vs ${d.team_away ?? "TBD"}`,
+            url1: url,
+            url2: d.stream_url_2 ?? undefined,
+            url3: d.stream_url_3 ?? undefined,
+            leagueName: d.league ?? d.sport ?? "Sport",
+            isLive: d.is_live ?? false,
+            hasLink: !!url,
+          };
+        })
+        .sort((a, b) => {
+          // live first, then with link, then rest
+          if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
+          if (a.hasLink !== b.hasLink) return a.hasLink ? -1 : 1;
+          return 0;
+        });
 
       setEvents(mapped);
     } catch (e) {
@@ -80,21 +96,12 @@ export function MultiStreamView() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  };
 
   useEffect(() => {
     loadEvents();
-  }, [loadEvents]);
-
-  useEffect(() => {
-    const ch = supabase
-      .channel("multistream-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "events" }, loadEvents)
-      .subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
-  }, [loadEvents]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const selectedEventIds = useMemo(() => new Set(slots.map((s) => s.eventId).filter(Boolean) as string[]), [slots]);
 
@@ -108,6 +115,10 @@ export function MultiStreamView() {
   }, [events, searchQuery, selectedEventIds]);
 
   const handleSelectEvent = (slotId: number, event: MatchEvent) => {
+    if (!event.hasLink) {
+      toast.info("Este partido no tiene enlace aún");
+      return;
+    }
     setSlots((prev) =>
       prev.map((s) =>
         s.id === slotId
@@ -294,11 +305,26 @@ export function MultiStreamView() {
                           <button
                             key={event.id}
                             onClick={() => handleSelectEvent(slot.id, event)}
-                            className="w-full p-2 rounded-xl bg-white/[0.02] hover:bg-primary/[0.06] border border-white/[0.04] hover:border-primary/20 transition-all text-left"
+                            disabled={!event.hasLink}
+                            className={cn(
+                              "w-full p-2 rounded-xl border transition-all text-left",
+                              event.hasLink
+                                ? "bg-white/[0.02] hover:bg-primary/[0.06] border-white/[0.04] hover:border-primary/20 cursor-pointer"
+                                : "bg-white/[0.01] border-white/[0.02] opacity-40 cursor-not-allowed",
+                            )}
                           >
                             <div className="flex items-center gap-2">
-                              <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/15 flex items-center justify-center shrink-0">
-                                <Play className="w-3 h-3 text-primary" />
+                              <div
+                                className={cn(
+                                  "w-7 h-7 rounded-lg border flex items-center justify-center shrink-0",
+                                  event.hasLink
+                                    ? "bg-primary/10 border-primary/15"
+                                    : "bg-white/[0.03] border-white/[0.05]",
+                                )}
+                              >
+                                <Play
+                                  className={cn("w-3 h-3", event.hasLink ? "text-primary" : "text-muted-foreground/20")}
+                                />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1 mb-0.5">
@@ -313,7 +339,7 @@ export function MultiStreamView() {
                                 </div>
                                 <span className="text-[10px] text-primary/50">{event.leagueName}</span>
                               </div>
-                              <div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                              {event.hasLink && <div className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />}
                             </div>
                           </button>
                         ))
