@@ -14,14 +14,16 @@ interface StreamSlot {
   category?: string;
 }
 
-interface ExternalStream {
+interface DbEvent {
   id: string;
   name: string;
-  category: string;
-  iframe: string;
-  poster?: string;
-  viewers?: number;
-  source: string;
+  stream_url: string | null;
+  stream_url_2: string | null;
+  stream_url_3: string | null;
+  team_home: string | null;
+  team_away: string | null;
+  league: string | null;
+  is_live: boolean;
 }
 
 export function MultiStreamView() {
@@ -34,7 +36,7 @@ export function MultiStreamView() {
   ]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEventPicker, setShowEventPicker] = useState<number | null>(null);
-  const [streams, setStreams] = useState<ExternalStream[]>([]);
+  const [dbEvents, setDbEvents] = useState<DbEvent[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -43,9 +45,22 @@ export function MultiStreamView() {
     setLoading(true);
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("fetch-all-streams", { body: {} });
-        if (!error && data?.streams && !cancelled) {
-          setStreams(data.streams as ExternalStream[]);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const { data, error } = await supabase
+          .from("events")
+          .select("id,name,stream_url,stream_url_2,stream_url_3,team_home,team_away,league,is_live")
+          .eq("is_active", true)
+          .gte("event_date", today.toISOString())
+          .lt("event_date", tomorrow.toISOString())
+          .order("event_date", { ascending: true });
+
+        if (!error && data && !cancelled) {
+          // Only events that have at least one stream link
+          setDbEvents((data as unknown as DbEvent[]).filter(e => e.stream_url || e.stream_url_2 || e.stream_url_3));
         }
       } catch (e) {
         console.error("MultiStream fetch error", e);
