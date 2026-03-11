@@ -1,13 +1,57 @@
-import { useState, useMemo, useEffect, useRef } from "react";
-import { Plus, X, Maximize2, Minimize2, Grid2X2, LayoutGrid, Search, Trophy, Play, Monitor, Radio } from "lucide-react";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import {
+  Plus,
+  X,
+  Maximize2,
+  Minimize2,
+  Grid2X2,
+  LayoutGrid,
+  Search,
+  Trophy,
+  Play,
+  Monitor,
+  Radio,
+  RefreshCw,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { create } from "zustand";
+import { supabase } from "@/integrations/supabase/client";
+import { fetchESPNScoreboard } from "@/lib/api";
 
-// ── Shared Events Store (inline) ─────────────────────────────────────────────
-export interface SharedEvent {
+// ── Leagues to fetch (same as EventsView) ────────────────────────────────────
+const ALL_LEAGUES: { key: string; name: string; sport: string }[] = [
+  { key: "eng.1", name: "Premier League", sport: "Football" },
+  { key: "esp.1", name: "LaLiga", sport: "Football" },
+  { key: "ger.1", name: "Bundesliga", sport: "Football" },
+  { key: "ita.1", name: "Serie A", sport: "Football" },
+  { key: "fra.1", name: "Ligue 1", sport: "Football" },
+  { key: "uefa.champions", name: "Champions League", sport: "Football" },
+  { key: "uefa.europa", name: "Europa League", sport: "Football" },
+  { key: "esp.copa_del_rey", name: "Copa del Rey", sport: "Football" },
+  { key: "eng.fa", name: "FA Cup", sport: "Football" },
+  { key: "eng.league_cup", name: "EFL Cup", sport: "Football" },
+  { key: "ger.dfb_pokal", name: "DFB Pokal", sport: "Football" },
+  { key: "ita.coppa_italia", name: "Coppa Italia", sport: "Football" },
+  { key: "fra.coupe_de_france", name: "Coupe de France", sport: "Football" },
+  { key: "ned.1", name: "Eredivisie", sport: "Football" },
+  { key: "por.1", name: "Primeira Liga", sport: "Football" },
+  { key: "tur.1", name: "Süper Lig", sport: "Football" },
+  { key: "mex.1", name: "Liga MX", sport: "Football" },
+  { key: "arg.1", name: "Primera División", sport: "Football" },
+  { key: "bra.1", name: "Brasileirão", sport: "Football" },
+  { key: "conmebol.libertadores", name: "Libertadores", sport: "Football" },
+  { key: "mls", name: "MLS", sport: "Football" },
+  { key: "nba", name: "NBA", sport: "NBA" },
+  { key: "mlb", name: "MLB", sport: "MLB" },
+  { key: "nhl", name: "NHL", sport: "NHL" },
+  { key: "boxing", name: "Boxing", sport: "Boxing" },
+  { key: "ufc", name: "UFC / MMA", sport: "MMA" },
+  { key: "wwe", name: "WWE", sport: "WWE" },
+];
+
+interface MatchEvent {
   id: string;
   name: string;
   url1: string;
@@ -15,22 +59,11 @@ export interface SharedEvent {
   url3?: string;
   teamHome: string;
   teamAway: string;
-  league: string;
   leagueName: string;
   sport: string;
   isLive: boolean;
   state: "in" | "pre" | "post";
-  date: string;
 }
-interface EventsStoreState {
-  events: SharedEvent[];
-  setEvents: (events: SharedEvent[]) => void;
-}
-export const useEventsStore = create<EventsStoreState>((set) => ({
-  events: [],
-  setEvents: (events) => set({ events }),
-}));
-// ─────────────────────────────────────────────────────────────────────────────
 
 interface StreamSlot {
   id: number;
@@ -38,92 +71,16 @@ interface StreamSlot {
   title: string;
   url: string;
   isActive: boolean;
-  teamHome?: string;
-  teamAway?: string;
-  league?: string;
   leagueName?: string;
   isLive?: boolean;
 }
 
-const SPORT_EMOJI: Record<string, string> = {
-  NBA: "🏀",
-  NHL: "🏒",
-  MLB: "⚾",
-  Football: "⚽",
-};
-
-// ── RGB Canvas Particles ──────────────────────────────────────────────────────
-function RGBParticles() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    type Dot = {
-      x: number;
-      y: number;
-      vy: number;
-      vx: number;
-      size: number;
-      hue: number;
-      opacity: number;
-      hueSpeed: number;
-    };
-    const dots: Dot[] = Array.from({ length: 45 }, () => ({
-      x: Math.random() * window.innerWidth,
-      y: Math.random() * window.innerHeight,
-      vy: Math.random() * 1.2 + 0.4,
-      vx: (Math.random() - 0.5) * 0.4,
-      size: Math.random() * 4 + 2,
-      hue: Math.random() * 360,
-      opacity: Math.random() * 0.5 + 0.3,
-      hueSpeed: Math.random() * 2 + 0.5,
-    }));
-
-    let raf: number;
-    const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (const d of dots) {
-        d.y += d.vy;
-        d.x += d.vx;
-        d.hue = (d.hue + d.hueSpeed) % 360;
-        if (d.y > canvas.height + 10) {
-          d.y = -10;
-          d.x = Math.random() * canvas.width;
-        }
-        if (d.x < -10) d.x = canvas.width + 10;
-        if (d.x > canvas.width + 10) d.x = -10;
-        ctx.beginPath();
-        ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(${d.hue}, 100%, 60%, ${d.opacity})`;
-        ctx.shadowColor = `hsl(${d.hue}, 100%, 60%)`;
-        ctx.shadowBlur = d.size * 3;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-      raf = requestAnimationFrame(draw);
-    };
-    draw();
-
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener("resize", resize);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" style={{ opacity: 0.7 }} />;
-}
-// ─────────────────────────────────────────────────────────────────────────────
+const normalizeText = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
 
 export function MultiStreamView() {
   const [layout, setLayout] = useState<2 | 4>(4);
@@ -136,29 +93,146 @@ export function MultiStreamView() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showEventPicker, setShowEventPicker] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
-  const allEvents = useEventsStore((s) => s.events);
+  // ── Load events from ESPN + Supabase ────────────────────────────────────────
+  const loadEvents = useCallback(async () => {
+    setLoading(true);
+    try {
+      // 1. Fetch ESPN events for all leagues in parallel
+      const results = await Promise.allSettled(
+        ALL_LEAGUES.map(async (lg) => {
+          const data = await fetchESPNScoreboard(lg.key);
+          return (data.events || []).map((event) => {
+            const comp = event.competitions?.[0];
+            const competitors = comp?.competitors || [];
+            const home = competitors.find((c) => c.homeAway === "home");
+            const away = competitors.find((c) => c.homeAway === "away");
+            return {
+              espnId: event.id,
+              name: `${away?.team?.displayName ?? "TBD"} vs ${home?.team?.displayName ?? "TBD"}`,
+              teamHome: home?.team?.displayName ?? "",
+              teamAway: away?.team?.displayName ?? "",
+              leagueName: lg.name,
+              sport: lg.sport,
+              isLive: comp?.status?.type?.state === "in",
+              state: (comp?.status?.type?.state ?? "pre") as "in" | "pre" | "post",
+            };
+          });
+        }),
+      );
+
+      const espnEvents: (typeof results)[0] extends PromiseFulfilledResult<infer T> ? T : never = [];
+      const seen = new Set<string>();
+      for (const r of results) {
+        if (r.status === "fulfilled") {
+          for (const e of r.value) {
+            if (!seen.has(e.espnId)) {
+              seen.add(e.espnId);
+              (espnEvents as any[]).push(e);
+            }
+          }
+        }
+      }
+
+      // 2. Fetch DB stream links
+      const { data: dbEvents } = await supabase
+        .from("events")
+        .select("espn_id,name,team_home,team_away,stream_url,stream_url_2,stream_url_3,is_active")
+        .eq("is_active", true);
+
+      const dbMap = new Map<string, { url1: string; url2?: string; url3?: string }>();
+      for (const d of dbEvents ?? []) {
+        if (d.stream_url) {
+          if (d.espn_id) {
+            dbMap.set(d.espn_id, {
+              url1: d.stream_url,
+              url2: d.stream_url_2 ?? undefined,
+              url3: d.stream_url_3 ?? undefined,
+            });
+          }
+          // also index by team names for fuzzy match
+          const key = normalizeText(`${d.team_home ?? ""} ${d.team_away ?? ""}`);
+          if (key.trim())
+            dbMap.set(key, {
+              url1: d.stream_url,
+              url2: d.stream_url_2 ?? undefined,
+              url3: d.stream_url_3 ?? undefined,
+            });
+        }
+      }
+
+      // 3. Match links to ESPN events
+      const matched: MatchEvent[] = (espnEvents as any[]).map((e) => {
+        let link = dbMap.get(e.espnId);
+        if (!link) {
+          const key = normalizeText(`${e.teamHome} ${e.teamAway}`);
+          link = dbMap.get(key);
+        }
+        if (!link) {
+          // try reverse order
+          const keyRev = normalizeText(`${e.teamAway} ${e.teamHome}`);
+          link = dbMap.get(keyRev);
+        }
+        return {
+          id: e.espnId,
+          name: e.name,
+          url1: link?.url1 ?? "",
+          url2: link?.url2,
+          url3: link?.url3,
+          teamHome: e.teamHome,
+          teamAway: e.teamAway,
+          leagueName: e.leagueName,
+          sport: e.sport,
+          isLive: e.isLive,
+          state: e.state,
+        };
+      });
+
+      // Sort: live first, then with link, then upcoming
+      matched.sort((a, b) => {
+        if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
+        if (!!a.url1 !== !!b.url1) return a.url1 ? -1 : 1;
+        return 0;
+      });
+
+      setEvents(matched);
+      setLoaded(true);
+    } catch (e) {
+      console.error(e);
+      toast.error("Error al cargar partidos");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Auto-load when picker opens for the first time
+  useEffect(() => {
+    if (showEventPicker !== null && !loaded && !loading) {
+      loadEvents();
+    }
+  }, [showEventPicker, loaded, loading, loadEvents]);
 
   const selectedEventIds = useMemo(() => new Set(slots.map((s) => s.eventId).filter(Boolean) as string[]), [slots]);
 
   const filteredEvents = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const sorted = [...allEvents].sort((a, b) => {
-      if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
-      if (!!a.url1 !== !!b.url1) return a.url1 ? -1 : 1;
-      return 0;
-    });
-    return sorted.filter((event) => {
+    return events.filter((event) => {
       if (selectedEventIds.has(event.id)) return false;
       if (!q) return true;
       const hay = `${event.name} ${event.teamHome} ${event.teamAway} ${event.leagueName}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [allEvents, searchQuery, selectedEventIds]);
+  }, [events, searchQuery, selectedEventIds]);
 
-  const eventsWithLink = useMemo(() => filteredEvents.filter((e) => !!e.url1), [filteredEvents]);
+  const eventsWithLink = useMemo(
+    () => events.filter((e) => !!e.url1 && !selectedEventIds.has(e.id)),
+    [events, selectedEventIds],
+  );
 
-  const handleSelectEvent = (slotId: number, event: SharedEvent) => {
+  const handleSelectEvent = (slotId: number, event: MatchEvent) => {
     if (!event.url1) {
       toast.info("Este partido aún no tiene enlace disponible");
       return;
@@ -171,9 +245,6 @@ export function MultiStreamView() {
               eventId: event.id,
               url: event.url1,
               title: event.name,
-              teamHome: event.teamHome,
-              teamAway: event.teamAway,
-              league: event.league,
               leagueName: event.leagueName,
               isLive: event.isLive,
               isActive: true,
@@ -189,18 +260,7 @@ export function MultiStreamView() {
     setSlots((prev) =>
       prev.map((slot) =>
         slot.id === slotId
-          ? {
-              ...slot,
-              eventId: null,
-              url: "",
-              title: "",
-              isActive: false,
-              teamHome: undefined,
-              teamAway: undefined,
-              league: undefined,
-              leagueName: undefined,
-              isLive: undefined,
-            }
+          ? { ...slot, eventId: null, url: "", title: "", isActive: false, leagueName: undefined, isLive: undefined }
           : slot,
       ),
     );
@@ -218,8 +278,7 @@ export function MultiStreamView() {
 
   return (
     <div className={cn("min-h-screen relative", isFullscreen && "fixed inset-0 z-50 bg-background p-3")}>
-      <RGBParticles />
-
+      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -271,6 +330,7 @@ export function MultiStreamView() {
         </div>
       </motion.div>
 
+      {/* Grid — centered when layout=2 */}
       <div
         className={cn("relative z-10", isFullscreen && "h-[calc(100vh-80px)]")}
         style={
@@ -340,34 +400,40 @@ export function MultiStreamView() {
                     exit={{ opacity: 0 }}
                     className="absolute inset-0 flex flex-col p-3 bg-card overflow-hidden"
                   >
-                    <div className="relative mb-2.5">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
-                      <Input
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Buscar partido..."
-                        className="pl-10 h-9 bg-white/[0.02] border-white/[0.06] focus:border-primary/30 text-sm rounded-xl"
-                        autoFocus
-                      />
+                    {/* Search + refresh */}
+                    <div className="flex gap-2 mb-2.5">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40" />
+                        <Input
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Buscar partido..."
+                          className="pl-10 h-9 bg-white/[0.02] border-white/[0.06] focus:border-primary/30 text-sm rounded-xl"
+                          autoFocus
+                        />
+                      </div>
+                      <button
+                        onClick={() => loadEvents()}
+                        className="h-9 w-9 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center text-muted-foreground/40 hover:text-foreground transition-all shrink-0"
+                      >
+                        <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
+                      </button>
                     </div>
+
                     <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 scrollbar-hide">
-                      {allEvents.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-24 text-muted-foreground/30 gap-1.5">
-                          <Trophy className="w-5 h-5" />
-                          <span className="text-[11px] font-medium">Ve a la pestaña Live primero</span>
-                          <span className="text-[10px] text-muted-foreground/20">
-                            Los partidos aparecerán aquí automáticamente
-                          </span>
+                      {loading ? (
+                        <div className="flex flex-col items-center justify-center h-24 gap-2 text-muted-foreground/30">
+                          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                          <span className="text-[11px]">Cargando partidos...</span>
                         </div>
                       ) : filteredEvents.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-20 text-muted-foreground/30">
                           <Trophy className="w-5 h-5 mb-1.5" />
-                          <span className="text-[11px] font-medium">No se encontraron partidos</span>
+                          <span className="text-[11px] font-medium">No hay partidos hoy</span>
                         </div>
                       ) : (
                         filteredEvents.map((event) => {
                           const hasLink = !!event.url1;
-                          const emoji = SPORT_EMOJI[event.sport] ?? "🏟️";
                           return (
                             <button
                               key={event.id}
@@ -383,13 +449,15 @@ export function MultiStreamView() {
                               <div className="flex items-center gap-2.5">
                                 <div
                                   className={cn(
-                                    "w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 text-base transition-colors",
+                                    "w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 transition-colors",
                                     hasLink
                                       ? "bg-gradient-to-br from-primary/10 to-primary/5 border-primary/10 group-hover/item:border-primary/25"
                                       : "bg-white/[0.03] border-white/[0.05]",
                                   )}
                                 >
-                                  {hasLink ? <Play className="w-3.5 h-3.5 text-primary" /> : <span>{emoji}</span>}
+                                  <Play
+                                    className={cn("w-3.5 h-3.5", hasLink ? "text-primary" : "text-muted-foreground/20")}
+                                  />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5">
@@ -407,7 +475,7 @@ export function MultiStreamView() {
                                     {!hasLink && (
                                       <>
                                         <span>•</span>
-                                        <span className="text-muted-foreground/30">Sin enlace aún</span>
+                                        <span className="text-muted-foreground/30">Sin enlace</span>
                                       </>
                                     )}
                                   </div>
@@ -419,6 +487,7 @@ export function MultiStreamView() {
                         })
                       )}
                     </div>
+
                     <button
                       onClick={() => {
                         setShowEventPicker(null);
@@ -449,11 +518,11 @@ export function MultiStreamView() {
                         Añadir Stream
                       </span>
                       <span className="block text-[10px] text-muted-foreground/20 mt-0.5">
-                        {eventsWithLink.length > 0
-                          ? `${eventsWithLink.length} disponibles`
-                          : allEvents.length > 0
-                            ? `${allEvents.length} partidos`
-                            : "Ve a Live primero"}
+                        {loaded
+                          ? eventsWithLink.length > 0
+                            ? `${eventsWithLink.length} disponibles`
+                            : "Sin enlaces hoy"
+                          : "Toca para cargar"}
                       </span>
                     </div>
                   </motion.button>
