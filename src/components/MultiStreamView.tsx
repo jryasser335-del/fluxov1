@@ -244,7 +244,7 @@ export function MultiStreamView() {
       <div
         className={cn(
           layout === 2
-            ? "flex items-center justify-center gap-3 max-w-4xl mx-auto"
+            ? "flex items-stretch justify-center gap-3 max-w-5xl mx-auto min-h-[40vh]"
             : "grid grid-cols-2 gap-3"
         )}
       >
@@ -253,8 +253,7 @@ export function MultiStreamView() {
             key={slot.id}
             className={cn(
               "relative rounded-2xl overflow-hidden group aspect-video",
-              layout === 2 && "w-[calc(50%-6px)] flex-shrink-0",
-              "relative rounded-2xl overflow-hidden group aspect-video",
+              layout === 2 && "flex-1 max-w-[50%]",
               slot.isActive
                 ? "border border-white/[0.08] bg-card shadow-xl"
                 : "border border-dashed border-white/[0.06] bg-white/[0.01] hover:border-primary/20",
