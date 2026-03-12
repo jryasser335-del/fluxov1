@@ -19,7 +19,43 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-  // ── Load only from DB (instant) — only events that already have links ────
+interface MatchEvent {
+  id: string;
+  name: string;
+  url: string;
+  leagueName: string;
+  isLive: boolean;
+  hasLink: boolean;
+}
+
+interface StreamSlot {
+  id: number;
+  eventId: string | null;
+  title: string;
+  url: string;
+  isActive: boolean;
+  leagueName?: string;
+  isLive?: boolean;
+}
+
+const norm = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+export function MultiStreamView() {
+  const [layout, setLayout] = useState<2 | 4>(4);
+  const [slots, setSlots] = useState<StreamSlot[]>([
+    { id: 1, eventId: null, title: "", url: "", isActive: false },
+    { id: 2, eventId: null, title: "", url: "", isActive: false },
+    { id: 3, eventId: null, title: "", url: "", isActive: false },
+    { id: 4, eventId: null, title: "", url: "", isActive: false },
+  ]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showPicker, setShowPicker] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+  const [events, setEvents] = useState<MatchEvent[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // ── Load only from DB (instant) — only events with links ────
   const load = async () => {
     setLoading(true);
     try {
