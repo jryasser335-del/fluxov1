@@ -55,34 +55,73 @@ export function MultiStreamView() {
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // ── Load only from DB (instant) — only events with links ────
+  // ── Load from DB + fallback to cached external streams ────
   const load = async () => {
     setLoading(true);
     try {
+      // Try DB first
       const { data: dbRows, error } = await supabase
         .from("events")
         .select("id,espn_id,name,team_home,team_away,stream_url,pending_url,is_active,sport,league,is_live,event_date")
         .eq("is_active", true)
         .not("stream_url", "is", null);
 
-      if (error) throw error;
+      let all: MatchEvent[] = [];
 
-      const all: MatchEvent[] = (dbRows ?? [])
-        .filter((row) => row.stream_url || row.pending_url)
-        .map((row) => ({
-          id: row.id,
-          name: row.name || `${row.team_home ?? "TBD"} vs ${row.team_away ?? "TBD"}`,
-          url: row.stream_url || row.pending_url || "",
-          leagueName: row.league ?? row.sport ?? "Sport",
-          isLive: row.is_live ?? false,
-          hasLink: true,
-        }))
-        .sort((a, b) => (a.isLive === b.isLive ? 0 : a.isLive ? -1 : 1));
+      if (!error && dbRows?.length) {
+        all = dbRows
+          .filter((row) => row.stream_url || row.pending_url)
+          .map((row) => ({
+            id: row.id,
+            name: row.name || `${row.team_home ?? "TBD"} vs ${row.team_away ?? "TBD"}`,
+            url: row.stream_url || row.pending_url || "",
+            leagueName: row.league ?? row.sport ?? "Sport",
+            isLive: row.is_live ?? false,
+            hasLink: true,
+          }));
+      }
 
+      // Fallback: use cached external streams if DB returned nothing
+      if (all.length === 0) {
+        try {
+          const cached = localStorage.getItem("fluxo_streams_cache");
+          if (cached) {
+            const { streams } = JSON.parse(cached);
+            if (streams?.length) {
+              all = streams.map((s: any, i: number) => ({
+                id: `ext-${i}-${s.source}`,
+                name: s.name,
+                url: s.iframe,
+                leagueName: s.category || (s.source === "ppv" ? "PPV" : "Streamed"),
+                isLive: true,
+                hasLink: true,
+              }));
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      all.sort((a, b) => (a.isLive === b.isLive ? 0 : a.isLive ? -1 : 1));
       setEvents(all);
     } catch (e) {
       console.error(e);
-      toast.error("Error cargando partidos");
+      // Fallback to cached streams on error
+      try {
+        const cached = localStorage.getItem("fluxo_streams_cache");
+        if (cached) {
+          const { streams } = JSON.parse(cached);
+          if (streams?.length) {
+            setEvents(streams.map((s: any, i: number) => ({
+              id: `ext-${i}-${s.source}`,
+              name: s.name,
+              url: s.iframe,
+              leagueName: s.category || (s.source === "ppv" ? "PPV" : "Streamed"),
+              isLive: true,
+              hasLink: true,
+            })));
+          }
+        }
+      } catch { /* ignore */ }
     } finally {
       setLoading(false);
     }
