@@ -92,11 +92,11 @@ export function MultiStreamView() {
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // ── Load: ESPN events + Supabase links, merged ───────────────────────────
+  // ── Load: ESPN events + DB + external streams (ppv/streamed) ─────────────
   const load = async () => {
     setLoading(true);
     try {
-      // 1. Get DB links (same query as EventsView.fetchEventLinks)
+      // 1. Get DB links
       const { data: dbRows } = await supabase
         .from("events")
         .select(
@@ -104,7 +104,21 @@ export function MultiStreamView() {
         )
         .eq("is_active", true);
 
-      // Build lookup by espn_id and by team names
+      // 2. Fetch external streams (ppv.to / streamed.pk) — use cache first
+      let extStreams: { name: string; iframe: string; source: string; viewers?: number }[] = [];
+      try {
+        const cached = localStorage.getItem("fluxo_streams_cache");
+        if (cached) {
+          const { streams, ts } = JSON.parse(cached);
+          if (Date.now() - ts < 5 * 60 * 1000) extStreams = streams;
+        }
+        if (!extStreams.length) {
+          const { data } = await supabase.functions.invoke("fetch-all-streams", { body: {} });
+          if (data?.streams?.length) extStreams = data.streams;
+        }
+      } catch { /* ignore */ }
+
+      // Build lookups
       const byEspnId = new Map<string, string>();
       const byTeams = new Map<string, string>();
       const dbOnlyEvents: MatchEvent[] = [];
@@ -114,8 +128,6 @@ export function MultiStreamView() {
         if (row.espn_id && url) byEspnId.set(row.espn_id, url);
         const teamKey = norm(`${row.team_home ?? ""} ${row.team_away ?? ""}`);
         if (teamKey.trim() && url) byTeams.set(teamKey, url);
-
-        // If this row has no espn_id, treat it as a standalone DB event
         if (!row.espn_id && url) {
           dbOnlyEvents.push({
             id: `db-${row.name}`,
@@ -128,7 +140,7 @@ export function MultiStreamView() {
         }
       }
 
-      // 2. Fetch ESPN events for all leagues in parallel (fast: 1 request per league)
+      // 3. Fetch ESPN events
       const results = await Promise.allSettled(
         ALL_LEAGUES.map((lg) => fetchESPNScoreboard(lg.key).then((d) => ({ lg, d }))),
       );
@@ -149,12 +161,26 @@ export function MultiStreamView() {
           const away = competitors.find((c: any) => c.homeAway === "away");
           const homeName = home?.team?.displayName ?? "";
           const awayName = away?.team?.displayName ?? "";
+          const homeShort = home?.team?.shortDisplayName ?? "";
+          const awayShort = away?.team?.shortDisplayName ?? "";
           const isLive = comp?.status?.type?.state === "in";
 
-          // Find link
+          // Find link: DB first, then external streams
           let url = byEspnId.get(ev.id) ?? "";
           if (!url) url = byTeams.get(norm(`${homeName} ${awayName}`)) ?? "";
           if (!url) url = byTeams.get(norm(`${awayName} ${homeName}`)) ?? "";
+
+          // Try external stream matching if no DB link
+          if (!url && extStreams.length > 0) {
+            const hN = norm(homeName), aN = norm(awayName);
+            const hS = norm(homeShort), aS = norm(awayShort);
+            for (const s of extStreams) {
+              const sN = norm(s.name);
+              const homeMatch = [hN, hS].some((n) => n.length > 2 && sN.includes(n));
+              const awayMatch = [aN, aS].some((n) => n.length > 2 && sN.includes(n));
+              if (homeMatch || awayMatch) { url = s.iframe; break; }
+            }
+          }
 
           espnEvents.push({
             id: ev.id,
@@ -167,10 +193,25 @@ export function MultiStreamView() {
         }
       }
 
-      // 3. Merge: ESPN first, then DB-only
+      // 4. Add standalone external streams not matched to ESPN
+      const usedUrls = new Set([...espnEvents.filter(e => e.url).map(e => e.url), ...dbOnlyEvents.map(e => e.url)]);
+      for (const s of extStreams) {
+        if (usedUrls.has(s.iframe)) continue;
+        dbOnlyEvents.push({
+          id: `ext-${s.name}-${s.source}`,
+          name: s.name,
+          url: s.iframe,
+          leagueName: s.source === "ppv" ? "PPV" : "Streamed",
+          isLive: true,
+          hasLink: true,
+        });
+        usedUrls.add(s.iframe);
+      }
+
+      // 5. Merge & sort
       const all = [...espnEvents, ...dbOnlyEvents].sort((a, b) => {
-        if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
         if (a.hasLink !== b.hasLink) return a.hasLink ? -1 : 1;
+        if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
         return 0;
       });
 
@@ -298,18 +339,18 @@ export function MultiStreamView() {
 
       {/* Grid */}
       <div
-        style={{
-          display: layout === 2 ? "flex" : "grid",
-          gridTemplateColumns: layout === 4 ? "1fr 1fr" : undefined,
-          justifyContent: layout === 2 ? "center" : undefined,
-          gap: "12px",
-        }}
+        className={cn(
+          layout === 2
+            ? "flex items-center justify-center gap-3 max-w-4xl mx-auto"
+            : "grid grid-cols-2 gap-3"
+        )}
       >
         {displaySlots.map((slot) => (
           <div
             key={slot.id}
-            style={layout === 2 ? { width: "calc(50% - 6px)", flexShrink: 0 } : {}}
             className={cn(
+              "relative rounded-2xl overflow-hidden group aspect-video",
+              layout === 2 && "w-[calc(50%-6px)] flex-shrink-0",
               "relative rounded-2xl overflow-hidden group aspect-video",
               slot.isActive
                 ? "border border-white/[0.08] bg-card shadow-xl"
