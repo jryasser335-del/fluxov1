@@ -339,18 +339,18 @@ export function MultiStreamView() {
 
       {/* Grid */}
       <div
-        style={{
-          display: layout === 2 ? "flex" : "grid",
-          gridTemplateColumns: layout === 4 ? "1fr 1fr" : undefined,
-          justifyContent: layout === 2 ? "center" : undefined,
-          gap: "12px",
-        }}
+        className={cn(
+          layout === 2
+            ? "flex items-center justify-center gap-3 max-w-4xl mx-auto"
+            : "grid grid-cols-2 gap-3"
+        )}
       >
         {displaySlots.map((slot) => (
           <div
             key={slot.id}
-            style={layout === 2 ? { width: "calc(50% - 6px)", flexShrink: 0 } : {}}
             className={cn(
+              "relative rounded-2xl overflow-hidden group aspect-video",
+              layout === 2 && "w-[calc(50%-6px)] flex-shrink-0",
               "relative rounded-2xl overflow-hidden group aspect-video",
               slot.isActive
                 ? "border border-white/[0.08] bg-card shadow-xl"
