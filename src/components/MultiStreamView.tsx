@@ -18,38 +18,6 @@ import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchESPNScoreboard } from "@/lib/api";
-
-// ── All leagues (same as EventsView) ─────────────────────────────────────────
-const ALL_LEAGUES = [
-  { key: "eng.1", name: "Premier League" },
-  { key: "esp.1", name: "LaLiga" },
-  { key: "ger.1", name: "Bundesliga" },
-  { key: "ita.1", name: "Serie A" },
-  { key: "fra.1", name: "Ligue 1" },
-  { key: "uefa.champions", name: "Champions League" },
-  { key: "uefa.europa", name: "Europa League" },
-  { key: "esp.copa_del_rey", name: "Copa del Rey" },
-  { key: "eng.fa", name: "FA Cup" },
-  { key: "eng.league_cup", name: "EFL Cup" },
-  { key: "ger.dfb_pokal", name: "DFB Pokal" },
-  { key: "ita.coppa_italia", name: "Coppa Italia" },
-  { key: "fra.coupe_de_france", name: "Coupe de France" },
-  { key: "ned.1", name: "Eredivisie" },
-  { key: "por.1", name: "Primeira Liga" },
-  { key: "tur.1", name: "Süper Lig" },
-  { key: "mex.1", name: "Liga MX" },
-  { key: "arg.1", name: "Primera División" },
-  { key: "bra.1", name: "Brasileirão" },
-  { key: "conmebol.libertadores", name: "Libertadores" },
-  { key: "mls", name: "MLS" },
-  { key: "nba", name: "NBA" },
-  { key: "mlb", name: "MLB" },
-  { key: "nhl", name: "NHL" },
-  { key: "boxing", name: "Boxing" },
-  { key: "ufc", name: "UFC / MMA" },
-  { key: "wwe", name: "WWE" },
-];
 
 interface MatchEvent {
   id: string;
@@ -70,13 +38,8 @@ interface StreamSlot {
   isLive?: boolean;
 }
 
-// ── Normalize for fuzzy matching ──────────────────────────────────────────────
 const norm = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
 export function MultiStreamView() {
   const [layout, setLayout] = useState<2 | 4>(4);
@@ -92,128 +55,29 @@ export function MultiStreamView() {
   const [events, setEvents] = useState<MatchEvent[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // ── Load: ESPN events + DB + external streams (ppv/streamed) ─────────────
+  // ── Load only from DB (instant) — only events with links ────
   const load = async () => {
     setLoading(true);
     try {
-      // 1. Get DB links
-      const { data: dbRows } = await supabase
+      const { data: dbRows, error } = await supabase
         .from("events")
-        .select(
-          "espn_id,name,team_home,team_away,stream_url,stream_url_2,stream_url_3,pending_url,is_active,sport,league,is_live,event_date",
-        )
-        .eq("is_active", true);
+        .select("id,espn_id,name,team_home,team_away,stream_url,pending_url,is_active,sport,league,is_live,event_date")
+        .eq("is_active", true)
+        .not("stream_url", "is", null);
 
-      // 2. Fetch external streams (ppv.to / streamed.pk) — use cache first
-      let extStreams: { name: string; iframe: string; source: string; viewers?: number }[] = [];
-      try {
-        const cached = localStorage.getItem("fluxo_streams_cache");
-        if (cached) {
-          const { streams, ts } = JSON.parse(cached);
-          if (Date.now() - ts < 5 * 60 * 1000) extStreams = streams;
-        }
-        if (!extStreams.length) {
-          const { data } = await supabase.functions.invoke("fetch-all-streams", { body: {} });
-          if (data?.streams?.length) extStreams = data.streams;
-        }
-      } catch { /* ignore */ }
+      if (error) throw error;
 
-      // Build lookups
-      const byEspnId = new Map<string, string>();
-      const byTeams = new Map<string, string>();
-      const dbOnlyEvents: MatchEvent[] = [];
-
-      for (const row of dbRows ?? []) {
-        const url = row.stream_url || row.pending_url || "";
-        if (row.espn_id && url) byEspnId.set(row.espn_id, url);
-        const teamKey = norm(`${row.team_home ?? ""} ${row.team_away ?? ""}`);
-        if (teamKey.trim() && url) byTeams.set(teamKey, url);
-        if (!row.espn_id && url) {
-          dbOnlyEvents.push({
-            id: `db-${row.name}`,
-            name: row.name || `${row.team_home ?? "TBD"} vs ${row.team_away ?? "TBD"}`,
-            url,
-            leagueName: row.league ?? row.sport ?? "Sport",
-            isLive: row.is_live ?? false,
-            hasLink: true,
-          });
-        }
-      }
-
-      // 3. Fetch ESPN events
-      const results = await Promise.allSettled(
-        ALL_LEAGUES.map((lg) => fetchESPNScoreboard(lg.key).then((d) => ({ lg, d }))),
-      );
-
-      const espnEvents: MatchEvent[] = [];
-      const seen = new Set<string>();
-
-      for (const r of results) {
-        if (r.status !== "fulfilled") continue;
-        const { lg, d } = r.value;
-        for (const ev of d.events ?? []) {
-          if (seen.has(ev.id)) continue;
-          seen.add(ev.id);
-
-          const comp = ev.competitions?.[0];
-          const competitors = comp?.competitors ?? [];
-          const home = competitors.find((c: any) => c.homeAway === "home");
-          const away = competitors.find((c: any) => c.homeAway === "away");
-          const homeName = home?.team?.displayName ?? "";
-          const awayName = away?.team?.displayName ?? "";
-          const homeShort = home?.team?.shortDisplayName ?? "";
-          const awayShort = away?.team?.shortDisplayName ?? "";
-          const isLive = comp?.status?.type?.state === "in";
-
-          // Find link: DB first, then external streams
-          let url = byEspnId.get(ev.id) ?? "";
-          if (!url) url = byTeams.get(norm(`${homeName} ${awayName}`)) ?? "";
-          if (!url) url = byTeams.get(norm(`${awayName} ${homeName}`)) ?? "";
-
-          // Try external stream matching if no DB link
-          if (!url && extStreams.length > 0) {
-            const hN = norm(homeName), aN = norm(awayName);
-            const hS = norm(homeShort), aS = norm(awayShort);
-            for (const s of extStreams) {
-              const sN = norm(s.name);
-              const homeMatch = [hN, hS].some((n) => n.length > 2 && sN.includes(n));
-              const awayMatch = [aN, aS].some((n) => n.length > 2 && sN.includes(n));
-              if (homeMatch || awayMatch) { url = s.iframe; break; }
-            }
-          }
-
-          espnEvents.push({
-            id: ev.id,
-            name: ev.name || `${awayName} vs ${homeName}`,
-            url,
-            leagueName: lg.name,
-            isLive,
-            hasLink: !!url,
-          });
-        }
-      }
-
-      // 4. Add standalone external streams not matched to ESPN
-      const usedUrls = new Set([...espnEvents.filter(e => e.url).map(e => e.url), ...dbOnlyEvents.map(e => e.url)]);
-      for (const s of extStreams) {
-        if (usedUrls.has(s.iframe)) continue;
-        dbOnlyEvents.push({
-          id: `ext-${s.name}-${s.source}`,
-          name: s.name,
-          url: s.iframe,
-          leagueName: s.source === "ppv" ? "PPV" : "Streamed",
-          isLive: true,
+      const all: MatchEvent[] = (dbRows ?? [])
+        .filter((row) => row.stream_url || row.pending_url)
+        .map((row) => ({
+          id: row.id,
+          name: row.name || `${row.team_home ?? "TBD"} vs ${row.team_away ?? "TBD"}`,
+          url: row.stream_url || row.pending_url || "",
+          leagueName: row.league ?? row.sport ?? "Sport",
+          isLive: row.is_live ?? false,
           hasLink: true,
-        });
-        usedUrls.add(s.iframe);
-      }
-
-      // 5. Merge & sort
-      const all = [...espnEvents, ...dbOnlyEvents].sort((a, b) => {
-        if (a.hasLink !== b.hasLink) return a.hasLink ? -1 : 1;
-        if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
-        return 0;
-      });
+        }))
+        .sort((a, b) => (a.isLive === b.isLive ? 0 : a.isLive ? -1 : 1));
 
       setEvents(all);
     } catch (e) {
