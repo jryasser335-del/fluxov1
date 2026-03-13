@@ -466,6 +466,7 @@ export function EventsView() {
   };
 
   // ── Click INMEDIATO: abre al instante si hay link, sino espera hasta 20s ──
+  const { openWithMessage } = usePlayerModal();
   const handleEventClick = useCallback(
     async (enriched: EnrichedEvent) => {
       const comp = enriched.event.competitions?.[0];
@@ -475,9 +476,13 @@ export function EventsView() {
       const home = teams.find((c) => c.homeAway === "home") || teams[1];
       const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
 
-      // Partido finalizado → mensaje informativo
+      // Partido finalizado → abrir player con mensaje
       if (status?.state === "post") {
-        toast.info("⛔ Partido finalizado", { description: "Este partido ya ha terminado.", duration: 3000 });
+        openWithMessage(title, {
+          icon: "finished",
+          title: "Partido Finalizado",
+          description: "Este partido ya ha terminado. No hay transmisión disponible.",
+        });
         return;
       }
 
@@ -489,9 +494,10 @@ export function EventsView() {
         if (eventDate - now > thirtyMin) {
           const hoursLeft = Math.floor((eventDate - now) / (1000 * 60 * 60));
           const minsLeft = Math.floor(((eventDate - now) % (1000 * 60 * 60)) / (1000 * 60));
-          toast.info("⏰ Aún no disponible", {
+          openWithMessage(title, {
+            icon: "upcoming",
+            title: "Aún no disponible",
             description: `Los links estarán disponibles 30 minutos antes del partido. Faltan ${hoursLeft > 0 ? `${hoursLeft}h ` : ""}${minsLeft}min.`,
-            duration: 4000,
           });
           return;
         }
@@ -555,7 +561,7 @@ export function EventsView() {
       });
       toast.error("No hay enlace disponible para este partido", { duration: 4000 });
     },
-    [eventLinks, openPlayer],
+    [eventLinks, openPlayer, openWithMessage],
   );
 
   const handleDbEventClick = (event: DbEvent) => {
