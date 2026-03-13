@@ -356,6 +356,70 @@ export function PlayerModal() {
 
   if (!isOpen) return null;
 
+  // ── STATUS MESSAGE (finished / upcoming >30min) ──
+  if (statusMessage) {
+    const isFinished = statusMessage.icon === "finished";
+    return (
+      <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black animate-in fade-in duration-300">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.04] blur-[120px]" />
+          <div className="absolute top-1/4 right-1/4 w-[300px] h-[300px] rounded-full bg-destructive/[0.03] blur-[100px]" />
+          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '40px 40px' }} />
+        </div>
+
+        <button onClick={closePlayer} className="absolute top-5 right-5 z-50 w-11 h-11 rounded-2xl flex items-center justify-center bg-white/[0.05] hover:bg-white/[0.12] border border-white/[0.08] hover:border-white/[0.15] backdrop-blur-xl transition-all duration-300 text-white/50 hover:text-white group">
+          <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+        </button>
+
+        <div className="relative flex flex-col items-center gap-8 text-center px-8 max-w-lg">
+          <div className="relative">
+            <div className="absolute -inset-6 rounded-full border border-white/[0.06] animate-[ping_3s_ease-in-out_infinite]" />
+            <div className="absolute -inset-3 rounded-full border border-white/[0.08]" />
+            <div
+              className="relative w-28 h-28 rounded-full flex items-center justify-center"
+              style={{
+                background: isFinished
+                  ? 'linear-gradient(135deg, hsl(0 60% 50% / 0.15), hsl(0 40% 30% / 0.1))'
+                  : 'linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(200 100% 50% / 0.1))',
+              }}
+            >
+              <div className="absolute inset-[2px] rounded-full bg-black/80 backdrop-blur-xl" />
+              {isFinished ? (
+                <AlertTriangle className="relative w-11 h-11 text-destructive drop-shadow-[0_0_20px_hsl(0_60%_50%/0.5)]" />
+              ) : (
+                <Clock className="relative w-11 h-11 text-primary drop-shadow-[0_0_20px_hsl(var(--primary)/0.5)]" />
+              )}
+            </div>
+            <div className={cn("absolute -inset-8 rounded-full blur-3xl", isFinished ? "bg-destructive/[0.08]" : "bg-primary/[0.08]")} />
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-wide leading-tight">
+              {title}
+            </h3>
+            <div className={cn("w-16 h-[2px] mx-auto rounded-full bg-gradient-to-r from-transparent to-transparent", isFinished ? "via-destructive/50" : "via-primary/50")} />
+            <p className="text-xl font-bold text-white/90 mt-4">{statusMessage.title}</p>
+            <p className="text-white/40 text-sm sm:text-base leading-relaxed">
+              {statusMessage.description}
+            </p>
+          </div>
+
+          <button
+            onClick={closePlayer}
+            className={cn(
+              "px-8 py-3 rounded-2xl font-semibold text-sm transition-all duration-300 border backdrop-blur-xl",
+              isFinished
+                ? "bg-destructive/10 border-destructive/20 text-destructive hover:bg-destructive/20"
+                : "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20",
+            )}
+          >
+            Volver
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // ── PENDING MESSAGE ──
   if (isPendingMessage) {
     return (
