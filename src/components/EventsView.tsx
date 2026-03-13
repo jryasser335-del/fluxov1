@@ -1015,12 +1015,12 @@ function DbEventCard({
             <TeamBadge name={event.team_home} fallback={homeInitials} />
           </div>
         </div>
-        <div className="bg-card px-3 pt-2.5 pb-2.5 space-y-1">
-          <h3 className="text-[13px] font-semibold text-foreground/90 leading-tight truncate">
+        <div className="bg-card px-4 pt-3 pb-3 space-y-1.5">
+          <h3 className="text-sm font-bold text-foreground/95 leading-snug truncate" style={{ fontFamily: "'Sora', 'Plus Jakarta Sans', sans-serif" }}>
             {event.team_home || "TBD"} vs {event.team_away || "TBD"}
           </h3>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-medium text-muted-foreground/50">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold text-muted-foreground/50" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
               {event.league || event.sport || "Sports"}
             </span>
             {event.stream_url && (
