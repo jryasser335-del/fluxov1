@@ -19,7 +19,7 @@ import { QualitySelector } from "./player/QualitySelector";
 import { toast } from "sonner";
 
 export function PlayerModal() {
-  const { isOpen, title, urls, contentType, closePlayer } = usePlayerModal();
+  const { isOpen, title, urls, contentType, statusMessage, closePlayer } = usePlayerModal();
   const { addToHistory } = useWatchHistory();
   
   const [isLoading, setIsLoading] = useState(true);
