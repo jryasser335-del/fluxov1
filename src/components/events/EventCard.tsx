@@ -200,11 +200,9 @@ export function EventCard({
       <div
         className={cn(
           "relative rounded-[17px] overflow-hidden cursor-pointer touch-manipulation",
-          // MEJORA: transición más suave con scale y shadow más dramático
           "transition-all duration-300 ease-out",
           "border hover:border-white/[0.15]",
           "hover:-translate-y-1.5 hover:scale-[1.02] hover:shadow-[0_24px_64px_-12px_rgba(0,0,0,0.8)]",
-          // MEJORA: tarjetas programadas tienen fondo más visible (no tan oscuro)
           isLive
             ? "border-primary/20 hover:border-primary/35 bg-gradient-to-b from-[#1a1f35] to-[#0d1020]"
             : isPre
@@ -215,6 +213,10 @@ export function EventCard({
       >
         {/* Top shine line */}
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/[0.12] to-transparent z-10 pointer-events-none" />
+        {/* Animated hover shine sweep */}
+        <div className="absolute inset-0 z-[5] pointer-events-none opacity-0 group-hover/card:opacity-100 transition-opacity duration-500 overflow-hidden">
+          <div className="absolute -inset-full bg-gradient-to-r from-transparent via-white/[0.07] to-transparent skew-x-[-20deg] translate-x-[-200%] group-hover/card:translate-x-[200%] transition-transform duration-1000 ease-out" />
+        </div>
 
         {/* Match visual area */}
         <div
