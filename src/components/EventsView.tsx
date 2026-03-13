@@ -470,11 +470,32 @@ export function EventsView() {
     async (enriched: EnrichedEvent) => {
       const comp = enriched.event.competitions?.[0];
       const status = comp?.status?.type;
-      if (status?.state === "post") return;
       const teams = comp?.competitors || [];
       const away = teams.find((c) => c.homeAway === "away") || teams[0];
       const home = teams.find((c) => c.homeAway === "home") || teams[1];
       const title = `${away?.team?.displayName || "Equipo"} vs ${home?.team?.displayName || "Equipo"}`;
+
+      // Partido finalizado → mensaje informativo
+      if (status?.state === "post") {
+        toast.info("⛔ Partido finalizado", { description: "Este partido ya ha terminado.", duration: 3000 });
+        return;
+      }
+
+      // Partido futuro → comprobar si faltan más de 30 minutos
+      if (status?.state === "pre") {
+        const eventDate = new Date(comp?.date || enriched.event.date).getTime();
+        const now = Date.now();
+        const thirtyMin = 30 * 60 * 1000;
+        if (eventDate - now > thirtyMin) {
+          const hoursLeft = Math.floor((eventDate - now) / (1000 * 60 * 60));
+          const minsLeft = Math.floor(((eventDate - now) % (1000 * 60 * 60)) / (1000 * 60));
+          toast.info("⏰ Aún no disponible", {
+            description: `Los links estarán disponibles 30 minutos antes del partido. Faltan ${hoursLeft > 0 ? `${hoursLeft}h ` : ""}${minsLeft}min.`,
+            duration: 4000,
+          });
+          return;
+        }
+      }
 
       // Si ya tenemos el link → abrir inmediatamente
       const existingLink = eventLinks.get(enriched.event.id);
@@ -495,7 +516,6 @@ export function EventsView() {
 
       while (Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, 1500));
-        // Comprobar DB
         const { data: fresh } = await supabase
           .from("events")
           .select("stream_url,stream_url_2,stream_url_3")
@@ -514,7 +534,6 @@ export function EventsView() {
           );
           return;
         }
-        // Comprobar streams en memoria (pueden haber llegado en background)
         const current = readStreamCache();
         if (current?.length) {
           const ext = findBestExternalMatches(current, homeName, awayName, homeShort, awayShort);
