@@ -356,24 +356,21 @@ export function EventCard({
           </div>
         </div>
 
-        {/* Info footer - MEJORA: texto más grande y legible */}
-        <div className="relative px-3.5 pt-3 pb-3 space-y-1.5">
-          {/* Subtle separator */}
+        {/* Info footer */}
+        <div className="relative px-4 pt-3.5 pb-3.5 space-y-1.5">
           <div className="absolute top-0 inset-x-3 h-px bg-gradient-to-r from-transparent via-white/[0.06] to-transparent pointer-events-none" />
 
-          {/* MEJORA: nombre de equipos más grande (text-sm → text-[13px] font-semibold) */}
-          <h3 className="text-[13px] font-semibold text-foreground/90 leading-tight line-clamp-1 tracking-tight">
+          <h3 className="text-sm font-bold text-foreground/95 leading-snug line-clamp-1" style={{ fontFamily: "'Sora', 'Plus Jakarta Sans', sans-serif" }}>
             {away?.team?.shortDisplayName || away?.team?.displayName || "TBD"}
-            <span className="text-muted-foreground/35 font-normal mx-1.5">vs</span>
+            <span className="text-muted-foreground/30 font-medium mx-2">vs</span>
             {home?.team?.shortDisplayName || home?.team?.displayName || "TBD"}
           </h3>
-          <div className="flex items-center gap-1.5">
-            {/* MEJORA: nombre de liga más visible */}
-            <span className="text-[10px] font-medium text-muted-foreground/55 truncate">{leagueInfo.name}</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-semibold text-muted-foreground/50 truncate" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{leagueInfo.name}</span>
             {(isPre || isFinal) && timeText && (
               <>
                 <span className="text-[9px] text-muted-foreground/20">·</span>
-                <span className="text-[10px] font-mono-premium text-muted-foreground/45 tabular-nums">{timeText}</span>
+                <span className="text-[11px] font-mono-premium text-muted-foreground/40 tabular-nums">{timeText}</span>
               </>
             )}
           </div>
