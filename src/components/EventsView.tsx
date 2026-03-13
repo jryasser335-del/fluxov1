@@ -674,9 +674,8 @@ export function EventsView() {
     return eventLinks.get(featuredLiveEvent.event.id)?.viewers || Math.floor(Math.random() * 12000) + 3000;
   }, [featuredLiveEvent, eventLinks]);
   const gridEvents = useMemo(
-    () =>
-      featuredLiveEvent ? filteredEvents.filter((e) => e.event.id !== featuredLiveEvent.event.id) : filteredEvents,
-    [filteredEvents, featuredLiveEvent],
+    () => filteredEvents,
+    [filteredEvents],
   );
 
   return (
