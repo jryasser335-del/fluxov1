@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { 
   X, Play, Pause, Maximize2, Minimize2, Volume2, VolumeX, 
   Rewind, FastForward, Settings, Share2, PictureInPicture2, Clock,
-  BarChart3, Moon, Cast, Music, Signal, Radio, AlertTriangle
+  BarChart3, Moon, Cast, Music, Signal, Radio, AlertTriangle,
+  ShieldOff, Timer, Zap, Wifi, ChevronLeft
 } from "lucide-react";
 import Hls from "hls.js";
 import { usePlayerModal } from "@/hooks/usePlayerModal";
