@@ -360,156 +360,265 @@ export function PlayerModal() {
   // ── STATUS MESSAGE (finished / upcoming >30min) ──
   if (statusMessage) {
     const isFinished = statusMessage.icon === "finished";
+    const accentColor = isFinished ? '0 70% 50%' : '215 100% 55%';
+    const accentColor2 = isFinished ? '20 80% 50%' : '200 100% 60%';
+    
     return (
-      <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/95 backdrop-blur-sm">
-        {/* Animated ambient background */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {/* Primary animated orb */}
+      <div className="fixed inset-0 z-[9990] bg-black overflow-hidden">
+        {/* === CINEMATIC BACKGROUND LAYER === */}
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Morphing gradient mesh */}
+          <div className="absolute inset-0" style={{
+            background: `
+              radial-gradient(ellipse 80% 60% at 20% 80%, hsl(${accentColor} / 0.06) 0%, transparent 50%),
+              radial-gradient(ellipse 60% 80% at 80% 20%, hsl(${accentColor2} / 0.05) 0%, transparent 50%),
+              radial-gradient(ellipse 100% 50% at 50% 50%, hsl(${accentColor} / 0.03) 0%, transparent 60%)
+            `
+          }} />
+          
+          {/* Animated aurora streaks */}
+          <div className="absolute inset-0 opacity-30">
+            <div 
+              className="absolute top-0 left-[10%] w-[500px] h-[2px] blur-[1px] animate-[beam-sway_6s_ease-in-out_infinite]" 
+              style={{ background: `linear-gradient(90deg, transparent, hsl(${accentColor} / 0.3), transparent)`, transformOrigin: 'left center' }} 
+            />
+            <div 
+              className="absolute top-[30%] right-[5%] w-[400px] h-[1px] blur-[1px] animate-[beam-sway_8s_ease-in-out_infinite_1s]" 
+              style={{ background: `linear-gradient(90deg, transparent, hsl(${accentColor2} / 0.2), transparent)`, transformOrigin: 'right center' }} 
+            />
+            <div 
+              className="absolute bottom-[20%] left-[20%] w-[600px] h-[1px] blur-[2px] animate-[beam-sway_7s_ease-in-out_infinite_2s]" 
+              style={{ background: `linear-gradient(90deg, transparent, hsl(${accentColor} / 0.15), transparent)`, transformOrigin: 'center center' }} 
+            />
+          </div>
+
+          {/* Floating particles */}
+          {Array.from({ length: 20 }).map((_, i) => (
+            <div
+              key={i}
+              className="absolute rounded-full animate-float"
+              style={{
+                width: `${Math.random() * 3 + 1}px`,
+                height: `${Math.random() * 3 + 1}px`,
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+                background: `hsl(${i % 2 === 0 ? accentColor : accentColor2} / ${Math.random() * 0.4 + 0.1})`,
+                animationDuration: `${Math.random() * 4 + 3}s`,
+                animationDelay: `${Math.random() * 3}s`,
+                filter: `blur(${Math.random() > 0.5 ? 1 : 0}px)`,
+              }}
+            />
+          ))}
+
+          {/* Radial light cone from icon */}
           <div 
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full blur-[150px] animate-[pulse_4s_ease-in-out_infinite]"
-            style={{ background: isFinished 
-              ? 'radial-gradient(circle, hsl(0 70% 50% / 0.08), transparent 70%)' 
-              : 'radial-gradient(circle, hsl(var(--primary) / 0.1), transparent 70%)' 
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[60%] w-[400px] h-[600px] opacity-[0.04]"
+            style={{
+              background: `conic-gradient(from 180deg at 50% 0%, transparent 30%, hsl(${accentColor} / 0.3) 45%, hsl(${accentColor2} / 0.2) 50%, hsl(${accentColor} / 0.3) 55%, transparent 70%)`,
+              filter: 'blur(40px)',
             }}
           />
-          {/* Secondary floating orb */}
-          <div 
-            className="absolute top-[30%] right-[20%] w-[400px] h-[400px] rounded-full blur-[120px] animate-float"
-            style={{ background: isFinished 
-              ? 'radial-gradient(circle, hsl(20 80% 50% / 0.06), transparent 70%)' 
-              : 'radial-gradient(circle, hsl(200 100% 60% / 0.07), transparent 70%)' 
-            }}
-          />
-          {/* Third orb bottom */}
-          <div 
-            className="absolute bottom-[20%] left-[25%] w-[350px] h-[350px] rounded-full blur-[100px] animate-[pulse_5s_ease-in-out_infinite_1s]"
-            style={{ background: isFinished 
-              ? 'radial-gradient(circle, hsl(0 50% 40% / 0.05), transparent 70%)' 
-              : 'radial-gradient(circle, hsl(var(--primary) / 0.06), transparent 70%)' 
-            }}
-          />
-          {/* Dot grid pattern */}
-          <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 0.5px, transparent 0)', backgroundSize: '32px 32px' }} />
-          {/* Horizontal scanlines */}
-          <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, hsl(0 0% 100% / 0.03) 2px, hsl(0 0% 100% / 0.03) 4px)', backgroundSize: '100% 4px' }} />
+
+          {/* Noise texture */}
+          <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 256 256\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")' }} />
+          
+          {/* Subtle grid */}
+          <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'linear-gradient(hsl(0 0% 100% / 0.05) 1px, transparent 1px), linear-gradient(90deg, hsl(0 0% 100% / 0.05) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
         </div>
 
-        {/* Close button */}
-        <button onClick={closePlayer} className="absolute top-5 right-5 z-50 w-11 h-11 rounded-2xl flex items-center justify-center bg-white/[0.05] hover:bg-white/[0.12] border border-white/[0.08] hover:border-white/[0.15] backdrop-blur-xl transition-all duration-300 text-white/50 hover:text-white group">
-          <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+        {/* === BACK BUTTON (cinematic style) === */}
+        <button 
+          onClick={closePlayer} 
+          className="absolute top-6 left-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] hover:border-white/[0.12] backdrop-blur-2xl transition-all duration-500 text-white/40 hover:text-white/80 group"
+        >
+          <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform duration-300" />
+          <span className="text-xs font-medium tracking-wider uppercase" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>Volver</span>
         </button>
 
-        {/* Main content card */}
-        <div className="relative animate-premium-entrance">
-          {/* Outer glow ring */}
-          <div className={cn(
-            "absolute -inset-[1px] rounded-3xl opacity-60 blur-[1px]",
-            isFinished 
-              ? "bg-gradient-to-br from-destructive/40 via-transparent to-orange-500/30" 
-              : "bg-gradient-to-br from-primary/40 via-transparent to-[hsl(200,100%,60%)]/30"
-          )} />
-          
-          <div className="relative glass-panel rounded-3xl px-10 py-12 sm:px-14 sm:py-16 max-w-md w-full mx-4 overflow-hidden">
-            {/* Inner ambient glow */}
-            <div className={cn(
-              "absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[200px] rounded-full blur-[80px]",
-              isFinished ? "bg-destructive/10" : "bg-primary/10"
-            )} />
+        {/* === CLOSE BUTTON === */}
+        <button 
+          onClick={closePlayer} 
+          className="absolute top-6 right-6 z-50 w-10 h-10 rounded-2xl flex items-center justify-center bg-white/[0.04] hover:bg-white/[0.1] border border-white/[0.06] hover:border-white/[0.12] backdrop-blur-2xl transition-all duration-500 text-white/30 hover:text-white group"
+        >
+          <X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-500" />
+        </button>
+
+        {/* === MAIN CONTENT === */}
+        <div className="relative z-10 flex items-center justify-center h-full px-6">
+          <div className="animate-cinema-reveal flex flex-col items-center max-w-lg w-full">
             
-            {/* Animated border shine */}
-            <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+            {/* ── ICON SECTION ── */}
+            <div className="relative mb-10">
+              {/* Outermost pulsing ring */}
               <div 
-                className="absolute -top-[200%] -left-[50%] w-[200%] h-[200%] animate-[spin_8s_linear_infinite]"
-                style={{
-                  background: isFinished
-                    ? 'conic-gradient(from 0deg, transparent 0%, transparent 70%, hsl(0 70% 50% / 0.15) 80%, transparent 90%)'
-                    : 'conic-gradient(from 0deg, transparent 0%, transparent 70%, hsl(var(--primary) / 0.15) 80%, transparent 90%)',
+                className="absolute -inset-16 rounded-full animate-[pulse_3s_ease-in-out_infinite]"
+                style={{ border: `1px solid hsl(${accentColor} / 0.05)` }}
+              />
+              {/* Orbiting particle ring */}
+              <div className="absolute -inset-12 animate-[spin_12s_linear_infinite]">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full" style={{ background: `hsl(${accentColor} / 0.6)`, boxShadow: `0 0 10px hsl(${accentColor} / 0.4)` }} />
+              </div>
+              <div className="absolute -inset-12 animate-[spin_8s_linear_infinite_reverse]">
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full" style={{ background: `hsl(${accentColor2} / 0.5)`, boxShadow: `0 0 8px hsl(${accentColor2} / 0.3)` }} />
+              </div>
+              <div className="absolute -inset-12 animate-[spin_15s_linear_infinite]">
+                <div className="absolute top-1/2 right-0 -translate-y-1/2 w-[3px] h-[3px] rounded-full" style={{ background: `hsl(${accentColor} / 0.3)` }} />
+              </div>
+              
+              {/* Middle ring with gradient */}
+              <div 
+                className="absolute -inset-8 rounded-full animate-[spin_20s_linear_infinite]"
+                style={{ 
+                  border: '1px solid transparent',
+                  background: `linear-gradient(black, black) padding-box, conic-gradient(from 0deg, transparent 0%, hsl(${accentColor} / 0.2) 25%, transparent 50%, hsl(${accentColor2} / 0.15) 75%, transparent 100%) border-box`,
+                  borderRadius: '50%',
                 }}
               />
-            </div>
-            <div className="absolute inset-[1px] rounded-3xl bg-black/80 backdrop-blur-2xl" />
 
-            {/* Content */}
-            <div className="relative z-10 flex flex-col items-center gap-7 text-center">
-              {/* Icon with rings */}
-              <div className="relative">
-                {/* Pulsing outer rings */}
-                <div className={cn(
-                  "absolute -inset-8 rounded-full border animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]",
-                  isFinished ? "border-destructive/10" : "border-primary/10"
-                )} />
-                <div className={cn(
-                  "absolute -inset-5 rounded-full border animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite_0.5s]",
-                  isFinished ? "border-destructive/15" : "border-primary/15"
-                )} />
-                <div className={cn(
-                  "absolute -inset-3 rounded-full border",
-                  isFinished ? "border-destructive/20" : "border-primary/20"
-                )} />
-                
-                {/* Icon circle */}
-                <div
-                  className="relative w-24 h-24 rounded-full flex items-center justify-center animate-glow-pulse"
+              {/* Inner decorative ring */}
+              <div className="absolute -inset-4 rounded-full" style={{ border: `1px solid hsl(${accentColor} / 0.1)` }} />
+
+              {/* Hexagonal icon container */}
+              <div className="relative w-28 h-28">
+                {/* Hexagon background glow */}
+                <div 
+                  className="absolute inset-0 animate-glow-pulse"
                   style={{
-                    background: isFinished
-                      ? 'linear-gradient(135deg, hsl(0 60% 50% / 0.2), hsl(20 80% 50% / 0.15))'
-                      : 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(200 100% 60% / 0.15))',
-                    boxShadow: isFinished
-                      ? '0 0 40px hsl(0 60% 50% / 0.2), inset 0 0 30px hsl(0 60% 50% / 0.1)'
-                      : '0 0 40px hsl(var(--primary) / 0.2), inset 0 0 30px hsl(var(--primary) / 0.1)',
+                    clipPath: 'polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%)',
+                    background: `linear-gradient(135deg, hsl(${accentColor} / 0.15), hsl(${accentColor2} / 0.1))`,
+                    filter: `drop-shadow(0 0 30px hsl(${accentColor} / 0.2))`,
                   }}
-                >
-                  <div className="absolute inset-[2px] rounded-full bg-black/70 backdrop-blur-xl" />
+                />
+                {/* Hexagon inner */}
+                <div 
+                  className="absolute inset-[3px]"
+                  style={{
+                    clipPath: 'polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%)',
+                    background: 'linear-gradient(135deg, hsl(0 0% 5%), hsl(0 0% 8%))',
+                  }}
+                />
+                {/* Hexagon border shine */}
+                <div 
+                  className="absolute inset-0 animate-[spin_6s_linear_infinite]"
+                  style={{
+                    clipPath: 'polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%)',
+                    background: `conic-gradient(from 0deg, transparent 60%, hsl(${accentColor} / 0.4) 70%, transparent 80%)`,
+                    mixBlendMode: 'screen',
+                  }}
+                />
+                {/* Icon */}
+                <div className="absolute inset-0 flex items-center justify-center">
                   {isFinished ? (
-                    <AlertTriangle className="relative w-10 h-10 text-destructive animate-[pulse_2s_ease-in-out_infinite] drop-shadow-[0_0_25px_hsl(0_60%_50%/0.6)]" />
+                    <ShieldOff 
+                      className="w-11 h-11 animate-[pulse_2s_ease-in-out_infinite]" 
+                      style={{ color: `hsl(${accentColor})`, filter: `drop-shadow(0 0 20px hsl(${accentColor} / 0.5))` }}
+                    />
                   ) : (
-                    <Clock className="relative w-10 h-10 text-primary animate-[spin_8s_linear_infinite] drop-shadow-[0_0_25px_hsl(var(--primary)/0.6)]" />
+                    <Timer 
+                      className="w-11 h-11 animate-[spin_10s_linear_infinite]" 
+                      style={{ color: `hsl(${accentColor})`, filter: `drop-shadow(0 0 20px hsl(${accentColor} / 0.5))` }}
+                    />
                   )}
                 </div>
               </div>
 
-              {/* Match title */}
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/30" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-                  {isFinished ? "Evento finalizado" : "Próximamente"}
-                </p>
-                <h3 className="text-xl sm:text-2xl font-bold text-white/95 leading-tight tracking-tight max-w-[300px]" style={{ fontFamily: "'Sora', sans-serif" }}>
-                  {title}
-                </h3>
-              </div>
+              {/* Bottom reflection */}
+              <div 
+                className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-32 h-8 blur-xl rounded-full"
+                style={{ background: `hsl(${accentColor} / 0.08)` }}
+              />
+            </div>
 
-              {/* Divider */}
-              <div className="w-full flex items-center gap-3">
-                <div className={cn("flex-1 h-px", isFinished ? "bg-gradient-to-r from-transparent to-destructive/30" : "bg-gradient-to-r from-transparent to-primary/30")} />
-                <div className={cn("w-1.5 h-1.5 rounded-full", isFinished ? "bg-destructive/50" : "bg-primary/50")} />
-                <div className={cn("flex-1 h-px", isFinished ? "bg-gradient-to-l from-transparent to-destructive/30" : "bg-gradient-to-l from-transparent to-primary/30")} />
-              </div>
-
-              {/* Status message */}
-              <div className="space-y-2">
-                <p className="text-base sm:text-lg font-bold text-white/85" style={{ fontFamily: "'Sora', sans-serif" }}>
-                  {statusMessage.title}
-                </p>
-                <p className="text-sm text-white/40 leading-relaxed max-w-[280px]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                  {statusMessage.description}
-                </p>
-              </div>
-
-              {/* Action button */}
-              <button
-                onClick={closePlayer}
-                className={cn(
-                  "mt-2 px-10 py-3.5 rounded-2xl font-semibold text-sm transition-all duration-500 border backdrop-blur-xl relative overflow-hidden group",
-                  isFinished
-                    ? "bg-destructive/10 border-destructive/20 text-destructive hover:bg-destructive/20 hover:border-destructive/40 hover:shadow-[0_0_30px_hsl(0_60%_50%/0.2)]"
-                    : "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20 hover:border-primary/40 hover:shadow-[0_0_30px_hsl(var(--primary)/0.2)]",
-                )}
-                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+            {/* ── LABEL ── */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-[1px]" style={{ background: `linear-gradient(90deg, transparent, hsl(${accentColor} / 0.4))` }} />
+              <p 
+                className="text-[10px] font-bold uppercase tracking-[0.3em]" 
+                style={{ color: `hsl(${accentColor} / 0.6)`, fontFamily: "'Space Grotesk', sans-serif" }}
               >
-                {/* Button shine effect */}
-                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                <span className="relative">Volver</span>
-              </button>
+                {isFinished ? "Finalizado" : "Próximamente"}
+              </p>
+              <div className="w-8 h-[1px]" style={{ background: `linear-gradient(90deg, hsl(${accentColor} / 0.4), transparent)` }} />
+            </div>
+
+            {/* ── TITLE ── */}
+            <h2 
+              className="text-2xl sm:text-3xl font-bold text-center leading-tight tracking-tight mb-2 max-w-sm animate-text-glow"
+              style={{ fontFamily: "'Sora', sans-serif", color: 'hsl(0 0% 95%)' }}
+            >
+              {title}
+            </h2>
+
+            {/* ── STATUS CARD ── */}
+            <div className="relative mt-8 w-full max-w-sm">
+              {/* Card outer glow */}
+              <div 
+                className="absolute -inset-[1px] rounded-2xl"
+                style={{ background: `linear-gradient(135deg, hsl(${accentColor} / 0.2), transparent 40%, transparent 60%, hsl(${accentColor2} / 0.15))` }}
+              />
+              <div className="relative rounded-2xl overflow-hidden" style={{ background: 'hsl(0 0% 6%)' }}>
+                {/* Card top accent line */}
+                <div className="h-[2px] w-full" style={{ background: `linear-gradient(90deg, transparent, hsl(${accentColor} / 0.5), hsl(${accentColor2} / 0.3), transparent)` }} />
+                
+                <div className="px-7 py-6">
+                  {/* Status icon + title row */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div 
+                      className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: `hsl(${accentColor} / 0.1)`, border: `1px solid hsl(${accentColor} / 0.15)` }}
+                    >
+                      {isFinished ? (
+                        <Zap className="w-4 h-4" style={{ color: `hsl(${accentColor})` }} />
+                      ) : (
+                        <Wifi className="w-4 h-4 animate-pulse" style={{ color: `hsl(${accentColor})` }} />
+                      )}
+                    </div>
+                    <p className="text-base font-bold text-white/90" style={{ fontFamily: "'Sora', sans-serif" }}>
+                      {statusMessage.title}
+                    </p>
+                  </div>
+                  
+                  {/* Description */}
+                  <p className="text-[13px] text-white/35 leading-relaxed pl-12" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                    {statusMessage.description}
+                  </p>
+                </div>
+
+                {/* Card bottom accent */}
+                <div className="h-[1px] w-full" style={{ background: `linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.04), transparent)` }} />
+              </div>
+            </div>
+
+            {/* ── ACTION BUTTON ── */}
+            <button
+              onClick={closePlayer}
+              className="group relative mt-10 overflow-hidden rounded-2xl transition-all duration-500"
+            >
+              {/* Button border gradient */}
+              <div 
+                className="absolute inset-0 rounded-2xl transition-opacity duration-500 opacity-60 group-hover:opacity-100"
+                style={{ background: `linear-gradient(135deg, hsl(${accentColor} / 0.3), hsl(${accentColor2} / 0.2))`, padding: '1px' }}
+              />
+              <div className="relative px-12 py-3.5 rounded-2xl flex items-center gap-2 transition-all duration-500" style={{ background: 'hsl(0 0% 5%)', }}>
+                {/* Hover fill */}
+                <div 
+                  className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                  style={{ background: `linear-gradient(135deg, hsl(${accentColor} / 0.1), hsl(${accentColor2} / 0.05))` }}
+                />
+                {/* Shine sweep */}
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/[0.07] to-transparent" />
+                <ChevronLeft className="relative w-4 h-4 text-white/50 group-hover:text-white/80 group-hover:-translate-x-0.5 transition-all duration-300" />
+                <span className="relative text-sm font-semibold text-white/60 group-hover:text-white/90 tracking-wide transition-colors duration-300" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                  Volver
+                </span>
+              </div>
+            </button>
+
+            {/* ── BOTTOM DECORATIVE DOTS ── */}
+            <div className="flex items-center gap-1.5 mt-8">
+              {[0.15, 0.3, 0.5, 0.3, 0.15].map((opacity, i) => (
+                <div key={i} className="w-1 h-1 rounded-full" style={{ background: `hsl(${accentColor} / ${opacity})` }} />
+              ))}
             </div>
           </div>
         </div>
