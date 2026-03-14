@@ -360,61 +360,157 @@ export function PlayerModal() {
   if (statusMessage) {
     const isFinished = statusMessage.icon === "finished";
     return (
-      <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black animate-in fade-in duration-300">
+      <div className="fixed inset-0 z-[9990] flex items-center justify-center bg-black/95 backdrop-blur-sm">
+        {/* Animated ambient background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.04] blur-[120px]" />
-          <div className="absolute top-1/4 right-1/4 w-[300px] h-[300px] rounded-full bg-destructive/[0.03] blur-[100px]" />
-          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)', backgroundSize: '40px 40px' }} />
+          {/* Primary animated orb */}
+          <div 
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full blur-[150px] animate-[pulse_4s_ease-in-out_infinite]"
+            style={{ background: isFinished 
+              ? 'radial-gradient(circle, hsl(0 70% 50% / 0.08), transparent 70%)' 
+              : 'radial-gradient(circle, hsl(var(--primary) / 0.1), transparent 70%)' 
+            }}
+          />
+          {/* Secondary floating orb */}
+          <div 
+            className="absolute top-[30%] right-[20%] w-[400px] h-[400px] rounded-full blur-[120px] animate-float"
+            style={{ background: isFinished 
+              ? 'radial-gradient(circle, hsl(20 80% 50% / 0.06), transparent 70%)' 
+              : 'radial-gradient(circle, hsl(200 100% 60% / 0.07), transparent 70%)' 
+            }}
+          />
+          {/* Third orb bottom */}
+          <div 
+            className="absolute bottom-[20%] left-[25%] w-[350px] h-[350px] rounded-full blur-[100px] animate-[pulse_5s_ease-in-out_infinite_1s]"
+            style={{ background: isFinished 
+              ? 'radial-gradient(circle, hsl(0 50% 40% / 0.05), transparent 70%)' 
+              : 'radial-gradient(circle, hsl(var(--primary) / 0.06), transparent 70%)' 
+            }}
+          />
+          {/* Dot grid pattern */}
+          <div className="absolute inset-0 opacity-[0.025]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 0.5px, transparent 0)', backgroundSize: '32px 32px' }} />
+          {/* Horizontal scanlines */}
+          <div className="absolute inset-0 opacity-[0.015]" style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, hsl(0 0% 100% / 0.03) 2px, hsl(0 0% 100% / 0.03) 4px)', backgroundSize: '100% 4px' }} />
         </div>
 
+        {/* Close button */}
         <button onClick={closePlayer} className="absolute top-5 right-5 z-50 w-11 h-11 rounded-2xl flex items-center justify-center bg-white/[0.05] hover:bg-white/[0.12] border border-white/[0.08] hover:border-white/[0.15] backdrop-blur-xl transition-all duration-300 text-white/50 hover:text-white group">
           <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
         </button>
 
-        <div className="relative flex flex-col items-center gap-8 text-center px-8 max-w-lg">
-          <div className="relative">
-            <div className="absolute -inset-6 rounded-full border border-white/[0.06] animate-[ping_3s_ease-in-out_infinite]" />
-            <div className="absolute -inset-3 rounded-full border border-white/[0.08]" />
-            <div
-              className="relative w-28 h-28 rounded-full flex items-center justify-center"
-              style={{
-                background: isFinished
-                  ? 'linear-gradient(135deg, hsl(0 60% 50% / 0.15), hsl(0 40% 30% / 0.1))'
-                  : 'linear-gradient(135deg, hsl(var(--primary) / 0.15), hsl(200 100% 50% / 0.1))',
-              }}
-            >
-              <div className="absolute inset-[2px] rounded-full bg-black/80 backdrop-blur-xl" />
-              {isFinished ? (
-                <AlertTriangle className="relative w-11 h-11 text-destructive drop-shadow-[0_0_20px_hsl(0_60%_50%/0.5)]" />
-              ) : (
-                <Clock className="relative w-11 h-11 text-primary drop-shadow-[0_0_20px_hsl(var(--primary)/0.5)]" />
-              )}
+        {/* Main content card */}
+        <div className="relative animate-premium-entrance">
+          {/* Outer glow ring */}
+          <div className={cn(
+            "absolute -inset-[1px] rounded-3xl opacity-60 blur-[1px]",
+            isFinished 
+              ? "bg-gradient-to-br from-destructive/40 via-transparent to-orange-500/30" 
+              : "bg-gradient-to-br from-primary/40 via-transparent to-[hsl(200,100%,60%)]/30"
+          )} />
+          
+          <div className="relative glass-panel rounded-3xl px-10 py-12 sm:px-14 sm:py-16 max-w-md w-full mx-4 overflow-hidden">
+            {/* Inner ambient glow */}
+            <div className={cn(
+              "absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[200px] rounded-full blur-[80px]",
+              isFinished ? "bg-destructive/10" : "bg-primary/10"
+            )} />
+            
+            {/* Animated border shine */}
+            <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+              <div 
+                className="absolute -top-[200%] -left-[50%] w-[200%] h-[200%] animate-[spin_8s_linear_infinite]"
+                style={{
+                  background: isFinished
+                    ? 'conic-gradient(from 0deg, transparent 0%, transparent 70%, hsl(0 70% 50% / 0.15) 80%, transparent 90%)'
+                    : 'conic-gradient(from 0deg, transparent 0%, transparent 70%, hsl(var(--primary) / 0.15) 80%, transparent 90%)',
+                }}
+              />
             </div>
-            <div className={cn("absolute -inset-8 rounded-full blur-3xl", isFinished ? "bg-destructive/[0.08]" : "bg-primary/[0.08]")} />
-          </div>
+            <div className="absolute inset-[1px] rounded-3xl bg-black/80 backdrop-blur-2xl" />
 
-          <div className="space-y-3">
-            <h3 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-wide leading-tight">
-              {title}
-            </h3>
-            <div className={cn("w-16 h-[2px] mx-auto rounded-full bg-gradient-to-r from-transparent to-transparent", isFinished ? "via-destructive/50" : "via-primary/50")} />
-            <p className="text-xl font-bold text-white/90 mt-4">{statusMessage.title}</p>
-            <p className="text-white/40 text-sm sm:text-base leading-relaxed">
-              {statusMessage.description}
-            </p>
-          </div>
+            {/* Content */}
+            <div className="relative z-10 flex flex-col items-center gap-7 text-center">
+              {/* Icon with rings */}
+              <div className="relative">
+                {/* Pulsing outer rings */}
+                <div className={cn(
+                  "absolute -inset-8 rounded-full border animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]",
+                  isFinished ? "border-destructive/10" : "border-primary/10"
+                )} />
+                <div className={cn(
+                  "absolute -inset-5 rounded-full border animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite_0.5s]",
+                  isFinished ? "border-destructive/15" : "border-primary/15"
+                )} />
+                <div className={cn(
+                  "absolute -inset-3 rounded-full border",
+                  isFinished ? "border-destructive/20" : "border-primary/20"
+                )} />
+                
+                {/* Icon circle */}
+                <div
+                  className="relative w-24 h-24 rounded-full flex items-center justify-center animate-glow-pulse"
+                  style={{
+                    background: isFinished
+                      ? 'linear-gradient(135deg, hsl(0 60% 50% / 0.2), hsl(20 80% 50% / 0.15))'
+                      : 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(200 100% 60% / 0.15))',
+                    boxShadow: isFinished
+                      ? '0 0 40px hsl(0 60% 50% / 0.2), inset 0 0 30px hsl(0 60% 50% / 0.1)'
+                      : '0 0 40px hsl(var(--primary) / 0.2), inset 0 0 30px hsl(var(--primary) / 0.1)',
+                  }}
+                >
+                  <div className="absolute inset-[2px] rounded-full bg-black/70 backdrop-blur-xl" />
+                  {isFinished ? (
+                    <AlertTriangle className="relative w-10 h-10 text-destructive animate-[pulse_2s_ease-in-out_infinite] drop-shadow-[0_0_25px_hsl(0_60%_50%/0.6)]" />
+                  ) : (
+                    <Clock className="relative w-10 h-10 text-primary animate-[spin_8s_linear_infinite] drop-shadow-[0_0_25px_hsl(var(--primary)/0.6)]" />
+                  )}
+                </div>
+              </div>
 
-          <button
-            onClick={closePlayer}
-            className={cn(
-              "px-8 py-3 rounded-2xl font-semibold text-sm transition-all duration-300 border backdrop-blur-xl",
-              isFinished
-                ? "bg-destructive/10 border-destructive/20 text-destructive hover:bg-destructive/20"
-                : "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20",
-            )}
-          >
-            Volver
-          </button>
+              {/* Match title */}
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/30" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+                  {isFinished ? "Evento finalizado" : "Próximamente"}
+                </p>
+                <h3 className="text-xl sm:text-2xl font-bold text-white/95 leading-tight tracking-tight max-w-[300px]" style={{ fontFamily: "'Sora', sans-serif" }}>
+                  {title}
+                </h3>
+              </div>
+
+              {/* Divider */}
+              <div className="w-full flex items-center gap-3">
+                <div className={cn("flex-1 h-px", isFinished ? "bg-gradient-to-r from-transparent to-destructive/30" : "bg-gradient-to-r from-transparent to-primary/30")} />
+                <div className={cn("w-1.5 h-1.5 rounded-full", isFinished ? "bg-destructive/50" : "bg-primary/50")} />
+                <div className={cn("flex-1 h-px", isFinished ? "bg-gradient-to-l from-transparent to-destructive/30" : "bg-gradient-to-l from-transparent to-primary/30")} />
+              </div>
+
+              {/* Status message */}
+              <div className="space-y-2">
+                <p className="text-base sm:text-lg font-bold text-white/85" style={{ fontFamily: "'Sora', sans-serif" }}>
+                  {statusMessage.title}
+                </p>
+                <p className="text-sm text-white/40 leading-relaxed max-w-[280px]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                  {statusMessage.description}
+                </p>
+              </div>
+
+              {/* Action button */}
+              <button
+                onClick={closePlayer}
+                className={cn(
+                  "mt-2 px-10 py-3.5 rounded-2xl font-semibold text-sm transition-all duration-500 border backdrop-blur-xl relative overflow-hidden group",
+                  isFinished
+                    ? "bg-destructive/10 border-destructive/20 text-destructive hover:bg-destructive/20 hover:border-destructive/40 hover:shadow-[0_0_30px_hsl(0_60%_50%/0.2)]"
+                    : "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20 hover:border-primary/40 hover:shadow-[0_0_30px_hsl(var(--primary)/0.2)]",
+                )}
+                style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+              >
+                {/* Button shine effect */}
+                <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                <span className="relative">Volver</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
