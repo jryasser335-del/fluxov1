@@ -37,7 +37,7 @@ interface StreamEntry {
   iframe: string;
   poster?: string;
   viewers?: number;
-  source: "ppv" | "streamed" | "moviebite";
+  source: "ppv" | "streamed" | "moviebite" | "sportsbite";
   channels?: string;
   starts_at?: number;
   ends_at?: number;
