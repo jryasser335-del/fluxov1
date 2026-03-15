@@ -37,7 +37,7 @@ interface StreamEntry {
   iframe: string;
   poster?: string;
   viewers?: number;
-  source: "ppv" | "streamed" | "moviebite";
+  source: "ppv" | "streamed" | "moviebite" | "sportsbite";
   channels?: string;
   starts_at?: number;
   ends_at?: number;
@@ -343,21 +343,94 @@ async function fetchMoviebiteStreams(): Promise<StreamEntry[]> {
   return entries;
 }
 
+async function fetchSportsbiteStreams(): Promise<StreamEntry[]> {
+  const entries: StreamEntry[] = [];
+  const SPORTSBITE_BASE = "https://sportsbite.sbs";
+
+  try {
+    // Sportsbite uses streamed.pk API under the hood but wraps streams in its own embed player
+    // Fetch their live matches page API
+    const endpoints = [
+      `${SPORTSBITE_BASE}/api/matches/live`,
+      `${SPORTSBITE_BASE}/api/matches/all`,
+    ];
+
+    for (const ep of endpoints) {
+      try {
+        const res = await fetchFast(ep, 5000);
+        if (!res?.ok) continue;
+        const matches = await res.json();
+        if (!Array.isArray(matches) || !matches.length) continue;
+
+        for (const m of matches) {
+          const sources = Array.isArray(m?.sources) ? m.sources : [];
+          if (!sources.length) continue;
+
+          const home = m?.teams?.home?.name || m?.homeTeam || m?.home || "";
+          const away = m?.teams?.away?.name || m?.awayTeam || m?.away || "";
+          const name = home && away ? `${home} vs ${away}` : m?.title || m?.name || "Unknown";
+          const matchId = m?.id || m?.matchId || "";
+          if (!matchId) continue;
+
+          // Build sportsbite embed URL — sportsbite wraps streams with its own player
+          const firstSource = sources[0];
+          const sourceId = firstSource?.id || matchId;
+          const sourceName = String(firstSource?.source || "alpha").toLowerCase();
+
+          // Try to get embed URL from sportsbite's stream API
+          const streamRes = await fetchFast(`${SPORTSBITE_BASE}/api/stream/${sourceName}/${sourceId}`, 4000);
+          if (!streamRes?.ok) continue;
+
+          const streams = await streamRes.json();
+          if (!Array.isArray(streams) || !streams.length) continue;
+
+          const hd = streams.find((s: any) => s?.hd) ?? streams.find((s: any) => String(s?.quality ?? "").toLowerCase() === "hd") ?? streams[0];
+          const embedUrl = hd?.embedUrl ?? hd?.embed_url ?? hd?.url;
+          if (!embedUrl) continue;
+
+          // Avoid duplicating streams already fetched from streamed.pk
+          const dedupKey = `${norm(home)}-${norm(away)}`;
+
+          entries.push({
+            id: `sb-${matchId}-${sourceName}`,
+            name,
+            category: m?.category || m?.sport || "Football",
+            iframe: String(embedUrl),
+            poster: undefined,
+            viewers: 0,
+            source: "sportsbite" as any,
+            channels: home && away ? `${home}|${away}` : "",
+          });
+        }
+
+        if (entries.length > 0) break; // Got results from first working endpoint
+      } catch {
+        continue;
+      }
+    }
+  } catch (err) {
+    console.error("Sportsbite fetch error:", err);
+  }
+
+  return entries;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const t0 = Date.now();
   try {
-    const [ppvStreams, streamedStreams, moviebiteStreams] = await Promise.all([
+    const [ppvStreams, streamedStreams, moviebiteStreams, sportsbiteStreams] = await Promise.all([
       fetchPPVStreams(),
       fetchStreamedStreams(),
       fetchMoviebiteStreams(),
+      fetchSportsbiteStreams(),
     ]);
 
-    const allStreams = [...ppvStreams, ...streamedStreams, ...moviebiteStreams];
+    const allStreams = [...ppvStreams, ...streamedStreams, ...moviebiteStreams, ...sportsbiteStreams];
 
     console.log(
-      `📡 Bulk fetch: ${ppvStreams.length} PPV + ${streamedStreams.length} Streamed + ${moviebiteStreams.length} Moviebite = ${allStreams.length} total in ${Date.now() - t0}ms`,
+      `📡 Bulk fetch: ${ppvStreams.length} PPV + ${streamedStreams.length} Streamed + ${moviebiteStreams.length} Moviebite + ${sportsbiteStreams.length} Sportsbite = ${allStreams.length} total in ${Date.now() - t0}ms`,
     );
 
     return new Response(JSON.stringify({ success: true, streams: allStreams, count: allStreams.length }), {
@@ -371,3 +444,4 @@ Deno.serve(async (req) => {
     });
   }
 });
+
