@@ -39,6 +39,8 @@ interface StreamEntry {
   viewers?: number;
   source: "ppv" | "streamed" | "moviebite";
   channels?: string;
+  starts_at?: number;
+  ends_at?: number;
 }
 
 const norm = (s: string) =>
@@ -84,12 +86,14 @@ async function fetchPPVStreams(): Promise<StreamEntry[]> {
           entries.push({
             id: `ppv-${stream.id || stream.name}`,
             name: String(stream.name),
-            category: String(category.name || "Other"),
+            category: String(category.name || category.category || "Other"),
             iframe: String(stream.iframe),
             poster: stream.poster || stream.thumbnail || undefined,
             viewers: Number(stream.viewers || 0),
             source: "ppv",
             channels: stream.channels || "",
+            starts_at: stream.starts_at || undefined,
+            ends_at: stream.ends_at || undefined,
           });
         }
       }
