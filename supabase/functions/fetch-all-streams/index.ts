@@ -39,6 +39,8 @@ interface StreamEntry {
   viewers?: number;
   source: "ppv" | "streamed" | "moviebite";
   channels?: string;
+  starts_at?: number;
+  ends_at?: number;
 }
 
 const norm = (s: string) =>
