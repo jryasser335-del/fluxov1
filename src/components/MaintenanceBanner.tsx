@@ -440,8 +440,37 @@ export function MaintenanceBanner({ onSkip }: MaintenanceBannerProps = {}) {
           ))}
         </div>
 
+
+        {/* Skip button */}
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            className="mt-10 group relative px-8 py-4 rounded-full overflow-hidden cursor-pointer pointer-events-auto"
+            style={{ animation: "float-y 4s ease-in-out infinite" }}
+          >
+            <span
+              className="absolute inset-0 rounded-full opacity-90"
+              style={{
+                background:
+                  "linear-gradient(120deg, hsl(280 100% 55%), hsl(190 100% 50%), hsl(330 100% 55%), hsl(50 100% 55%), hsl(280 100% 55%))",
+                backgroundSize: "300% 100%",
+                animation: "gradient-shift 4s linear infinite",
+              }}
+            />
+            <span className="absolute inset-[2px] rounded-full bg-black/80 backdrop-blur-xl" />
+            <span className="absolute -inset-1 rounded-full blur-xl opacity-60 group-hover:opacity-100 transition-opacity"
+              style={{
+                background: "linear-gradient(120deg, hsl(280 100% 60%), hsl(190 100% 55%), hsl(330 100% 60%))",
+              }} />
+            <span className="relative flex items-center gap-3 text-white font-tech text-sm tracking-[0.3em] uppercase font-bold">
+              Entrar a Fluxo
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </span>
+          </button>
+        )}
+
         {/* Footer */}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-3 pointer-events-none">
           <div className="h-px w-10 bg-white/20" />
           <span className="text-[10px] tracking-[0.5em] uppercase text-white/30 font-tech">
             Fluxo TV · {new Date().getFullYear()}
