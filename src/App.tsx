@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,12 +13,24 @@ import { MaintenanceBanner } from "./components/MaintenanceBanner";
 
 const queryClient = new QueryClient();
 
-// Set to false to restore the app
+// Set to false to fully disable the maintenance banner
 const MAINTENANCE_MODE = true;
+const SKIP_KEY = "fluxo_skip_maintenance";
 
 const App = () => {
-  if (MAINTENANCE_MODE) {
-    return <MaintenanceBanner />;
+  const [skipped, setSkipped] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem(SKIP_KEY) === "1") setSkipped(true);
+  }, []);
+
+  const handleSkip = () => {
+    sessionStorage.setItem(SKIP_KEY, "1");
+    setSkipped(true);
+  };
+
+  if (MAINTENANCE_MODE && !skipped) {
+    return <MaintenanceBanner onSkip={handleSkip} />;
   }
   return (
   <QueryClientProvider client={queryClient}>
