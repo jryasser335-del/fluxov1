@@ -8,10 +8,18 @@ import Admin from "./pages/Admin";
 import Install from "./pages/Install";
 import DownloadApp from "./pages/DownloadApp";
 import NotFound from "./pages/NotFound";
+import { MaintenanceBanner } from "./components/MaintenanceBanner";
 
 const queryClient = new QueryClient();
 
-const App = () => (
+// Set to false to restore the app
+const MAINTENANCE_MODE = true;
+
+const App = () => {
+  if (MAINTENANCE_MODE) {
+    return <MaintenanceBanner />;
+  }
+  return (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
