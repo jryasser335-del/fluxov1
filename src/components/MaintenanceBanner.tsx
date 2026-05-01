@@ -170,7 +170,7 @@ export function MaintenanceBanner({ onSkip }: MaintenanceBannerProps = {}) {
   const headline2 = "EN ALGO NUEVO";
 
   return (
-    <div className="fixed inset-0 z-[10000] overflow-hidden bg-black select-none cursor-none">
+    <div className="fixed inset-0 z-[10000] overflow-auto bg-black select-none">
       {/* Particle / lightning canvas */}
       <canvas ref={canvasRef} className="absolute inset-0" />
 
