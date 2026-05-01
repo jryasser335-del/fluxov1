@@ -4,14 +4,15 @@ import { PlayerModal } from "@/components/PlayerModal";
 import { EventsView } from "@/components/EventsView";
 import { MoviesView } from "@/components/MoviesView";
 import { MultiStreamView } from "@/components/MultiStreamView";
+import { IPTVView } from "@/components/IPTVView";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { cn } from "@/lib/utils";
-import { Trophy, Film, LayoutGrid, Settings } from "lucide-react";
+import { Trophy, Film, LayoutGrid, Settings, Crown } from "lucide-react";
 import { useAppAuth } from "@/hooks/useAppAuth";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-type ViewType = "eventos" | "peliculas" | "multistream";
+type ViewType = "eventos" | "peliculas" | "multistream" | "iptv";
 
 const pageVariants = {
   initial: { opacity: 0, y: 16, filter: "blur(4px)" },
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { view: "eventos" as ViewType, icon: Trophy, label: "Live", color: "from-primary to-primary-glow" },
   { view: "peliculas" as ViewType, icon: Film, label: "Películas", color: "from-accent to-primary" },
   { view: "multistream" as ViewType, icon: LayoutGrid, label: "Multi", color: "from-destructive to-warning" },
+  { view: "iptv" as ViewType, icon: Crown, label: "IPTV", color: "from-amber-500 to-fuchsia-500" },
 ];
 
 const Index = () => {
