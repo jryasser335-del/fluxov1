@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, Zap, Star, Flame } from "lucide-react";
+import { Sparkles, Zap, Star, Flame, ArrowRight } from "lucide-react";
 
-export function MaintenanceBanner() {
+interface MaintenanceBannerProps {
+  onSkip?: () => void;
+}
+
+export function MaintenanceBanner({ onSkip }: MaintenanceBannerProps = {}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mouseRef = useRef({ x: 0, y: 0 });
   const [count, setCount] = useState({ d: 0, h: 0, m: 0, s: 0 });
