@@ -6,11 +6,14 @@ import {
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { supabase } from "@/integrations/supabase/client";
 
-const HOST = "http://starlatino.tv:8880";
-const USER = "murnnopccm";
-const PASS = "bnaggtvRtwHh";
 const FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/iptv-xtream`;
 const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+const streamUrl = (kind: "live" | "movie" | "series", id: number | string, ext = "m3u8") =>
+  `${FN}?op=stream&kind=${kind}&id=${id}&ext=${ext}&apikey=${ANON}`;
+
+const logoUrl = (raw?: string) =>
+  raw ? `${FN}?op=logo&url=${encodeURIComponent(raw)}&apikey=${ANON}` : "";
 
 type Tab = "live" | "movies" | "series";
 
