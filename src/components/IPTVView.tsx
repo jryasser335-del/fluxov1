@@ -1,216 +1,149 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Crown, Copy, Check, Tv, Film, Clapperboard, Zap, Shield,
-  Calendar, Server, Globe, Radio, Star, Sparkles, Lock, Wifi,
+  Crown, Tv, Film, Clapperboard, Radio, Search, ChevronLeft, Play, Loader2, Star,
 } from "lucide-react";
-import { toast } from "sonner";
+import { usePlayerModal } from "@/hooks/usePlayerModal";
+import { supabase } from "@/integrations/supabase/client";
 
-const ACCOUNT = {
-  user: "murnnopccm",
-  pass: "bnaggtvRtwHh",
-  status: "Active",
-  active: 0,
-  max: 6,
-  created: "05/03/2026",
-  expiration: "05/04/2027",
-  server: "http://starlatino.tv:8880",
-  timezone: "America/Santiago",
-  scanType: "M3U Scanner",
-  hitBy: "FLUXO",
-  m3u: "http://starlatino.tv:8880/get.php?username=murnnopccm&password=bnaggtvRtwHh&type=m3u_plus",
-};
-
-const LIVE_CATEGORIES = [
-  "⭐️ U CATOLICA VS BARCELOLA 20:00 HRS ⭐️", "✨ COPA SUDAMERICANA 2026 ✨", "⭐️ COPA LIBERTADORES 2026 ⭐️",
-  "⭐️ EVENTOS DIARIOS", "⭐ Ufc-Boxeo-LuchaLibre ⭐", "✅ 24/7 Música (EXCLUSIVO GOLD TV)",
-  "⭐️ CHILE", "⚽ FÚTBOL CHILE", "⭐️ CHILE DEPORTE", "⭐️ DEPORTE VIP", "⭐️ PERU", "⭐️ DEPORTE PERÚ",
-  "⭐ PPV Exclusivos Disney", "⭐️ CINE PREMIUM", "✅ 24/7 VIP", "⭐️ CHILE REGIONALES", "⭐️ CULTURA",
-  "⭐️ Paraguay", "⭐️ Futbol Paraguay", "⭐️ NBA Exclusivo ⭐️", "⭐️ NFL Exclusivo ⭐️", "⭐️ MLS Exclusivo ⭐️",
-  "⭐️ XTREMA TV", "⭐️ LMP Liga ARCO", "⭐️ Argentina", "⭐️ Deporte Argentina", "⭐️ Colombia",
-  "⭐️ Deporte Colombia", "⭐️ COSTA RICA", "⭐️ DEPORTE COSTA RICA", "⭐️ Telenovelas", "⭐️ Infantiles",
-  "⭐️ Musica", "⭐ Zona Retro", "⭐️ Noticias", "⭐️ Tv Religiosos",
-  "⭐️ Telemundo - Univision - Galavision - Unimas y más", "⭐️ Ecuador", "⭐️ Deporte Ecuador",
-  "⭐️ México", "⭐️ El Salvador", "⭐️ Venezuela", "⭐️ República Dominicana", "⭐️ Brasil",
-  "⭐️ Puerto Rico", "⭐️ Uruguay", "⭐️ Deportes Uruguay", "⭐️ Bolivia", "⭐️ Deporte Bolivia",
-  "⭐️ Canadá", "⭐️ Guatemala", "⭐️ Nicaragua", "⭐️ Honduras", "⭐️ Usa Childish", "⭐️ Usa Movies",
-  "⭐️ Usa News", "⭐️ TV Usa", "⭐️ Usa Entertainment", "⭐️ Usa Fox", "⭐️ Panama",
-  "⭐️ Argentina Regionales", "⭐️ Italia", "⭐️ Portugal", "⭐️ RADIOS CHILE", "⭐️ RADIO PERU",
-  "⭐️ RADIOS ARGENTINA", "⭐️ RADIOS COLOMBIA", "⭐️ RADIOS MEXICO",
-  "⭐️ Canales \"Conexiones Lentas\"", "Goldtv",
-];
-
-const MOVIE_CATEGORIES = [
-  "⭐️ Estrenos 2026 ⭐️", "⭐️ Películas 2025", "⭐️ Películas 2024", "⭐️ Películas 2023",
-  "⭐️ Películas 2022", "⭐️ Películas 2021", "⭐️ Cine Chileno", "⭐️ Acción", "⭐️ Anime",
-  "⭐️ Aventura", "⭐️ Artes Marciales", "⭐️ Crímen y Suspenso", "⭐️ Cine WWE", "⭐️ Cine Clásicos",
-  "⭐️ Comedía", "⭐️ Conciertos", "⭐️ Navidad 2025", "⭐️ Películas Mexicanas", "⭐️ Cine Familiar",
-  "⭐️ Ciencia Ficción", "⭐️ Drama", "⭐️ Documentales", "⭐️ Desastres Naturales", "⭐️ Fantasía",
-  "⭐️ Terror", "⭐️ Guerra", "⭐️ Cine Colombiano", "⭐️ Películas Peruanas", "⭐️ Películas Indu",
-  "⭐️ Cine Retro", "⭐️ Infantiles", "⭐️ Romance", "⭐️ Western", "⭐️ Humor Chile",
-  "⭐️ Documentales de Animales", "⭐️ Marvel", "⭐️ DC Universe", "⭐️ Netflix (DUAL)",
-  "⭐️ Amazon Prime", "⭐️ Cine Audio España", "⭐️ Bromas Callejeras", "⭐️ Cine Cantinflas",
-  "⭐️ Películas Musicales", "⭐️ Películas LGBT", "⭐️ Karaokes", "✝️ Semana Santa ✝️",
-  "⭐️ Saga 007", "⭐️ Saga Alien", "⭐️ Saga American Pie", "⭐️ Saga Arma Mortal",
-  "⭐️ Saga Bad Boys", "⭐️ Saga Chucky", "⭐️ Saga Creed", "⭐️ Saga Crepúsculo",
-  "⭐️ Saga Destino Final", "⭐️ Saga Duro de Matar", "⭐️ Saga El Padrino",
-  "⭐️ Saga Planeta de los Simios", "⭐️ Saga Rey Escorpión", "⭐️ Saga El Transportador",
-  "⭐️ Saga El Exorcista", "⭐️ Saga Godzilla", "⭐️ Saga Harry Potter", "⭐️ Saga Mi Pobre Angelito",
-  "⭐️ Saga Hombre Araña", "⭐️ Saga Hombres de Negro", "⭐️ Festival Viña 2026",
-  "⭐️ Saga Indiana Jones", "⭐️ Gala Viña 2025", "⭐️ Saga Minions", "⭐️ Festival Viña 2025",
-  "⭐️ Festival Viña 2024", "⭐️ Saga Ip Man", "⭐️ Saga Jason Bourne", "⭐️ Saga La Momia",
-  "⭐️ Saga After", "⭐️ Trilogía Divergente", "⭐️ Saga Liberen a Willy", "⭐️ Saga Locademia",
-  "⭐️ Saga Los Fockers", "⭐️ Saga Los Mercenarios", "⭐️ Saga Mad Max", "⭐️ Saga Matrix",
-  "⭐️ Saga Misión Imposible", "⭐️ Saga Monster High", "⭐️ Saga Millennium", "⭐️ Saga Narnia",
-  "⭐️ Saga Piratas del Caribe", "⭐️ Saga Plan de Escape", "⭐️ Saga John Wick", "⭐️ Saga Pokemon",
-  "⭐️ Saga Rambo", "⭐️ Saga Rápidos y Furiosos", "⭐️ Saga [Rec]", "⭐️ Saga Resident Evil",
-  "⭐️ Saga Rocky", "⭐️ Saga Star Wars", "⭐️ Saga Starship Troopers", "⭐️ Saga Terminator",
-  "⭐️ Saga Tiburón", "⭐️ Saga Tomb Raider", "⭐️ Saga Transformers",
-  "⭐️ Saga Una Noche en el Museo", "⭐️ Saga Una Pareja Explosiva", "⭐️ Saga Volver al Futuro",
-  "⭐️ Saga xXx", "⭐️ Saga Jigsaw", "⭐️ Saga Insidious", "⭐️ Saga Hellraiser",
-  "⭐️ Saga Jeepers Creepers", "⭐️ Saga Jurassic Park", "⭐️ Saga El Señor de los Anillos",
-];
-
-const SERIES_CATEGORIES = [
-  "⭐️ Series Netflix", "⭐️ Series Amazon", "⭐️ Series HBO", "⭐️ Series Disney",
-  "⭐️ Series Narcos", "⭐️ Series Chilenas", "⭐️ Telenovelas Top", "⭐️ Series Turcas",
-  "⭐️ Doramas", "⭐️ Series Peruanas", "⭐️ Series Colombianas", "⭐️ Series Paramount",
-  "⭐️ Series Apple TV", "⭐️ Series Fox", "⭐️ Series Star Plus", "⭐️ Series Starz",
-  "⭐️ Series Hulu", "⭐️ Series DragonBall", "⭐️ Series Anime", "⭐️ Series Acción",
-  "⭐️ Series Comedia", "⭐️ Series Los Simpsons", "⭐️ Series Ciencia Ficción", "⭐️ Series Drama",
-  "⭐️ Series Infantiles", "⭐️ Series Documentales", "⭐️ Series Animadas Del Recuerdo",
-  "⭐️ Series Retro", "⭐️ Series Policiales", "⭐️ Series Religiosas", "⭐️ Series Mexicanas",
-  "⭐️ Series Argentinas",
-];
+const HOST = "http://starlatino.tv:8880";
+const USER = "murnnopccm";
+const PASS = "bnaggtvRtwHh";
+const FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/iptv-xtream`;
+const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 type Tab = "live" | "movies" | "series";
 
+interface Category { category_id: string; category_name: string }
+interface LiveItem { stream_id: number; name: string; stream_icon?: string; epg_channel_id?: string }
+interface VodItem { stream_id: number; name: string; stream_icon?: string; container_extension?: string; rating?: string }
+interface SeriesItem { series_id: number; name: string; cover?: string; rating?: string }
+interface SeriesInfo {
+  episodes?: Record<string, Array<{ id: string; title: string; container_extension?: string; info?: { movie_image?: string } }>>;
+}
+
+async function api<T>(params: Record<string, string>): Promise<T> {
+  const u = new URL(FN);
+  Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
+  const r = await fetch(u, { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` } });
+  return r.json();
+}
+
+const tabs: Array<{ id: Tab; label: string; icon: typeof Radio; color: string; op: string }> = [
+  { id: "live", label: "Canales", icon: Radio, color: "from-red-500 to-orange-500", op: "live_categories" },
+  { id: "movies", label: "Películas", icon: Film, color: "from-fuchsia-500 to-purple-500", op: "vod_categories" },
+  { id: "series", label: "Series", icon: Clapperboard, color: "from-cyan-500 to-blue-500", op: "series_categories" },
+];
+
 export function IPTVView() {
+  const { openPlayer } = usePlayerModal();
   const [tab, setTab] = useState<Tab>("live");
-  const [copied, setCopied] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [activeCat, setActiveCat] = useState<Category | null>(null);
+  const [items, setItems] = useState<Array<LiveItem | VodItem | SeriesItem>>([]);
+  const [loadingCats, setLoadingCats] = useState(true);
+  const [loadingItems, setLoadingItems] = useState(false);
+  const [search, setSearch] = useState("");
+  const [seriesOpen, setSeriesOpen] = useState<SeriesItem | null>(null);
+  const [seriesInfo, setSeriesInfo] = useState<SeriesInfo | null>(null);
 
-  const copy = (value: string, key: string) => {
-    navigator.clipboard.writeText(value);
-    setCopied(key);
-    toast.success("Copiado al portapapeles");
-    setTimeout(() => setCopied(null), 1500);
+  // Load categories on tab change
+  useEffect(() => {
+    setActiveCat(null); setItems([]); setSearch("");
+    setLoadingCats(true);
+    const op = tabs.find((t) => t.id === tab)!.op;
+    api<Category[]>({ op })
+      .then((d) => setCategories(Array.isArray(d) ? d : []))
+      .finally(() => setLoadingCats(false));
+  }, [tab]);
+
+  // Load items when category selected
+  useEffect(() => {
+    if (!activeCat) return;
+    setLoadingItems(true); setItems([]);
+    const op = tab === "live" ? "live" : tab === "movies" ? "vod" : "series";
+    api<Array<LiveItem | VodItem | SeriesItem>>({ op, cat: activeCat.category_id })
+      .then((d) => setItems(Array.isArray(d) ? d : []))
+      .finally(() => setLoadingItems(false));
+  }, [activeCat, tab]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return items;
+    const q = search.toLowerCase();
+    return items.filter((it) => it.name.toLowerCase().includes(q));
+  }, [items, search]);
+
+  const filteredCats = useMemo(() => {
+    if (!search.trim() || activeCat) return categories;
+    const q = search.toLowerCase();
+    return categories.filter((c) => c.category_name.toLowerCase().includes(q));
+  }, [categories, search, activeCat]);
+
+  const playLive = (it: LiveItem) => {
+    const url = `${HOST}/live/${USER}/${PASS}/${it.stream_id}.m3u8`;
+    openPlayer(it.name, { url1: url }, "live");
   };
-
-  const lists = { live: LIVE_CATEGORIES, movies: MOVIE_CATEGORIES, series: SERIES_CATEGORIES };
-  const tabs = [
-    { id: "live" as Tab, label: "Live", count: LIVE_CATEGORIES.length, icon: Radio, color: "from-red-500 to-orange-500" },
-    { id: "movies" as Tab, label: "Movies", count: MOVIE_CATEGORIES.length, icon: Film, color: "from-fuchsia-500 to-purple-500" },
-    { id: "series" as Tab, label: "Series", count: SERIES_CATEGORIES.length, icon: Clapperboard, color: "from-cyan-500 to-blue-500" },
-  ];
+  const playVod = (it: VodItem) => {
+    const ext = it.container_extension || "mp4";
+    const url = `${HOST}/movie/${USER}/${PASS}/${it.stream_id}.${ext}`;
+    openPlayer(it.name, { url1: url }, "movie");
+  };
+  const openSeries = async (it: SeriesItem) => {
+    setSeriesOpen(it); setSeriesInfo(null);
+    const info = await api<SeriesInfo>({ op: "series_info", id: String(it.series_id) });
+    setSeriesInfo(info);
+  };
+  const playEpisode = (ep: { id: string; title: string; container_extension?: string }, seriesName: string) => {
+    const ext = ep.container_extension || "mp4";
+    const url = `${HOST}/series/${USER}/${PASS}/${ep.id}.${ext}`;
+    openPlayer(`${seriesName} — ${ep.title}`, { url1: url }, "series");
+  };
 
   return (
     <div className="relative">
-      {/* Hero header — Premium IPTV */}
+      {/* Hero — sin credenciales */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="relative overflow-hidden rounded-3xl mb-8 border border-white/10"
+        className="relative overflow-hidden rounded-3xl mb-6 border border-white/10"
       >
-        {/* Animated background */}
         <div className="absolute inset-0">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 via-fuchsia-500/15 to-cyan-500/20" />
           <div className="absolute inset-0 opacity-30" style={{
             backgroundImage: "radial-gradient(circle at 20% 30%, hsl(45 100% 60% / 0.4), transparent 50%), radial-gradient(circle at 80% 70%, hsl(280 100% 60% / 0.4), transparent 50%)",
           }} />
-          <div className="absolute inset-0 opacity-[0.04]" style={{
-            backgroundImage: "linear-gradient(white 1px, transparent 1px), linear-gradient(90deg, white 1px, transparent 1px)",
-            backgroundSize: "30px 30px",
-          }} />
         </div>
-
         <div className="relative p-6 md:p-10">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 backdrop-blur-md">
-                  <Crown className="w-3.5 h-3.5 text-amber-300" />
-                  <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-amber-200">IPTV Premium</span>
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 backdrop-blur-md">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-emerald-200">{ACCOUNT.status}</span>
-                </span>
-              </div>
-              <h1 className="font-display text-4xl md:text-6xl font-bold tracking-wider"
-                style={{
-                  backgroundImage: "linear-gradient(120deg, hsl(45 100% 75%), hsl(280 100% 80%), hsl(190 100% 75%), hsl(45 100% 75%))",
-                  backgroundSize: "200% 100%",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  animation: "gradient-shift 5s ease-in-out infinite",
-                }}
-              >
-                STARLATINO TV
-              </h1>
-              <p className="mt-2 text-white/60 font-tech text-sm tracking-wide">
-                Acceso ilimitado · 71 canales en vivo · 131 categorías de películas · 34 categorías de series
-              </p>
-            </div>
-
-            {/* Quick stats */}
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: "Conexiones", value: `${ACCOUNT.active}/${ACCOUNT.max}`, icon: Wifi },
-                { label: "Expira", value: ACCOUNT.expiration, icon: Calendar },
-                { label: "Hit by", value: ACCOUNT.hitBy, icon: Sparkles },
-              ].map((s) => (
-                <div key={s.label} className="px-4 py-3 rounded-2xl bg-black/40 backdrop-blur-xl border border-white/10">
-                  <div className="flex items-center gap-2 text-white/40 mb-1">
-                    <s.icon className="w-3 h-3" />
-                    <span className="text-[9px] tracking-[0.25em] uppercase">{s.label}</span>
-                  </div>
-                  <div className="font-tech font-bold text-white text-sm">{s.value}</div>
-                </div>
-              ))}
-            </div>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/40 backdrop-blur-md">
+              <Crown className="w-3.5 h-3.5 text-amber-300" />
+              <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-amber-200">IPTV Premium</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 backdrop-blur-md">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-emerald-200">En vivo</span>
+            </span>
           </div>
-
-          {/* Credentials grid */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { key: "user", label: "Usuario", value: ACCOUNT.user, icon: Crown, mask: false },
-              { key: "pass", label: "Contraseña", value: ACCOUNT.pass, icon: Lock, mask: true },
-              { key: "server", label: "Servidor", value: ACCOUNT.server, icon: Server, mask: false },
-              { key: "m3u", label: "Lista M3U", value: ACCOUNT.m3u, icon: Globe, mask: false },
-            ].map((f) => (
-              <div key={f.key} className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02] backdrop-blur-xl p-4 hover:border-amber-400/30 transition-all">
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ background: "linear-gradient(120deg, transparent, hsl(45 100% 60% / 0.05), transparent)" }} />
-                <div className="relative flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-white/40 mb-1.5">
-                      <f.icon className="w-3.5 h-3.5" />
-                      <span className="text-[10px] tracking-[0.3em] uppercase font-tech">{f.label}</span>
-                    </div>
-                    <div className="font-mono text-sm text-white/90 truncate">
-                      {f.mask ? "••••••••••••" : f.value}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => copy(f.value, f.key)}
-                    className="shrink-0 h-9 w-9 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center hover:bg-amber-500/20 hover:border-amber-400/40 transition-colors"
-                  >
-                    {copied === f.key ? (
-                      <Check className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <Copy className="w-4 h-4 text-white/60" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          <h1 className="font-display text-4xl md:text-6xl font-bold tracking-wider"
+            style={{
+              backgroundImage: "linear-gradient(120deg, hsl(45 100% 75%), hsl(280 100% 80%), hsl(190 100% 75%), hsl(45 100% 75%))",
+              backgroundSize: "200% 100%",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              animation: "gradient-shift 5s ease-in-out infinite",
+            }}
+          >
+            FLUXO IPTV
+          </h1>
+          <p className="mt-2 text-white/60 font-tech text-sm tracking-wide">
+            Miles de canales · Películas y Series bajo demanda · Reproducción instantánea
+          </p>
         </div>
       </motion.div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-2 scrollbar-hide">
         {tabs.map((t) => {
           const active = tab === t.id;
           return (
@@ -231,51 +164,205 @@ export function IPTVView() {
               <span className="relative flex items-center gap-2.5">
                 <t.icon className="w-4 h-4" />
                 {t.label}
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${active ? "bg-black/30" : "bg-white/5"}`}>
-                  {t.count}
-                </span>
               </span>
             </button>
           );
         })}
       </div>
 
-      {/* Categories grid */}
-      <motion.div
-        key={tab}
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
-      >
-        {lists[tab].map((cat, i) => (
-          <motion.div
-            key={cat + i}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.25, delay: Math.min(i * 0.01, 0.4) }}
-            className="group relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-3 hover:border-amber-400/30 hover:bg-white/[0.04] transition-all cursor-pointer"
+      {/* Search + breadcrumb */}
+      <div className="flex items-center gap-3 mb-5">
+        {activeCat && (
+          <button
+            onClick={() => { setActiveCat(null); setItems([]); }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-white/70 hover:bg-white/[0.08] transition-colors shrink-0"
           >
-            <div className="absolute -inset-px rounded-xl opacity-0 group-hover:opacity-100 transition-opacity blur-md"
-              style={{ background: "linear-gradient(120deg, hsl(45 100% 50% / 0.3), hsl(280 100% 50% / 0.3))" }} />
-            <div className="relative flex items-center gap-2.5">
-              <div className="shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-fuchsia-500/20 border border-white/10 flex items-center justify-center">
-                <Tv className="w-3.5 h-3.5 text-amber-300" />
-              </div>
-              <span className="text-xs text-white/80 leading-tight line-clamp-2 font-medium">
-                {cat}
-              </span>
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      {/* Footer info */}
-      <div className="mt-10 flex items-center justify-center gap-3 text-white/30 text-[10px] tracking-[0.4em] uppercase font-tech">
-        <Shield className="w-3 h-3" />
-        Powered by FLUXO · App by Ishiro
-        <Star className="w-3 h-3" />
+            <ChevronLeft className="w-4 h-4" /> Categorías
+          </button>
+        )}
+        <div className="flex-1 relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={activeCat ? `Buscar en ${activeCat.category_name}…` : "Buscar categoría…"}
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-amber-400/40 transition-colors"
+          />
+        </div>
+        {activeCat && (
+          <span className="text-xs text-white/40 shrink-0">{filtered.length} items</span>
+        )}
       </div>
+
+      {/* Content */}
+      {loadingCats && !activeCat ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+        </div>
+      ) : !activeCat ? (
+        <motion.div
+          key={tab}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3"
+        >
+          {filteredCats.map((c, i) => (
+            <motion.button
+              key={c.category_id}
+              onClick={() => setActiveCat(c)}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.25, delay: Math.min(i * 0.01, 0.4) }}
+              className="group relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-3 hover:border-amber-400/30 hover:bg-white/[0.04] transition-all text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="shrink-0 w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500/20 to-fuchsia-500/20 border border-white/10 flex items-center justify-center">
+                  {tab === "live" ? <Tv className="w-4 h-4 text-amber-300" /> :
+                   tab === "movies" ? <Film className="w-4 h-4 text-fuchsia-300" /> :
+                   <Clapperboard className="w-4 h-4 text-cyan-300" />}
+                </div>
+                <span className="text-xs text-white/85 leading-tight line-clamp-2 font-medium">
+                  {c.category_name}
+                </span>
+              </div>
+            </motion.button>
+          ))}
+          {filteredCats.length === 0 && (
+            <div className="col-span-full text-center text-white/40 py-12 text-sm">Sin categorías</div>
+          )}
+        </motion.div>
+      ) : loadingItems ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+        </div>
+      ) : tab === "live" ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {(filtered as LiveItem[]).map((it, i) => (
+            <motion.button
+              key={it.stream_id}
+              onClick={() => playLive(it)}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2, delay: Math.min(i * 0.01, 0.3) }}
+              className="group aspect-video relative rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] hover:border-amber-400/40 transition-all"
+            >
+              {it.stream_icon ? (
+                <img src={it.stream_icon} alt={it.name} loading="lazy"
+                  className="absolute inset-0 w-full h-full object-contain p-3 group-hover:scale-110 transition-transform" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Tv className="w-8 h-8 text-white/20" />
+                </div>
+              )}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-2">
+                <p className="text-[11px] text-white/90 truncate font-medium">{it.name}</p>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="w-12 h-12 rounded-full bg-amber-500/90 flex items-center justify-center">
+                  <Play className="w-5 h-5 text-black fill-black ml-0.5" />
+                </div>
+              </div>
+            </motion.button>
+          ))}
+          {filtered.length === 0 && <div className="col-span-full text-center text-white/40 py-12 text-sm">Sin canales</div>}
+        </div>
+      ) : tab === "movies" ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {(filtered as VodItem[]).map((it, i) => (
+            <motion.button
+              key={it.stream_id}
+              onClick={() => playVod(it)}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2, delay: Math.min(i * 0.01, 0.3) }}
+              className="group aspect-[2/3] relative rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] hover:border-fuchsia-400/40 transition-all"
+            >
+              {it.stream_icon ? (
+                <img src={it.stream_icon} alt={it.name} loading="lazy"
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center"><Film className="w-10 h-10 text-white/20" /></div>
+              )}
+              {it.rating && parseFloat(it.rating) > 0 && (
+                <div className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-md">
+                  <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                  <span className="text-[10px] font-bold text-amber-300">{parseFloat(it.rating).toFixed(1)}</span>
+                </div>
+              )}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-2.5">
+                <p className="text-xs text-white font-medium line-clamp-2">{it.name}</p>
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-fuchsia-500 to-purple-600 flex items-center justify-center shadow-lg">
+                  <Play className="w-6 h-6 text-white fill-white ml-0.5" />
+                </div>
+              </div>
+            </motion.button>
+          ))}
+          {filtered.length === 0 && <div className="col-span-full text-center text-white/40 py-12 text-sm">Sin películas</div>}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          {(filtered as SeriesItem[]).map((it, i) => (
+            <motion.button
+              key={it.series_id}
+              onClick={() => openSeries(it)}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.2, delay: Math.min(i * 0.01, 0.3) }}
+              className="group aspect-[2/3] relative rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] hover:border-cyan-400/40 transition-all"
+            >
+              {it.cover ? (
+                <img src={it.cover} alt={it.name} loading="lazy"
+                  className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center"><Clapperboard className="w-10 h-10 text-white/20" /></div>
+              )}
+              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/70 to-transparent p-2.5">
+                <p className="text-xs text-white font-medium line-clamp-2">{it.name}</p>
+              </div>
+            </motion.button>
+          ))}
+          {filtered.length === 0 && <div className="col-span-full text-center text-white/40 py-12 text-sm">Sin series</div>}
+        </div>
+      )}
+
+      {/* Series episodes modal */}
+      {seriesOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-center justify-center p-4" onClick={() => setSeriesOpen(null)}>
+          <div className="bg-[#0a0a0a] border border-white/10 rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/10 p-4 flex items-center justify-between gap-4">
+              <h2 className="text-lg font-bold text-white truncate">{seriesOpen.name}</h2>
+              <button onClick={() => setSeriesOpen(null)} className="text-white/60 hover:text-white text-2xl leading-none">×</button>
+            </div>
+            <div className="p-4">
+              {!seriesInfo ? (
+                <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-cyan-400" /></div>
+              ) : !seriesInfo.episodes ? (
+                <p className="text-white/50 text-center py-8 text-sm">Sin episodios disponibles</p>
+              ) : (
+                Object.entries(seriesInfo.episodes).map(([season, eps]) => (
+                  <div key={season} className="mb-6">
+                    <h3 className="text-sm font-bold text-cyan-300 mb-2 tracking-wider">TEMPORADA {season}</h3>
+                    <div className="space-y-1.5">
+                      {eps.map((ep) => (
+                        <button key={ep.id} onClick={() => playEpisode(ep, seriesOpen.name)}
+                          className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05] hover:border-cyan-400/30 transition-all text-left">
+                          <div className="w-8 h-8 rounded-md bg-cyan-500/20 flex items-center justify-center shrink-0">
+                            <Play className="w-3.5 h-3.5 text-cyan-300 fill-cyan-300 ml-0.5" />
+                          </div>
+                          <span className="text-sm text-white/90 flex-1 truncate">{ep.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes gradient-shift {
