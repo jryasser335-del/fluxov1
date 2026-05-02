@@ -6,11 +6,14 @@ import {
 import { usePlayerModal } from "@/hooks/usePlayerModal";
 import { supabase } from "@/integrations/supabase/client";
 
-const HOST = "http://starlatino.tv:8880";
-const USER = "murnnopccm";
-const PASS = "bnaggtvRtwHh";
 const FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/iptv-xtream`;
 const ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+const streamUrl = (kind: "live" | "movie" | "series", id: number | string, ext = "m3u8") =>
+  `${FN}?op=stream&kind=${kind}&id=${id}&ext=${ext}&apikey=${ANON}`;
+
+const logoUrl = (raw?: string) =>
+  raw ? `${FN}?op=logo&url=${encodeURIComponent(raw)}&apikey=${ANON}` : "";
 
 type Tab = "live" | "movies" | "series";
 
@@ -80,13 +83,11 @@ export function IPTVView() {
   }, [categories, search, activeCat]);
 
   const playLive = (it: LiveItem) => {
-    const url = `${HOST}/live/${USER}/${PASS}/${it.stream_id}.m3u8`;
-    openPlayer(it.name, { url1: url }, "live");
+    openPlayer(it.name, { url1: streamUrl("live", it.stream_id, "m3u8") }, "live");
   };
   const playVod = (it: VodItem) => {
     const ext = it.container_extension || "mp4";
-    const url = `${HOST}/movie/${USER}/${PASS}/${it.stream_id}.${ext}`;
-    openPlayer(it.name, { url1: url }, "movie");
+    openPlayer(it.name, { url1: streamUrl("movie", it.stream_id, ext) }, "movie");
   };
   const openSeries = async (it: SeriesItem) => {
     setSeriesOpen(it); setSeriesInfo(null);
@@ -95,8 +96,7 @@ export function IPTVView() {
   };
   const playEpisode = (ep: { id: string; title: string; container_extension?: string }, seriesName: string) => {
     const ext = ep.container_extension || "mp4";
-    const url = `${HOST}/series/${USER}/${PASS}/${ep.id}.${ext}`;
-    openPlayer(`${seriesName} — ${ep.title}`, { url1: url }, "series");
+    openPlayer(`${seriesName} — ${ep.title}`, { url1: streamUrl("series", ep.id, ext) }, "series");
   };
 
   return (
@@ -248,7 +248,7 @@ export function IPTVView() {
               className="group aspect-video relative rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] hover:border-amber-400/40 transition-all"
             >
               {it.stream_icon ? (
-                <img src={it.stream_icon} alt={it.name} loading="lazy"
+                <img src={logoUrl(it.stream_icon)} alt={it.name} loading="lazy"
                   className="absolute inset-0 w-full h-full object-contain p-3 group-hover:scale-110 transition-transform" />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -279,7 +279,7 @@ export function IPTVView() {
               className="group aspect-[2/3] relative rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] hover:border-fuchsia-400/40 transition-all"
             >
               {it.stream_icon ? (
-                <img src={it.stream_icon} alt={it.name} loading="lazy"
+                <img src={logoUrl(it.stream_icon)} alt={it.name} loading="lazy"
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform" />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center"><Film className="w-10 h-10 text-white/20" /></div>
@@ -314,7 +314,7 @@ export function IPTVView() {
               className="group aspect-[2/3] relative rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] hover:border-cyan-400/40 transition-all"
             >
               {it.cover ? (
-                <img src={it.cover} alt={it.name} loading="lazy"
+                <img src={logoUrl(it.cover)} alt={it.name} loading="lazy"
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform" />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center"><Clapperboard className="w-10 h-10 text-white/20" /></div>
