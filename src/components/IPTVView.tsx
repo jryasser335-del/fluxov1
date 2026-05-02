@@ -248,7 +248,7 @@ export function IPTVView() {
               className="group aspect-video relative rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] hover:border-amber-400/40 transition-all"
             >
               {it.stream_icon ? (
-                <img src={it.stream_icon} alt={it.name} loading="lazy"
+                <img src={logoUrl(it.stream_icon)} alt={it.name} loading="lazy"
                   className="absolute inset-0 w-full h-full object-contain p-3 group-hover:scale-110 transition-transform" />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center">
@@ -279,7 +279,7 @@ export function IPTVView() {
               className="group aspect-[2/3] relative rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] hover:border-fuchsia-400/40 transition-all"
             >
               {it.stream_icon ? (
-                <img src={it.stream_icon} alt={it.name} loading="lazy"
+                <img src={logoUrl(it.stream_icon)} alt={it.name} loading="lazy"
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform" />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center"><Film className="w-10 h-10 text-white/20" /></div>
@@ -314,7 +314,7 @@ export function IPTVView() {
               className="group aspect-[2/3] relative rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] hover:border-cyan-400/40 transition-all"
             >
               {it.cover ? (
-                <img src={it.cover} alt={it.name} loading="lazy"
+                <img src={logoUrl(it.cover)} alt={it.name} loading="lazy"
                   className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform" />
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center"><Clapperboard className="w-10 h-10 text-white/20" /></div>
