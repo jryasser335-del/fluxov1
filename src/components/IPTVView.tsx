@@ -83,13 +83,11 @@ export function IPTVView() {
   }, [categories, search, activeCat]);
 
   const playLive = (it: LiveItem) => {
-    const url = `${HOST}/live/${USER}/${PASS}/${it.stream_id}.m3u8`;
-    openPlayer(it.name, { url1: url }, "live");
+    openPlayer(it.name, { url1: streamUrl("live", it.stream_id, "m3u8") }, "live");
   };
   const playVod = (it: VodItem) => {
     const ext = it.container_extension || "mp4";
-    const url = `${HOST}/movie/${USER}/${PASS}/${it.stream_id}.${ext}`;
-    openPlayer(it.name, { url1: url }, "movie");
+    openPlayer(it.name, { url1: streamUrl("movie", it.stream_id, ext) }, "movie");
   };
   const openSeries = async (it: SeriesItem) => {
     setSeriesOpen(it); setSeriesInfo(null);
@@ -98,8 +96,7 @@ export function IPTVView() {
   };
   const playEpisode = (ep: { id: string; title: string; container_extension?: string }, seriesName: string) => {
     const ext = ep.container_extension || "mp4";
-    const url = `${HOST}/series/${USER}/${PASS}/${ep.id}.${ext}`;
-    openPlayer(`${seriesName} — ${ep.title}`, { url1: url }, "series");
+    openPlayer(`${seriesName} — ${ep.title}`, { url1: streamUrl("series", ep.id, ext) }, "series");
   };
 
   return (
