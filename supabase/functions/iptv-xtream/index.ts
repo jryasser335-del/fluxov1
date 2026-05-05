@@ -7,9 +7,9 @@ const corsHeaders = {
   "Access-Control-Expose-Headers": "content-length, content-range, accept-ranges",
 };
 
-const HOST = "http://starlatino.tv:8880";
-const USER = "murnnopccm";
-const PASS = "bnaggtvRtwHh";
+const HOST = "http://xcodes.aftertv.xyz:8080";
+const USER = "Miguel2000";
+const PASS = "Miguel2000";
 const UA = "VLC/3.0.18 LibVLC/3.0.18";
 
 const cache = new Map<string, { data: unknown; ts: number }>();
@@ -40,17 +40,48 @@ serve(async (req) => {
       const ext = url.searchParams.get("ext") || (kind === "live" ? "m3u8" : "mp4");
       if (!id) return new Response("missing id", { status: 400, headers: corsHeaders });
 
-      const segUrl = `${HOST}/${kind}/${USER}/${PASS}/${id}.${ext}`;
+      const primaryExt = kind === "live" && ext !== "ts" ? "m3u8" : ext;
+      const segUrl = `${HOST}/${kind}/${USER}/${PASS}/${id}.${primaryExt}`;
       const range = req.headers.get("range");
-      const headers: Record<string, string> = { "User-Agent": UA, Accept: "*/*" };
+      const headers: Record<string, string> = {
+        "User-Agent": UA,
+        Accept: kind === "live" ? "application/vnd.apple.mpegurl,application/x-mpegURL,video/mp2t,*/*" : "*/*",
+        Referer: `${HOST}/`,
+        Origin: HOST,
+      };
       if (range) headers["Range"] = range;
 
-      const upstream = await fetch(segUrl, { headers, redirect: "follow" });
-      const finalUrl = upstream.url || segUrl;
+      let upstream = await fetch(segUrl, { headers, redirect: "follow" });
+      let finalUrl = upstream.url || segUrl;
+
+      if (kind === "live" && (upstream.status >= 400 || upstream.headers.get("content-length") === "0")) {
+        const tsUrl = `${HOST}/live/${USER}/${PASS}/${id}.ts`;
+        upstream = await fetch(tsUrl, { headers, redirect: "follow" });
+        finalUrl = upstream.url || tsUrl;
+      }
 
       // For HLS manifests, rewrite segments to proxy through stream-proxy
-      if (ext === "m3u8" || (upstream.headers.get("content-type") || "").includes("mpegurl")) {
+      const contentType = upstream.headers.get("content-type") || "";
+      if (kind === "live" && !contentType.includes("mpegurl") && !finalUrl.includes(".m3u8")) {
+        const respHeaders: Record<string, string> = { ...corsHeaders };
+        const ct = upstream.headers.get("content-type") || "video/mp2t";
+        const cl = upstream.headers.get("content-length");
+        if (ct) respHeaders["Content-Type"] = ct;
+        if (cl) respHeaders["Content-Length"] = cl;
+        respHeaders["Accept-Ranges"] = upstream.headers.get("accept-ranges") || "bytes";
+        return new Response(upstream.body, { status: upstream.status, headers: respHeaders });
+      }
+
+      if (primaryExt === "m3u8" || contentType.includes("mpegurl") || contentType.includes("m3u8")) {
         const body = await upstream.text();
+        if (!body.trim() && kind === "live") {
+          const tsUrl = `${HOST}/live/${USER}/${PASS}/${id}.ts`;
+          const ts = await fetch(tsUrl, { headers, redirect: "follow" });
+          const respHeaders: Record<string, string> = { ...corsHeaders, "Content-Type": ts.headers.get("content-type") || "video/mp2t", "Accept-Ranges": ts.headers.get("accept-ranges") || "bytes" };
+          const cl = ts.headers.get("content-length");
+          if (cl) respHeaders["Content-Length"] = cl;
+          return new Response(ts.body, { status: ts.status, headers: respHeaders });
+        }
         const finalParsed = new URL(finalUrl);
         const base = finalUrl.substring(0, finalUrl.lastIndexOf("/") + 1);
         const origin = `${finalParsed.protocol}//${finalParsed.host}`;
