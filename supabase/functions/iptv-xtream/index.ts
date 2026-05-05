@@ -45,18 +45,33 @@ serve(async (req) => {
       const headers: Record<string, string> = { "User-Agent": UA, Accept: "*/*" };
       if (range) headers["Range"] = range;
 
-      const upstream = await fetch(segUrl, { headers });
+      const upstream = await fetch(segUrl, { headers, redirect: "follow" });
+      const finalUrl = upstream.url || segUrl;
 
       // For HLS manifests, rewrite segments to proxy through stream-proxy
       if (ext === "m3u8" || (upstream.headers.get("content-type") || "").includes("mpegurl")) {
         const body = await upstream.text();
-        const base = segUrl.substring(0, segUrl.lastIndexOf("/") + 1);
+        const finalParsed = new URL(finalUrl);
+        const base = finalUrl.substring(0, finalUrl.lastIndexOf("/") + 1);
+        const origin = `${finalParsed.protocol}//${finalParsed.host}`;
         const proxyBase = `${url.origin}/functions/v1/stream-proxy?url=`;
+        const resolve = (t: string) => {
+          if (/^https?:\/\//i.test(t)) return t;
+          if (t.startsWith("//")) return `${finalParsed.protocol}${t}`;
+          if (t.startsWith("/")) return `${origin}${t}`;
+          return base + t;
+        };
         const rewritten = body.split("\n").map((line) => {
           const t = line.trim();
-          if (!t || t.startsWith("#")) return line;
-          const abs = t.startsWith("http") ? t : base + t;
-          return `${proxyBase}${encodeURIComponent(abs)}`;
+          if (!t) return line;
+          if (t.startsWith("#")) {
+            // rewrite URI="..." inside tags (EXT-X-KEY, EXT-X-MAP, etc.)
+            if (t.includes('URI="')) {
+              return line.replace(/URI="([^"]+)"/g, (_m, u) => `URI="${proxyBase}${encodeURIComponent(resolve(u))}"`);
+            }
+            return line;
+          }
+          return `${proxyBase}${encodeURIComponent(resolve(t))}`;
         }).join("\n");
         return new Response(rewritten, {
           status: 200,
