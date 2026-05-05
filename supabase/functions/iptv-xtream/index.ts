@@ -15,6 +15,10 @@ const UA = "VLC/3.0.18 LibVLC/3.0.18";
 const cache = new Map<string, { data: unknown; ts: number }>();
 const TTL = 10 * 60 * 1000;
 
+function publicOrigin(url: URL) {
+  return url.origin.replace(/^http:/i, "https:");
+}
+
 function isSafeRelayTarget(raw: string) {
   try {
     const target = new URL(raw);
@@ -49,7 +53,7 @@ async function relayStream(targetUrl: string, req: Request, currentUrl: URL) {
     const finalParsed = new URL(finalUrl);
     const base = finalUrl.substring(0, finalUrl.lastIndexOf("/") + 1);
     const origin = `${finalParsed.protocol}//${finalParsed.host}`;
-    const proxyBase = `${currentUrl.origin}/functions/v1/iptv-xtream?op=relay&target=`;
+    const proxyBase = `${publicOrigin(currentUrl)}/functions/v1/iptv-xtream?op=relay&target=`;
     const resolve = (t: string) => {
       if (/^https?:\/\//i.test(t)) return t;
       if (t.startsWith("//")) return `${finalParsed.protocol}${t}`;
@@ -163,7 +167,7 @@ serve(async (req) => {
         const finalParsed = new URL(finalUrl);
         const base = finalUrl.substring(0, finalUrl.lastIndexOf("/") + 1);
         const origin = `${finalParsed.protocol}//${finalParsed.host}`;
-        const proxyBase = `${url.origin}/functions/v1/iptv-xtream?op=relay&target=`;
+        const proxyBase = `${publicOrigin(url)}/functions/v1/iptv-xtream?op=relay&target=`;
         const resolve = (t: string) => {
           if (/^https?:\/\//i.test(t)) return t;
           if (t.startsWith("//")) return `${finalParsed.protocol}${t}`;
