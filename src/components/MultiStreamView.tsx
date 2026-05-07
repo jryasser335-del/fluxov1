@@ -202,6 +202,7 @@ export function MultiStreamView() {
               leagueName: ev.leagueName,
               isLive: ev.isLive,
               isActive: true,
+              kind: ev.kind ?? "iframe",
             }
           : s,
       ),
