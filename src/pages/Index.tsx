@@ -33,11 +33,11 @@ const Index = () => {
   return (
     <>
       <div className="min-h-screen bg-background relative">
-        {/* Ambient background orbs - deeper and more cinematic */}
+        {/* Ambient background orbs - animated cinematic */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-[400px] -left-[300px] w-[800px] h-[800px] rounded-full bg-primary/[0.025] blur-[200px]" />
-          <div className="absolute -bottom-[300px] -right-[300px] w-[700px] h-[700px] rounded-full bg-accent/[0.015] blur-[180px]" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.008] blur-[150px]" />
+          <div className="absolute -top-[400px] -left-[300px] w-[800px] h-[800px] rounded-full bg-primary/[0.04] blur-[200px] animate-orb-drift" />
+          <div className="absolute -bottom-[300px] -right-[300px] w-[700px] h-[700px] rounded-full bg-accent/[0.035] blur-[180px] animate-orb-drift-reverse" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.02] blur-[150px] animate-hue" />
         </div>
 
         <main className="relative max-w-[1440px] mx-auto px-3 sm:px-5 md:px-8 pb-28 md:pb-8 pt-5">
