@@ -10,6 +10,7 @@ import Install from "./pages/Install";
 import DownloadApp from "./pages/DownloadApp";
 import NotFound from "./pages/NotFound";
 import { MaintenanceBanner } from "./components/MaintenanceBanner";
+import { ThemePicker, loadSavedTheme } from "./components/ThemePicker";
 
 const queryClient = new QueryClient();
 
@@ -21,6 +22,7 @@ const App = () => {
   const [skipped, setSkipped] = useState(false);
 
   useEffect(() => {
+    loadSavedTheme();
     if (sessionStorage.getItem(SKIP_KEY) === "1") setSkipped(true);
   }, []);
 
@@ -38,6 +40,7 @@ const App = () => {
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ThemePicker />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/admin" element={<Admin />} />
