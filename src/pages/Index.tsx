@@ -12,17 +12,10 @@ import { useAppAuth } from "@/hooks/useAppAuth";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-type ViewType = "eventos" | "peliculas" | "multistream" | "iptv";
-
-const pageVariants = {
-  initial: { opacity: 0, y: 16, filter: "blur(4px)" },
-  animate: { opacity: 1, y: 0, filter: "blur(0px)" },
-  exit: { opacity: 0, y: -8, filter: "blur(2px)" },
-};
+type ViewType = "eventos" | "multistream" | "iptv";
 
 const NAV_ITEMS = [
   { view: "eventos" as ViewType, icon: Trophy, label: "Live", color: "from-primary to-primary-glow" },
-  { view: "peliculas" as ViewType, icon: Film, label: "Películas", color: "from-accent to-primary" },
   { view: "multistream" as ViewType, icon: LayoutGrid, label: "Multi", color: "from-destructive to-warning" },
   { view: "iptv" as ViewType, icon: Crown, label: "IPTV", color: "from-amber-500 to-fuchsia-500" },
 ];
