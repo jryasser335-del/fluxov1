@@ -27,7 +27,6 @@ const NAV_ITEMS = [
 
 const Index = () => {
   const [activeView, setActiveView] = useState<ViewType>("eventos");
-  const [movieSearch, setMovieSearch] = useState("");
   const { appUser } = useAppAuth();
   const isAdmin = appUser?.isAdmin ?? false;
 
