@@ -34,6 +34,8 @@ interface MatchEvent {
   leagueName: string;
   isLive: boolean;
   hasLink: boolean;
+  kind?: "iframe" | "hls";
+  logo?: string;
 }
 
 interface StreamSlot {
