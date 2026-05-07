@@ -18,6 +18,14 @@ import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { HlsVideo } from "./HlsVideo";
+
+const IPTV_FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/iptv-xtream`;
+const IPTV_ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const iptvStream = (id: number | string) =>
+  `${IPTV_FN}?op=stream&kind=live&id=${id}&ext=m3u8&apikey=${IPTV_ANON}`;
+const iptvLogo = (raw?: string) =>
+  raw ? `${IPTV_FN}?op=logo&url=${encodeURIComponent(raw)}&apikey=${IPTV_ANON}` : "";
 
 interface MatchEvent {
   id: string;
@@ -36,6 +44,7 @@ interface StreamSlot {
   isActive: boolean;
   leagueName?: string;
   isLive?: boolean;
+  kind?: "iframe" | "hls";
 }
 
 const norm = (s: string) =>
