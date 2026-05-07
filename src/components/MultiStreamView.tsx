@@ -18,6 +18,14 @@ import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { HlsVideo } from "./HlsVideo";
+
+const IPTV_FN = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/iptv-xtream`;
+const IPTV_ANON = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const iptvStream = (id: number | string) =>
+  `${IPTV_FN}?op=stream&kind=live&id=${id}&ext=m3u8&apikey=${IPTV_ANON}`;
+const iptvLogo = (raw?: string) =>
+  raw ? `${IPTV_FN}?op=logo&url=${encodeURIComponent(raw)}&apikey=${IPTV_ANON}` : "";
 
 interface MatchEvent {
   id: string;
@@ -26,6 +34,8 @@ interface MatchEvent {
   leagueName: string;
   isLive: boolean;
   hasLink: boolean;
+  kind?: "iframe" | "hls";
+  logo?: string;
 }
 
 interface StreamSlot {
@@ -36,6 +46,7 @@ interface StreamSlot {
   isActive: boolean;
   leagueName?: string;
   isLive?: boolean;
+  kind?: "iframe" | "hls";
 }
 
 const norm = (s: string) =>
@@ -102,6 +113,37 @@ export function MultiStreamView() {
       }
 
       all.sort((a, b) => (a.isLive === b.isLive ? 0 : a.isLive ? -1 : 1));
+
+      // Append IPTV live channels (top categories)
+      try {
+        const cats: any = await fetch(`${IPTV_FN}?op=live_categories&apikey=${IPTV_ANON}`, {
+          headers: { apikey: IPTV_ANON, Authorization: `Bearer ${IPTV_ANON}` },
+        }).then((r) => r.json());
+        const pickCats = Array.isArray(cats) ? cats.slice(0, 6) : [];
+        const lists = await Promise.all(pickCats.map((c: any) =>
+          fetch(`${IPTV_FN}?op=live&cat=${c.category_id}&apikey=${IPTV_ANON}`, {
+            headers: { apikey: IPTV_ANON, Authorization: `Bearer ${IPTV_ANON}` },
+          }).then((r) => r.json()).catch(() => [])
+        ));
+        const iptvEvents: MatchEvent[] = [];
+        lists.forEach((list: any[], idx: number) => {
+          if (!Array.isArray(list)) return;
+          list.slice(0, 40).forEach((ch: any) => {
+            iptvEvents.push({
+              id: `iptv-${ch.stream_id}`,
+              name: ch.name,
+              url: iptvStream(ch.stream_id),
+              leagueName: `IPTV · ${pickCats[idx]?.category_name ?? "TV"}`,
+              isLive: true,
+              hasLink: true,
+              kind: "hls",
+              logo: ch.stream_icon,
+            });
+          });
+        });
+        all = [...all, ...iptvEvents];
+      } catch { /* ignore iptv fail */ }
+
       setEvents(all);
     } catch (e) {
       console.error(e);
@@ -160,6 +202,7 @@ export function MultiStreamView() {
               leagueName: ev.leagueName,
               isLive: ev.isLive,
               isActive: true,
+              kind: ev.kind ?? "iframe",
             }
           : s,
       ),
@@ -261,13 +304,17 @@ export function MultiStreamView() {
           >
             {slot.isActive ? (
               <>
-                <iframe
-                  src={fmt(slot.url)}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                  allowFullScreen
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
+                {slot.kind === "hls" ? (
+                  <HlsVideo src={slot.url} className="w-full h-full bg-black object-contain" />
+                ) : (
+                  <iframe
+                    src={fmt(slot.url)}
+                    className="w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                )}
                 <div className="absolute inset-x-0 top-0 p-2.5 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                   <div className="flex items-center gap-2">
                     {slot.isLive && (
