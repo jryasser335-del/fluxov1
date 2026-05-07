@@ -410,6 +410,50 @@
   50% { opacity: 0.5; }
 }
 
+@keyframes orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(40px, -30px) scale(1.08); }
+  66% { transform: translate(-30px, 40px) scale(0.95); }
+}
+
+@keyframes orb-drift-reverse {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-50px, 30px) scale(0.92); }
+  66% { transform: translate(35px, -40px) scale(1.1); }
+}
+
+@keyframes bg-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes hue-rotate-slow {
+  0%, 100% { filter: hue-rotate(0deg); }
+  50% { filter: hue-rotate(25deg); }
+}
+
+@keyframes tilt {
+  0%, 100% { transform: rotate(-1deg); }
+  50% { transform: rotate(1deg); }
+}
+
+.animate-orb-drift { animation: orb-drift 18s ease-in-out infinite; }
+.animate-orb-drift-reverse { animation: orb-drift-reverse 22s ease-in-out infinite; }
+.animate-bg-shift { background-size: 200% 200%; animation: bg-shift 15s ease infinite; }
+.animate-hue { animation: hue-rotate-slow 12s ease-in-out infinite; }
+.animate-tilt { animation: tilt 6s ease-in-out infinite; }
+
+/* Global hover lift */
+.hover-lift { transition: transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s; }
+.hover-lift:hover { transform: translateY(-3px); }
+
+/* Interactive button scale */
+button:not(:disabled), a { transition: transform .2s ease, opacity .2s ease, color .2s ease; }
+button:not(:disabled):active { transform: scale(.96); }
+
+/* Reveal on mount applied globally to main */
+main > * { animation: premium-entrance .6s cubic-bezier(.22,1,.36,1) both; }
+
 .animate-shimmer {
   animation: shimmer 2s ease infinite;
   background-size: 200% 100%;
