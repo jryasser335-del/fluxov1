@@ -14,7 +14,7 @@ import { MaintenanceBanner } from "./components/MaintenanceBanner";
 const queryClient = new QueryClient();
 
 // Set to false to fully disable the maintenance banner
-const MAINTENANCE_MODE = true;
+const MAINTENANCE_MODE = false;
 const SKIP_KEY = "fluxo_skip_maintenance";
 
 const App = () => {

@@ -2,17 +2,16 @@ import { useState } from "react";
 import { InstallPrompt } from "@/components/InstallPrompt";
 import { PlayerModal } from "@/components/PlayerModal";
 import { EventsView } from "@/components/EventsView";
-import { MoviesView } from "@/components/MoviesView";
 import { MultiStreamView } from "@/components/MultiStreamView";
 import { IPTVView } from "@/components/IPTVView";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { cn } from "@/lib/utils";
-import { Trophy, Film, LayoutGrid, Settings, Crown } from "lucide-react";
+import { Trophy, LayoutGrid, Settings, Crown } from "lucide-react";
 import { useAppAuth } from "@/hooks/useAppAuth";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-type ViewType = "eventos" | "peliculas" | "multistream" | "iptv";
+type ViewType = "eventos" | "multistream" | "iptv";
 
 const pageVariants = {
   initial: { opacity: 0, y: 16, filter: "blur(4px)" },
@@ -22,14 +21,12 @@ const pageVariants = {
 
 const NAV_ITEMS = [
   { view: "eventos" as ViewType, icon: Trophy, label: "Live", color: "from-primary to-primary-glow" },
-  { view: "peliculas" as ViewType, icon: Film, label: "Películas", color: "from-accent to-primary" },
   { view: "multistream" as ViewType, icon: LayoutGrid, label: "Multi", color: "from-destructive to-warning" },
   { view: "iptv" as ViewType, icon: Crown, label: "IPTV", color: "from-amber-500 to-fuchsia-500" },
 ];
 
 const Index = () => {
   const [activeView, setActiveView] = useState<ViewType>("eventos");
-  const [movieSearch, setMovieSearch] = useState("");
   const { appUser } = useAppAuth();
   const isAdmin = appUser?.isAdmin ?? false;
 
@@ -57,17 +54,8 @@ const Index = () => {
                 <EventsView />
               </motion.div>
             )}
-            {activeView === "peliculas" && (
-              <motion.div
-                key="peliculas"
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <MoviesView searchQuery={movieSearch} />
-              </motion.div>
+            {false && (
+              <motion.div key="peliculas" />
             )}
             {activeView === "multistream" && (
               <motion.div
