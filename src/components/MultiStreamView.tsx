@@ -304,14 +304,17 @@ export function MultiStreamView() {
           >
             {slot.isActive ? (
               <>
-                <iframe
-                  src={fmt(slot.url)}
-                  className="w-full h-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                  allowFullScreen
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-                <div className="absolute inset-x-0 top-0 p-2.5 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                {slot.kind === "hls" ? (
+                  <HlsVideo src={slot.url} className="w-full h-full bg-black object-contain" />
+                ) : (
+                  <iframe
+                    src={fmt(slot.url)}
+                    className="w-full h-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                )}
                   <div className="flex items-center gap-2">
                     {slot.isLive && (
                       <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-primary">
