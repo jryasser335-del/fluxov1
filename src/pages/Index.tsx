@@ -56,17 +56,8 @@ const Index = () => {
                 <EventsView />
               </motion.div>
             )}
-            {activeView === "peliculas" && (
-              <motion.div
-                key="peliculas"
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <MoviesView searchQuery={movieSearch} />
-              </motion.div>
+            {false && (
+              <motion.div key="peliculas" />
             )}
             {activeView === "multistream" && (
               <motion.div
