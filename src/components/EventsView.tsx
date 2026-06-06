@@ -1083,3 +1083,143 @@ function DbEventCard({
     </div>
   );
 }
+
+function WorldCupBanner() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="relative overflow-hidden rounded-3xl mb-5 border border-white/[0.06]"
+      style={{
+        background:
+          "linear-gradient(110deg, #006847 0%, #003f8f 35%, #8b0000 70%, #d4af37 100%)",
+      }}
+    >
+      {/* animated stadium glow */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-yellow-400/30 blur-3xl animate-pulse" />
+        <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-emerald-400/25 blur-3xl animate-pulse" style={{ animationDelay: "1s" }} />
+        <div
+          className="absolute inset-0 opacity-[0.08] mix-blend-overlay"
+          style={{
+            backgroundImage:
+              "repeating-linear-gradient(90deg, transparent 0 60px, rgba(255,255,255,.4) 60px 61px)",
+          }}
+        />
+      </div>
+
+      <div className="relative flex items-center justify-between gap-4 px-5 py-5 sm:px-7 sm:py-6">
+        <div className="flex items-center gap-4">
+          <motion.div
+            animate={{ rotate: [0, 8, -8, 0] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-2xl"
+          >
+            <span className="text-3xl sm:text-4xl">🏆</span>
+            <div className="absolute -inset-1 rounded-2xl bg-yellow-300/30 blur-xl -z-10" />
+          </motion.div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] sm:text-[10px] font-black tracking-[0.3em] text-yellow-300 uppercase">
+                FIFA · 2026
+              </span>
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-300 opacity-70" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-300" />
+              </span>
+            </div>
+            <h2 className="font-display text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+              World Cup Mode
+            </h2>
+            <p className="text-[11px] sm:text-xs text-white/80 font-medium max-w-md">
+              Todos los partidos del Mundial y eliminatorias en un solo lugar.
+            </p>
+          </div>
+        </div>
+        <div className="hidden sm:flex items-center gap-1.5">
+          {["⚽", "🌍", "🏟️"].map((e, i) => (
+            <motion.span
+              key={i}
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 2.2, repeat: Infinity, delay: i * 0.25, ease: "easeInOut" }}
+              className="text-2xl drop-shadow-lg"
+            >
+              {e}
+            </motion.span>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function NBAFinalsBanner() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="relative overflow-hidden rounded-3xl mb-5 border border-white/[0.08]"
+      style={{
+        background:
+          "linear-gradient(110deg, #0b1020 0%, #17408b 40%, #c9082a 100%)",
+      }}
+    >
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-16 -right-10 w-72 h-72 rounded-full bg-red-500/30 blur-3xl animate-pulse" />
+        <div className="absolute -bottom-20 -left-10 w-72 h-72 rounded-full bg-blue-500/25 blur-3xl animate-pulse" style={{ animationDelay: "1.2s" }} />
+        <div
+          className="absolute inset-0 opacity-[0.1] mix-blend-overlay"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 20% 50%, rgba(255,255,255,.4) 0.5px, transparent 1px), radial-gradient(circle at 70% 30%, rgba(255,255,255,.3) 0.5px, transparent 1px)",
+            backgroundSize: "40px 40px, 60px 60px",
+          }}
+        />
+      </div>
+
+      <div className="relative flex items-center justify-between gap-4 px-5 py-5 sm:px-7 sm:py-6">
+        <div className="flex items-center gap-4">
+          <motion.div
+            animate={{ y: [0, -6, 0], rotate: [0, -5, 5, 0] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+            className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-2xl"
+          >
+            <span className="text-3xl sm:text-4xl">🏀</span>
+            <div className="absolute -inset-1 rounded-2xl bg-orange-400/30 blur-xl -z-10" />
+          </motion.div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[9px] sm:text-[10px] font-black tracking-[0.3em] text-amber-300 uppercase">
+                NBA · Playoffs
+              </span>
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-70" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-400" />
+              </span>
+            </div>
+            <h2 className="font-display text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+              NBA Finals Mode
+            </h2>
+            <p className="text-[11px] sm:text-xs text-white/80 font-medium max-w-md">
+              Vive cada jugada de los Finals con calidad premium.
+            </p>
+          </div>
+        </div>
+        <div className="hidden sm:flex items-center gap-1.5">
+          {["🏆", "🔥", "⭐"].map((e, i) => (
+            <motion.span
+              key={i}
+              animate={{ y: [0, -6, 0] }}
+              transition={{ duration: 2.2, repeat: Infinity, delay: i * 0.25, ease: "easeInOut" }}
+              className="text-2xl drop-shadow-lg"
+            >
+              {e}
+            </motion.span>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
