@@ -1086,3 +1086,158 @@ function DbEventCard({
     </div>
   );
 }
+
+const VIBE_PRESETS: Record<
+  string,
+  { kicker: string; title: string; subtitle: string; icon: string; gradient: string; accent: string; floats: string[] }
+> = {
+  football: {
+    kicker: "FIFA · 2026",
+    title: "World Cup Mode",
+    subtitle: "Todos los partidos del Mundial y eliminatorias en un solo lugar.",
+    icon: "🏆",
+    gradient: "linear-gradient(110deg, #006847 0%, #003f8f 35%, #8b0000 70%, #d4af37 100%)",
+    accent: "#facc15",
+    floats: ["⚽", "🌍", "🏟️"],
+  },
+  nba: {
+    kicker: "NBA · Playoffs",
+    title: "NBA Finals Mode",
+    subtitle: "Vive cada jugada de los Finals con calidad premium.",
+    icon: "🏀",
+    gradient: "linear-gradient(110deg, #0b1020 0%, #17408b 40%, #c9082a 100%)",
+    accent: "#fb923c",
+    floats: ["🏆", "🔥", "⭐"],
+  },
+  mlb: {
+    kicker: "MLB · World Series",
+    title: "Diamond Mode",
+    subtitle: "Béisbol de élite, cada inning en directo.",
+    icon: "⚾",
+    gradient: "linear-gradient(110deg, #0a3161 0%, #b31942 60%, #f5f5f5 100%)",
+    accent: "#ffffff",
+    floats: ["⚾", "🥎", "🇺🇸"],
+  },
+  nhl: {
+    kicker: "NHL · Stanley Cup",
+    title: "Ice Arena Mode",
+    subtitle: "Hielo, velocidad y goles en cada noche de hockey.",
+    icon: "🏒",
+    gradient: "linear-gradient(110deg, #001f3f 0%, #0ea5e9 50%, #e0f2fe 100%)",
+    accent: "#7dd3fc",
+    floats: ["🏒", "🥅", "❄️"],
+  },
+  boxing: {
+    kicker: "Championship · Night",
+    title: "Fight Night",
+    subtitle: "Combates estelares, cinturones y nocauts en vivo.",
+    icon: "🥊",
+    gradient: "linear-gradient(110deg, #1a0000 0%, #b91c1c 50%, #fbbf24 100%)",
+    accent: "#fde047",
+    floats: ["🥊", "🏆", "💥"],
+  },
+  mma: {
+    kicker: "UFC · Octagon",
+    title: "Octagon Mode",
+    subtitle: "Cada PPV de UFC y MMA al instante.",
+    icon: "🥋",
+    gradient: "linear-gradient(110deg, #0a0a0a 0%, #dc2626 55%, #f59e0b 100%)",
+    accent: "#f87171",
+    floats: ["🥋", "🥊", "🔥"],
+  },
+  wrestling: {
+    kicker: "WWE · Premium Live",
+    title: "Ring of Glory",
+    subtitle: "RAW, SmackDown y los PLE que no te puedes perder.",
+    icon: "🤼",
+    gradient: "linear-gradient(110deg, #14062e 0%, #7c3aed 45%, #f59e0b 100%)",
+    accent: "#c4b5fd",
+    floats: ["🤼", "🏆", "🔥"],
+  },
+};
+
+function SportVibeBanner({ sport }: { sport: string }) {
+  const v = VIBE_PRESETS[sport];
+  if (!v) return null;
+  return (
+    <motion.div
+      key={sport}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+      className="relative overflow-hidden rounded-3xl mb-5 border border-white/[0.06]"
+      style={{ background: v.gradient }}
+    >
+      <div className="absolute inset-0 pointer-events-none">
+        <div
+          className="absolute -top-24 -left-16 w-72 h-72 rounded-full blur-3xl animate-pulse"
+          style={{ background: `${v.accent}55` }}
+        />
+        <div
+          className="absolute -bottom-24 -right-16 w-72 h-72 rounded-full blur-3xl animate-pulse"
+          style={{ background: `${v.accent}35`, animationDelay: "1.1s" }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.08] mix-blend-overlay"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 22% 50%, rgba(255,255,255,.5) 0.6px, transparent 1.2px), radial-gradient(circle at 75% 30%, rgba(255,255,255,.35) 0.6px, transparent 1.2px)",
+            backgroundSize: "44px 44px, 66px 66px",
+          }}
+        />
+      </div>
+
+      <div className="relative flex items-center justify-between gap-4 px-5 py-5 sm:px-7 sm:py-6">
+        <div className="flex items-center gap-4">
+          <motion.div
+            animate={{ y: [0, -6, 0], rotate: [0, 4, -4, 0] }}
+            transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
+            className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-black/40 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-2xl"
+          >
+            <span className="text-3xl sm:text-4xl">{v.icon}</span>
+            <div
+              className="absolute -inset-1 rounded-2xl blur-xl -z-10"
+              style={{ background: `${v.accent}55` }}
+            />
+          </motion.div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span
+                className="text-[9px] sm:text-[10px] font-black tracking-[0.3em] uppercase"
+                style={{ color: v.accent }}
+              >
+                {v.kicker}
+              </span>
+              <span className="relative flex h-1.5 w-1.5">
+                <span
+                  className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-70"
+                  style={{ background: v.accent }}
+                />
+                <span
+                  className="relative inline-flex rounded-full h-1.5 w-1.5"
+                  style={{ background: v.accent }}
+                />
+              </span>
+            </div>
+            <h2 className="font-display text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
+              {v.title}
+            </h2>
+            <p className="text-[11px] sm:text-xs text-white/80 font-medium max-w-md">{v.subtitle}</p>
+          </div>
+        </div>
+        <div className="hidden sm:flex items-center gap-1.5">
+          {v.floats.map((e, i) => (
+            <motion.span
+              key={i}
+              animate={{ y: [0, -7, 0] }}
+              transition={{ duration: 2.2, repeat: Infinity, delay: i * 0.22, ease: "easeInOut" }}
+              className="text-2xl drop-shadow-lg"
+            >
+              {e}
+            </motion.span>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
