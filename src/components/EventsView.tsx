@@ -639,12 +639,15 @@ export function EventsView() {
     };
     const q = normalizeText(searchQuery);
     const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const COMBAT = new Set(["boxing", "mma", "wrestling"]);
+    const windowDays = COMBAT.has(activeSport) ? 7 : 1;
+    const dayMs = 24 * 60 * 60 * 1000;
+    const minD = new Date(now.getTime() - windowDays * dayMs);
+    const maxD = new Date(now.getTime() + windowDays * dayMs);
     const fmtUTC = (d: Date) =>
       `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-    const minDate = fmtUTC(yesterday);
-    const maxDate = fmtUTC(tomorrow);
+    const minDate = fmtUTC(minD);
+    const maxDate = fmtUTC(maxD);
     return dbEvents.filter((d) => {
       if (!d.stream_url) return false;
       if (d.event_date) {
