@@ -44,6 +44,11 @@ const SPORT_TABS = [
     label: "Football",
     emoji: "⚽",
     leagues: [
+      "fifa.world",
+      "fifa.worldq.uefa",
+      "fifa.worldq.conmebol",
+      "fifa.worldq.concacaf",
+      "fifa.friendly",
       "eng.1",
       "esp.1",
       "ger.1",
