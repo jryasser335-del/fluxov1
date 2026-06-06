@@ -67,17 +67,6 @@ const Index = () => {
                 <MultiStreamView />
               </motion.div>
             )}
-              <motion.div
-                key="iptv"
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <IPTVView />
-              </motion.div>
-            )}
           </AnimatePresence>
         </main>
 
