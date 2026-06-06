@@ -3,15 +3,14 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { PlayerModal } from "@/components/PlayerModal";
 import { EventsView } from "@/components/EventsView";
 import { MultiStreamView } from "@/components/MultiStreamView";
-import { IPTVView } from "@/components/IPTVView";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { cn } from "@/lib/utils";
-import { Trophy, LayoutGrid, Settings, Crown } from "lucide-react";
+import { Trophy, LayoutGrid, Settings } from "lucide-react";
 import { useAppAuth } from "@/hooks/useAppAuth";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-type ViewType = "eventos" | "multistream" | "iptv";
+type ViewType = "eventos" | "multistream";
 
 const pageVariants = {
   initial: { opacity: 0, y: 16, filter: "blur(4px)" },
@@ -22,7 +21,6 @@ const pageVariants = {
 const NAV_ITEMS = [
   { view: "eventos" as ViewType, icon: Trophy, label: "Live", color: "from-primary to-primary-glow" },
   { view: "multistream" as ViewType, icon: LayoutGrid, label: "Multi", color: "from-destructive to-warning" },
-  { view: "iptv" as ViewType, icon: Crown, label: "IPTV", color: "from-amber-500 to-fuchsia-500" },
 ];
 
 const Index = () => {
@@ -67,18 +65,6 @@ const Index = () => {
                 transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               >
                 <MultiStreamView />
-              </motion.div>
-            )}
-            {activeView === "iptv" && (
-              <motion.div
-                key="iptv"
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <IPTVView />
               </motion.div>
             )}
           </AnimatePresence>
