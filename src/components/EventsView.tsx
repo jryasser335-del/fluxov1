@@ -166,6 +166,10 @@ const LEAGUE_LOGO_FALLBACKS: Record<string, string> = {
   "fra.1": "https://a.espncdn.com/i/leaguelogos/soccer/500/9.png",
   "uefa.champions": "https://a.espncdn.com/i/leaguelogos/soccer/500/2.png",
   "uefa.europa": "https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png",
+  "fifa.world": "https://a.espncdn.com/i/leaguelogos/soccer/500/164.png",
+  "fifa.worldq.uefa": "https://a.espncdn.com/i/leaguelogos/soccer/500/2153.png",
+  "fifa.worldq.conmebol": "https://a.espncdn.com/i/leaguelogos/soccer/500/2154.png",
+  "fifa.worldq.concacaf": "https://a.espncdn.com/i/leaguelogos/soccer/500/2155.png",
 };
 
 const DB_LEAGUE_ALIASES: Record<string, string[]> = {
@@ -181,6 +185,10 @@ const DB_LEAGUE_ALIASES: Record<string, string[]> = {
   "bra.1": ["brasileirao"],
   mls: ["mls", "major league soccer"],
   "conmebol.libertadores": ["libertadores", "copa libertadores"],
+  "fifa.world": ["world cup", "fifa world", "mundial", "copa mundo", "copa del mundo"],
+  "fifa.worldq.uefa": ["uefa qualif", "world cup qualif"],
+  "fifa.worldq.conmebol": ["conmebol qualif", "eliminatorias"],
+  "fifa.worldq.concacaf": ["concacaf qualif"],
 };
 
 const getLeagueLogoFallback = (k: string) => LEAGUE_LOGO_FALLBACKS[k] || "";
