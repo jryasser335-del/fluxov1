@@ -602,6 +602,12 @@ export function EventsView() {
       football: {
         sports: ["soccer", "football"],
         leagues: [
+          "world cup",
+          "fifa",
+          "mundial",
+          "copa del mundo",
+          "eliminatorias",
+          "qualifier",
           "premier",
           "laliga",
           "la liga",
