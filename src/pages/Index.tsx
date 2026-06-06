@@ -67,7 +67,6 @@ const Index = () => {
                 <MultiStreamView />
               </motion.div>
             )}
-            {activeView === "iptv" && (
               <motion.div
                 key="iptv"
                 variants={pageVariants}
