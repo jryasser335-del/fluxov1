@@ -3,14 +3,15 @@ import { InstallPrompt } from "@/components/InstallPrompt";
 import { PlayerModal } from "@/components/PlayerModal";
 import { EventsView } from "@/components/EventsView";
 import { MultiStreamView } from "@/components/MultiStreamView";
+import { MiTVView } from "@/components/MiTVView";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { cn } from "@/lib/utils";
-import { Trophy, LayoutGrid, Settings } from "lucide-react";
+import { Trophy, LayoutGrid, Tv, Settings } from "lucide-react";
 import { useAppAuth } from "@/hooks/useAppAuth";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-type ViewType = "eventos" | "multistream";
+type ViewType = "eventos" | "multistream" | "mitv";
 
 const pageVariants = {
   initial: { opacity: 0, y: 16, filter: "blur(4px)" },
@@ -20,6 +21,7 @@ const pageVariants = {
 
 const NAV_ITEMS = [
   { view: "eventos" as ViewType, icon: Trophy, label: "Live", color: "from-primary to-primary-glow" },
+  { view: "mitv" as ViewType, icon: Tv, label: "Mi TV", color: "from-blue-500 to-cyan-400" },
   { view: "multistream" as ViewType, icon: LayoutGrid, label: "Multi", color: "from-destructive to-warning" },
 ];
 
@@ -52,8 +54,17 @@ const Index = () => {
                 <EventsView />
               </motion.div>
             )}
-            {false && (
-              <motion.div key="peliculas" />
+            {activeView === "mitv" && (
+              <motion.div
+                key="mitv"
+                variants={pageVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <MiTVView />
+              </motion.div>
             )}
             {activeView === "multistream" && (
               <motion.div
