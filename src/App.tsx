@@ -9,6 +9,8 @@ import Admin from "./pages/Admin";
 import Install from "./pages/Install";
 import DownloadApp from "./pages/DownloadApp";
 import NotFound from "./pages/NotFound";
+import AppLogin from "./pages/AppLogin";
+import { AppAuthGuard } from "./components/AppAuthGuard";
 import { MaintenanceBanner } from "./components/MaintenanceBanner";
 import { ThemePicker, loadSavedTheme } from "./components/ThemePicker";
 
@@ -42,7 +44,8 @@ const App = () => {
       <BrowserRouter>
         <ThemePicker />
         <Routes>
-          <Route path="/" element={<Index />} />
+          <Route path="/login" element={<AppLogin />} />
+          <Route path="/" element={<AppAuthGuard><Index /></AppAuthGuard>} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/install" element={<Install />} />
           <Route path="/app" element={<DownloadApp />} />
