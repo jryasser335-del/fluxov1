@@ -237,7 +237,7 @@ export default function AppLogin() {
                       placeholder="Tu nombre espectral"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="pl-11 h-13 py-3 rounded-xl bg-[hsl(270_40%_8%/.7)] border-primary/20 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:bg-[hsl(270_40%_10%/.9)] transition-all"
+                      className="pl-11 h-14 py-3 rounded-xl bg-[hsl(270_40%_8%/.7)] border-primary/20 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:bg-[hsl(270_40%_10%/.9)] transition-all"
                       required
                     />
                   </div>
@@ -255,7 +255,7 @@ export default function AppLogin() {
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="pl-11 pr-12 h-13 py-3 rounded-xl bg-[hsl(270_40%_8%/.7)] border-primary/20 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:bg-[hsl(270_40%_10%/.9)] transition-all"
+                      className="pl-11 pr-12 h-14 py-3 rounded-xl bg-[hsl(270_40%_8%/.7)] border-primary/20 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:bg-[hsl(270_40%_10%/.9)] transition-all"
                       required
                     />
                     <button
@@ -272,7 +272,7 @@ export default function AppLogin() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="relative w-full h-13 py-3 rounded-xl bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_100%] hover:bg-[position:100%_0] text-white font-bold tracking-wider shadow-[0_10px_40px_-10px_hsl(275_90%_50%/.7)] hover:shadow-[0_15px_50px_-10px_hsl(320_90%_55%/.8)] transition-all duration-500 overflow-hidden group"
+                className="relative w-full h-14 py-3 rounded-xl bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_100%] hover:bg-[position:100%_0] text-white font-bold tracking-wider shadow-[0_10px_40px_-10px_hsl(275_90%_50%/.7)] hover:shadow-[0_15px_50px_-10px_hsl(320_90%_55%/.8)] transition-all duration-500 overflow-hidden group"
               >
                 <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                 {isLoading ? (
