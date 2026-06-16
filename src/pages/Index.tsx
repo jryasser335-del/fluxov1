@@ -5,6 +5,7 @@ import { EventsView } from "@/components/EventsView";
 import { MultiStreamView } from "@/components/MultiStreamView";
 import { MiTVView } from "@/components/MiTVView";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { FloatingGengars } from "@/components/FloatingGengars";
 import { cn } from "@/lib/utils";
 import { Trophy, LayoutGrid, Tv, Settings } from "lucide-react";
 import { useAppAuth } from "@/hooks/useAppAuth";
@@ -35,10 +36,13 @@ const Index = () => {
       <div className="min-h-screen bg-background relative">
         {/* Ambient background orbs - animated cinematic */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute -top-[400px] -left-[300px] w-[800px] h-[800px] rounded-full bg-primary/[0.04] blur-[200px] animate-orb-drift" />
-          <div className="absolute -bottom-[300px] -right-[300px] w-[700px] h-[700px] rounded-full bg-accent/[0.035] blur-[180px] animate-orb-drift-reverse" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.02] blur-[150px] animate-hue" />
+          <div className="absolute -top-[400px] -left-[300px] w-[800px] h-[800px] rounded-full bg-primary/[0.08] blur-[200px] animate-orb-drift" />
+          <div className="absolute -bottom-[300px] -right-[300px] w-[700px] h-[700px] rounded-full bg-accent/[0.06] blur-[180px] animate-orb-drift-reverse" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-primary/[0.04] blur-[150px] animate-hue" />
         </div>
+
+        {/* Floating Gengar spirits with aura */}
+        <FloatingGengars count={6} />
 
         <main className="relative max-w-[1440px] mx-auto px-3 sm:px-5 md:px-8 pb-28 md:pb-8 pt-5">
           <AnimatePresence mode="wait">
