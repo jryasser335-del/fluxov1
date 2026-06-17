@@ -5,82 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Loader2, User, Lock, Eye, EyeOff, Ghost, Sparkles } from "lucide-react";
-
-/* ===== Animated Gengar SVG ===== */
-function GengarMascot() {
-  return (
-    <div className="relative w-44 h-44 mx-auto animate-ghost-float">
-      {/* aura halo */}
-      <div className="absolute inset-[-30px] rounded-full bg-[radial-gradient(circle,hsl(275_90%_55%/.55),transparent_65%)] blur-2xl animate-shadow-pulse" />
-      {/* rotating aurora ring */}
-      <div className="absolute inset-[-18px] rounded-full opacity-50 animate-aurora"
-        style={{ background: "conic-gradient(from 0deg, transparent, hsl(280 90% 60% / .5), transparent, hsl(320 90% 60% / .4), transparent)" }} />
-
-      <svg viewBox="0 0 200 200" className="relative w-full h-full drop-shadow-[0_20px_40px_hsl(275_90%_40%/.7)] animate-gengar-laugh">
-        <defs>
-          <radialGradient id="bodyGrad" cx="50%" cy="40%" r="60%">
-            <stop offset="0%" stopColor="hsl(280 55% 40%)" />
-            <stop offset="60%" stopColor="hsl(275 60% 22%)" />
-            <stop offset="100%" stopColor="hsl(270 70% 10%)" />
-          </radialGradient>
-          <radialGradient id="eyeGrad" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="hsl(0 100% 90%)" />
-            <stop offset="60%" stopColor="hsl(0 100% 60%)" />
-            <stop offset="100%" stopColor="hsl(350 100% 40%)" />
-          </radialGradient>
-        </defs>
-
-        {/* spikes on top */}
-        <path d="M40 60 L55 30 L65 55 M75 50 L90 22 L100 50 M110 50 L125 22 L135 50 M145 55 L160 30 L155 65"
-          fill="url(#bodyGrad)" stroke="hsl(270 50% 8%)" strokeWidth="2" strokeLinejoin="round" />
-
-        {/* body */}
-        <ellipse cx="100" cy="115" rx="72" ry="68" fill="url(#bodyGrad)" stroke="hsl(270 50% 8%)" strokeWidth="2" />
-
-        {/* ears */}
-        <path d="M30 80 L18 55 L48 70 Z" fill="url(#bodyGrad)" stroke="hsl(270 50% 8%)" strokeWidth="2" strokeLinejoin="round" />
-        <path d="M170 80 L182 55 L152 70 Z" fill="url(#bodyGrad)" stroke="hsl(270 50% 8%)" strokeWidth="2" strokeLinejoin="round" />
-
-        {/* back spikes silhouette */}
-        <path d="M30 150 L20 175 L45 160 M155 160 L180 175 L170 150" fill="hsl(270 60% 15%)" opacity=".8" />
-
-        {/* eyes - glowing red */}
-        <g className="origin-center" style={{ transformBox: "fill-box" }}>
-          <g className="animate-eye-glow">
-            <ellipse cx="72" cy="100" rx="14" ry="16" fill="url(#eyeGrad)" />
-            <ellipse cx="128" cy="100" rx="14" ry="16" fill="url(#eyeGrad)" />
-            <circle cx="72" cy="102" r="4" fill="hsl(270 80% 8%)" />
-            <circle cx="128" cy="102" r="4" fill="hsl(270 80% 8%)" />
-            <circle cx="74" cy="98" r="1.6" fill="white" />
-            <circle cx="130" cy="98" r="1.6" fill="white" />
-          </g>
-        </g>
-
-        {/* mischievous grin */}
-        <g className="animate-grin-pulse origin-center" style={{ transformBox: "fill-box", transformOrigin: "100px 140px" }}>
-          <path d="M55 135 Q100 175 145 135 Q140 158 100 162 Q60 158 55 135 Z"
-            fill="hsl(270 80% 6%)" stroke="hsl(270 50% 4%)" strokeWidth="1.5" />
-          {/* teeth */}
-          <path d="M65 138 L72 152 L79 138 M82 140 L89 156 L96 140 M100 141 L107 157 L114 141 M118 140 L125 156 L132 140 M135 138 L142 152 L149 138"
-            fill="white" stroke="hsl(270 30% 70%)" strokeWidth=".5" />
-          {/* tongue hint */}
-          <ellipse cx="100" cy="152" rx="14" ry="5" fill="hsl(330 70% 45%)" opacity=".7" />
-        </g>
-      </svg>
-    </div>
-  );
-}
+import gengarMascot from "@/assets/gengar-mascot.png";
 
 /* ===== Floating spectral particles ===== */
 function GhostParticles() {
-  const items = Array.from({ length: 14 });
+  const items = Array.from({ length: 18 });
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {items.map((_, i) => {
         const left = (i * 73) % 100;
         const delay = (i * 0.7) % 8;
-        const dur = 9 + (i % 5) * 2;
-        const size = 10 + (i % 4) * 6;
+        const dur = 10 + (i % 5) * 2;
+        const size = 8 + (i % 4) * 5;
         const dx = ((i * 37) % 160) - 80;
         return (
           <div
@@ -90,23 +26,59 @@ function GhostParticles() {
               left: `${left}%`,
               width: size,
               height: size + 4,
-              ["--dx" as any]: `${dx}px`,
+              ["--dx" as never]: `${dx}px`,
               animation: `spectral-drift ${dur}s linear ${delay}s infinite`,
             }}
           >
-            <svg viewBox="0 0 24 28" className="w-full h-full opacity-70">
+            <svg viewBox="0 0 24 28" className="w-full h-full opacity-60">
               <path
                 d="M4 12 C4 5 20 5 20 12 V24 L17 21 L14 24 L11 21 L8 24 L4 21 Z"
-                fill="hsl(280 80% 55% / .55)"
-                stroke="hsl(290 90% 75% / .6)"
+                fill="hsl(280 90% 55% / .5)"
+                stroke="hsl(290 95% 75% / .55)"
                 strokeWidth=".8"
               />
-              <circle cx="9" cy="13" r="1.4" fill="hsl(0 100% 75%)" />
-              <circle cx="15" cy="13" r="1.4" fill="hsl(0 100% 75%)" />
+              <circle cx="9" cy="13" r="1.4" fill="hsl(0 100% 70%)" />
+              <circle cx="15" cy="13" r="1.4" fill="hsl(0 100% 70%)" />
             </svg>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ===== Gengar mascot with floating aura ===== */
+function GengarMascot() {
+  return (
+    <div className="relative w-52 h-52 mx-auto animate-ghost-float">
+      {/* Outer aura */}
+      <div className="absolute inset-[-50px] rounded-full bg-[radial-gradient(circle,hsl(280_100%_55%/.55),transparent_60%)] blur-3xl animate-shadow-pulse" />
+      {/* Inner aura */}
+      <div className="absolute inset-[-20px] rounded-full bg-[radial-gradient(circle,hsl(290_100%_60%/.4),transparent_65%)] blur-2xl" />
+      {/* Rotating conic ring */}
+      <div
+        className="absolute inset-[-12px] rounded-full opacity-60 animate-aurora"
+        style={{
+          background:
+            "conic-gradient(from 0deg, transparent, hsl(280 100% 60% / .65), transparent, hsl(310 100% 60% / .45), transparent)",
+          filter: "blur(6px)",
+        }}
+      />
+      {/* Eye glow underlay */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="w-24 h-6 rounded-full bg-red-500/40 blur-2xl animate-pulse" style={{ transform: "translateY(-6px)" }} />
+      </div>
+      {/* Floor shadow */}
+      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-32 h-3 rounded-full bg-purple-900/80 blur-md" />
+      {/* Mascot */}
+      <img
+        src={gengarMascot}
+        alt="Gengar"
+        width={256}
+        height={256}
+        className="relative w-full h-full object-contain drop-shadow-[0_25px_45px_hsl(280_100%_45%/.7)] select-none"
+        draggable={false}
+      />
     </div>
   );
 }
@@ -135,7 +107,7 @@ export default function AppLogin() {
     const rect = el.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width - 0.5;
     const y = (e.clientY - rect.top) / rect.height - 0.5;
-    el.style.transform = `perspective(1200px) rotateY(${x * 6}deg) rotateX(${-y * 6}deg)`;
+    el.style.transform = `perspective(1200px) rotateY(${x * 5}deg) rotateX(${-y * 5}deg)`;
   };
   const handleMouseLeave = () => {
     const el = cardRef.current;
@@ -157,22 +129,26 @@ export default function AppLogin() {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4">
-      {/* Deep void background */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsl(275_60%_14%),hsl(265_45%_4%)_60%,hsl(260_50%_2%))]" />
+    <div className="min-h-screen relative overflow-hidden flex items-center justify-center p-4 bg-black">
+      {/* Pure black base */}
+      <div className="absolute inset-0 bg-black" />
 
-      {/* Aurora orbs */}
-      <div className="absolute top-1/4 -left-32 w-[520px] h-[520px] rounded-full bg-primary/25 blur-[140px] animate-orb-drift" />
-      <div className="absolute bottom-0 -right-32 w-[520px] h-[520px] rounded-full bg-accent/20 blur-[140px] animate-orb-drift-reverse" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full bg-[hsl(290_90%_50%/.08)] blur-[160px]" />
+      {/* Subtle purple vignette */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsl(275_90%_18%/.45),transparent_55%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom,hsl(290_90%_15%/.35),transparent_60%)]" />
 
-      {/* Animated grid */}
-      <div className="absolute inset-0 opacity-[0.06]"
+      {/* Slow drifting purple orbs */}
+      <div className="absolute top-1/4 -left-40 w-[480px] h-[480px] rounded-full bg-[hsl(275_90%_45%/.18)] blur-[140px] animate-orb-drift" />
+      <div className="absolute bottom-0 -right-40 w-[480px] h-[480px] rounded-full bg-[hsl(310_90%_45%/.12)] blur-[140px] animate-orb-drift-reverse" />
+
+      {/* Faint grid */}
+      <div
+        className="absolute inset-0 opacity-[0.05]"
         style={{
           backgroundImage:
-            "linear-gradient(hsl(280 80% 60% / .25) 1px, transparent 1px), linear-gradient(90deg, hsl(280 80% 60% / .25) 1px, transparent 1px)",
-          backgroundSize: "60px 60px",
-          maskImage: "radial-gradient(ellipse at center, black 30%, transparent 75%)",
+            "linear-gradient(hsl(280 90% 60% / .35) 1px, transparent 1px), linear-gradient(90deg, hsl(280 90% 60% / .35) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+          maskImage: "radial-gradient(ellipse at center, black 25%, transparent 75%)",
         }}
       />
 
@@ -187,16 +163,16 @@ export default function AppLogin() {
         </div>
 
         {/* Brand */}
-        <div className={`text-center mt-2 mb-6 transition-all duration-700 delay-150 ${mounted ? "opacity-100" : "opacity-0"}`}>
-          <h1 className="font-display text-5xl tracking-[0.3em] text-gengar-gradient drop-shadow-[0_0_30px_hsl(280_90%_55%/.5)]">
+        <div className={`text-center mt-3 mb-7 transition-all duration-700 delay-150 ${mounted ? "opacity-100" : "opacity-0"}`}>
+          <h1 className="font-display text-5xl tracking-[0.32em] font-black bg-clip-text text-transparent bg-[linear-gradient(180deg,hsl(0_0%_100%),hsl(280_90%_75%))] drop-shadow-[0_0_25px_hsl(280_100%_55%/.55)]">
             FLUXO
           </h1>
           <div className="mt-2 flex items-center justify-center gap-2">
-            <Ghost className="w-3 h-3 text-primary-glow animate-pulse" />
-            <span className="text-[10px] tracking-[0.45em] uppercase text-primary-glow/70 font-tech">
+            <Ghost className="w-3 h-3 text-[hsl(280_100%_70%)] animate-pulse" />
+            <span className="text-[10px] tracking-[0.5em] uppercase text-[hsl(280_80%_75%/.7)] font-tech">
               Shadow Streaming
             </span>
-            <Ghost className="w-3 h-3 text-primary-glow animate-pulse" />
+            <Ghost className="w-3 h-3 text-[hsl(280_100%_70%)] animate-pulse" />
           </div>
         </div>
 
@@ -211,33 +187,35 @@ export default function AppLogin() {
           style={{ transformStyle: "preserve-3d" }}
         >
           {/* Conic glow border */}
-          <div className="absolute -inset-[2px] rounded-3xl opacity-80 animate-aurora"
+          <div
+            className="absolute -inset-[2px] rounded-3xl opacity-70 animate-aurora"
             style={{
               background:
-                "conic-gradient(from 0deg, hsl(275 95% 60%), hsl(320 90% 60%), hsl(260 90% 55%), hsl(290 100% 65%), hsl(275 95% 60%))",
-              filter: "blur(8px)",
+                "conic-gradient(from 0deg, hsl(275 100% 55%), hsl(310 90% 55%), hsl(260 90% 50%), hsl(290 100% 60%), hsl(275 100% 55%))",
+              filter: "blur(10px)",
             }}
           />
-          <div className="absolute -inset-[1px] rounded-3xl bg-[conic-gradient(from_180deg,hsl(275_95%_60%),hsl(320_90%_60%),hsl(275_95%_60%))] opacity-60" />
 
-          <div className="relative rounded-3xl bg-[hsl(268_40%_5%/.85)] backdrop-blur-2xl border border-primary/15 p-7 shadow-[0_30px_80px_-20px_hsl(275_90%_30%/.6)]">
-            {/* corner sparkles */}
-            <Sparkles className="absolute -top-3 -right-3 w-5 h-5 text-primary-glow animate-pulse" />
-            <Sparkles className="absolute -bottom-3 -left-3 w-4 h-4 text-accent animate-pulse [animation-delay:.5s]" />
+          <div className="relative rounded-3xl bg-black/85 backdrop-blur-2xl border border-[hsl(280_80%_50%/.18)] p-7 shadow-[0_30px_80px_-20px_hsl(280_100%_30%/.7)]">
+            {/* Corner sparkles */}
+            <Sparkles className="absolute -top-3 -right-3 w-5 h-5 text-[hsl(280_100%_70%)] animate-pulse" />
+            <Sparkles className="absolute -bottom-3 -left-3 w-4 h-4 text-[hsl(310_100%_70%)] animate-pulse [animation-delay:.5s]" />
 
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <label className="text-primary-glow/70 text-xs font-tech tracking-[0.25em] uppercase pl-1">Invocador</label>
+                <label className="text-[hsl(280_80%_75%/.8)] text-xs font-tech tracking-[0.28em] uppercase pl-1">
+                  Invocador
+                </label>
                 <div className="relative group">
-                  <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-primary/40 to-accent/40 opacity-0 group-focus-within:opacity-100 blur-md transition-opacity duration-300" />
+                  <div className="absolute -inset-0.5 rounded-xl bg-[linear-gradient(90deg,hsl(275_100%_55%/.5),hsl(310_100%_55%/.5))] opacity-0 group-focus-within:opacity-100 blur-md transition-opacity duration-300" />
                   <div className="relative flex items-center">
-                    <User className="absolute left-4 w-4 h-4 text-primary-glow/50" />
+                    <User className="absolute left-4 w-4 h-4 text-[hsl(280_70%_70%/.65)]" />
                     <Input
                       type="text"
                       placeholder="Tu nombre espectral"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="pl-11 h-14 py-3 rounded-xl bg-[hsl(270_40%_8%/.7)] border-primary/20 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:bg-[hsl(270_40%_10%/.9)] transition-all"
+                      className="pl-11 h-14 py-3 rounded-xl bg-black/70 border-[hsl(280_80%_50%/.25)] text-foreground placeholder:text-muted-foreground/50 focus:border-[hsl(280_100%_60%/.7)] focus:bg-black/90 transition-all"
                       required
                     />
                   </div>
@@ -245,25 +223,31 @@ export default function AppLogin() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-primary-glow/70 text-xs font-tech tracking-[0.25em] uppercase pl-1">Conjuro</label>
+                <label className="text-[hsl(280_80%_75%/.8)] text-xs font-tech tracking-[0.28em] uppercase pl-1">
+                  Conjuro
+                </label>
                 <div className="relative group">
-                  <div className="absolute -inset-0.5 rounded-xl bg-gradient-to-r from-primary/40 to-accent/40 opacity-0 group-focus-within:opacity-100 blur-md transition-opacity duration-300" />
+                  <div className="absolute -inset-0.5 rounded-xl bg-[linear-gradient(90deg,hsl(275_100%_55%/.5),hsl(310_100%_55%/.5))] opacity-0 group-focus-within:opacity-100 blur-md transition-opacity duration-300" />
                   <div className="relative flex items-center">
-                    <Lock className="absolute left-4 w-4 h-4 text-primary-glow/50" />
+                    <Lock className="absolute left-4 w-4 h-4 text-[hsl(280_70%_70%/.65)]" />
                     <Input
                       type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="pl-11 pr-12 h-14 py-3 rounded-xl bg-[hsl(270_40%_8%/.7)] border-primary/20 text-foreground placeholder:text-muted-foreground/50 focus:border-primary/60 focus:bg-[hsl(270_40%_10%/.9)] transition-all"
+                      className="pl-11 pr-12 h-14 py-3 rounded-xl bg-black/70 border-[hsl(280_80%_50%/.25)] text-foreground placeholder:text-muted-foreground/50 focus:border-[hsl(280_100%_60%/.7)] focus:bg-black/90 transition-all"
                       required
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 p-1.5 hover:bg-primary/10 rounded-lg transition-colors"
+                      className="absolute right-3 p-1.5 hover:bg-[hsl(280_100%_60%/.1)] rounded-lg transition-colors"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4 text-primary-glow/60" /> : <Eye className="w-4 h-4 text-primary-glow/60" />}
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4 text-[hsl(280_70%_70%/.7)]" />
+                      ) : (
+                        <Eye className="w-4 h-4 text-[hsl(280_70%_70%/.7)]" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -272,9 +256,9 @@ export default function AppLogin() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="relative w-full h-14 py-3 rounded-xl bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_100%] hover:bg-[position:100%_0] text-white font-bold tracking-wider shadow-[0_10px_40px_-10px_hsl(275_90%_50%/.7)] hover:shadow-[0_15px_50px_-10px_hsl(320_90%_55%/.8)] transition-all duration-500 overflow-hidden group"
+                className="relative w-full h-14 py-3 rounded-xl bg-[linear-gradient(90deg,hsl(275_100%_45%),hsl(310_100%_50%),hsl(275_100%_45%))] bg-[length:200%_100%] hover:bg-[position:100%_0] text-white font-bold tracking-[0.2em] shadow-[0_10px_40px_-10px_hsl(280_100%_50%/.8)] hover:shadow-[0_15px_55px_-10px_hsl(310_100%_55%/.9)] transition-all duration-500 overflow-hidden group border border-[hsl(280_100%_60%/.3)]"
               >
-                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
+                <span className="absolute inset-0 bg-[linear-gradient(90deg,transparent,hsl(0_0%_100%/.25),transparent)] -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
@@ -295,7 +279,7 @@ export default function AppLogin() {
         </div>
 
         <div className={`mt-8 text-center transition-opacity duration-1000 delay-700 ${mounted ? "opacity-100" : "opacity-0"}`}>
-          <p className="text-primary-glow/30 text-[10px] tracking-[0.4em] uppercase font-tech">
+          <p className="text-[hsl(280_80%_70%/.35)] text-[10px] tracking-[0.45em] uppercase font-tech">
             © 2026 · Fluxo Spectral Entertainment
           </p>
         </div>
