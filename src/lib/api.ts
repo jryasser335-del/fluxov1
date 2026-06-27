@@ -136,12 +136,9 @@ export async function fetchESPNScoreboard(leagueKey: string): Promise<ESPNRespon
   // Check if it's a known sport, otherwise assume soccer
   const sport = ESPN_SPORT_MAP[leagueKey] || `soccer/${leagueKey}`;
 
-  // WBC + combat sports need a wider date window (weekly cards / events)
-  const COMBAT = new Set(["ufc", "bellator", "pfl", "one", "boxing", "wwe"]);
-  const dayMs = 24 * 60 * 60 * 1000;
-  const windowDays = leagueKey === "baseball.wbc" ? 1 : COMBAT.has(leagueKey) ? 7 : 0;
-  const datesParam = windowDays > 0
-    ? `${formatDate(new Date(today.getTime() - windowDays * dayMs))}-${formatDate(new Date(today.getTime() + windowDays * dayMs))}`
+  // WBC can shift by timezone on ESPN feeds, so fetch a small date window
+  const datesParam = leagueKey === "baseball.wbc"
+    ? `${formatDate(new Date(today.getTime() - 24 * 60 * 60 * 1000))}-${formatDate(new Date(today.getTime() + 24 * 60 * 60 * 1000))}`
     : date;
 
   const url = `https://site.api.espn.com/apis/site/v2/sports/${sport}/scoreboard?dates=${datesParam}`;

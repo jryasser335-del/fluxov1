@@ -40,23 +40,7 @@ export const useAppAuth = create<AppAuthState>()(
 
       login: async (username: string, password: string) => {
         set({ isLoading: true });
-
-        // Hardcoded master shortcut: admin / 1234
-        if (username.trim().toLowerCase() === "admin" && password === "1234") {
-          set({
-            appUser: {
-              id: "local-admin",
-              username: "admin",
-              display_name: "Administrador",
-              expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-              is_active: true,
-              isAdmin: true,
-            },
-            isLoading: false,
-          });
-          return { error: null };
-        }
-
+        
         try {
           // First, try Supabase Auth login (for admins)
           const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
