@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import fluxoLogo from "@/assets/fluxotv-logo.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { WorldCupView } from "./WorldCupView";
 
 // ── Caché localStorage (5 minutos) ───────────────────────────────────────────
 const CACHE_KEY = "fluxo_streams_cache";
