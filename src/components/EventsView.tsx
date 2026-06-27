@@ -840,11 +840,9 @@ export function EventsView() {
         )}
       </div>
 
-      {activeSport === "football" && <WorldCupBanner />}
-      {activeSport === "football" && <WorldCupView />}
-      {activeSport === "nba" && <NBAFinalsBanner />}
-
-      {loading ? (
+      {activeSport === "football" ? (
+        <WorldCupView />
+      ) : loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {Array.from({ length: 8 }).map((_, i) => (
             <SkeletonEventCard key={i} />
@@ -855,7 +853,7 @@ export function EventsView() {
           <div className="relative mb-8">
             <div className="absolute -inset-8 rounded-full bg-primary/[0.03] blur-3xl" />
             <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-white/[0.04] to-transparent border border-white/[0.04] flex items-center justify-center">
-              <span className="text-5xl">🏟️</span>
+              <span className="text-5xl">⚾</span>
             </div>
           </div>
           <p className="text-lg font-semibold text-foreground/50 mb-2">No hay eventos</p>
