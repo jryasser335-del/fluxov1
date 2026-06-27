@@ -73,12 +73,7 @@ const SPORT_TABS = [
       "mls",
     ],
   },
-  { value: "nba", label: "NBA", emoji: "🏀", leagues: ["nba"] },
   { value: "mlb", label: "MLB", emoji: "⚾", leagues: ["mlb", "baseball.wbc"] },
-  { value: "nhl", label: "NHL", emoji: "🏒", leagues: ["nhl"] },
-  { value: "boxing", label: "Boxing", emoji: "🥊", leagues: ["boxing"] },
-  { value: "mma", label: "MMA", emoji: "🥋", leagues: ["ufc"] },
-  { value: "wrestling", label: "WWE", emoji: "🤼", leagues: ["wwe"] },
 ];
 
 interface DbEvent {
