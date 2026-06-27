@@ -845,6 +845,7 @@ export function EventsView() {
       </div>
 
       {activeSport === "football" && <WorldCupBanner />}
+      {activeSport === "football" && <WorldCupView />}
       {activeSport === "nba" && <NBAFinalsBanner />}
 
       {loading ? (
