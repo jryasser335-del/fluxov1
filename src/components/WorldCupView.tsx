@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Radio, X, Tv, ChevronRight } from "lucide-react";
+import { Loader2, Radio, X, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const LC_URL = "https://nmaopmcugunecbclfwzs.supabase.co/rest/v1";
@@ -53,6 +53,17 @@ const TEAM_ES: Record<string, string> = {
 };
 const es = (n: string) => TEAM_ES[n] || n;
 
+// Color hint por equipo para el gradiente del card
+const TEAM_HUE: Record<string, string> = {
+  "Saudi Arabia": "#0a6b3a", "Cape Verde": "#1e3a8a", "Spain": "#c8102e", "Uruguay": "#1e3a8a",
+  "Iran": "#239f40", "Egypt": "#c8102e", "Belgium": "#c8102e", "New Zealand": "#1e1e1e",
+  "France": "#1e3a8a", "Norway": "#c8102e", "Iraq": "#c8102e", "Senegal": "#00853f",
+  "Argentina": "#74acdf", "Brazil": "#009c3b", "Germany": "#1a1a1a", "England": "#c8102e",
+  "Italy": "#0066a4", "Portugal": "#006400", "Croatia": "#c8102e", "Mexico": "#006847",
+  "United States": "#1e3a8a", "Canada": "#c8102e", "Netherlands": "#ff6b00",
+};
+const hue = (n: string) => TEAM_HUE[n] || "#374151";
+
 export function WorldCupView() {
   const [matches, setMatches] = useState<LCMatch[]>([]);
   const [streams, setStreams] = useState<Record<string, LCStream[]>>({});
@@ -69,14 +80,12 @@ export function WorldCupView() {
         );
         const data: LCMatch[] = await res.json();
         setMatches(data || []);
-        // Fetch streams in batch for matches kicking off within next 36h
         const ids = (data || [])
           .filter((m) => new Date(m.kickoff_at).getTime() < Date.now() + 36 * 3600 * 1000)
           .map((m) => m.id);
         if (ids.length) {
-          const ors = `in.(${ids.join(",")})`;
           const r2 = await fetch(
-            `${LC_URL}/match_streams?select=id,match_id,embed_name,embed_url&match_id=${ors}`,
+            `${LC_URL}/match_streams?select=id,match_id,embed_name,embed_url&match_id=in.(${ids.join(",")})`,
             { headers: lcHeaders }
           );
           const sdata: LCStream[] = await r2.json();
@@ -112,28 +121,17 @@ export function WorldCupView() {
     );
   }
 
-  if (matches.length === 0) return null;
+  if (matches.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 text-center">
+        <span className="text-5xl mb-3">🏆</span>
+        <p className="text-foreground/60 font-semibold">Sin partidos del Mundial por ahora</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-8">
-      {/* Mundial header */}
-      <div className="flex items-center gap-3 mb-5">
-        <div className="relative">
-          <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-yellow-500/30 to-red-500/30 blur-md" />
-          <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-500/20 via-green-500/20 to-red-500/20 border border-yellow-500/30 flex items-center justify-center text-xl">
-            🏆
-          </div>
-        </div>
-        <div>
-          <h2 className="font-display text-2xl font-bold text-white tracking-tight">
-            Mundial 2026 — Partidos
-          </h2>
-          <p className="text-xs text-white/40 uppercase tracking-wider">
-            Streams en vivo · Multi-canal
-          </p>
-        </div>
-      </div>
-
       {Object.keys(grouped)
         .sort()
         .map((day) => {
@@ -144,11 +142,11 @@ export function WorldCupView() {
             month: "long",
           });
           return (
-            <div key={day} className="mb-6">
-              <h3 className="text-[11px] uppercase tracking-[0.18em] text-white/35 font-semibold mb-3 pl-1">
+            <div key={day} className="mb-7">
+              <h3 className="text-[11px] uppercase tracking-[0.22em] text-white/35 font-bold mb-3 pl-1">
                 {label}
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {grouped[day].map((m) => (
                   <WCMatchCard
                     key={m.id}
@@ -182,58 +180,131 @@ function WCMatchCard({
 }) {
   const isLive = match.status === "live" || match.status === "in_play";
   const isFinished = match.status === "finished";
-  const t = new Date(match.kickoff_at).toLocaleTimeString("es", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const isUpcoming = !isLive && !isFinished;
+
+  const d = new Date(match.kickoff_at);
+  const dayLabel = d.toLocaleDateString("es", { weekday: "short" });
+  const timeLabel = d.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+
+  // Viewers deterministic-ish based on id
+  const viewers = useMemo(() => {
+    if (!isLive) return 0;
+    const seed = match.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+    return 3000 + (seed % 15000);
+  }, [match.id, isLive]);
+
+  const homeHue = hue(match.home_team);
+  const awayHue = hue(match.away_team);
 
   return (
     <button
       onClick={onOpen}
       disabled={!hasStreams && !isLive}
       className={cn(
-        "group relative w-full text-left rounded-2xl p-4 border transition-all duration-300 overflow-hidden",
-        "bg-gradient-to-br from-white/[0.025] to-white/[0.005] hover:from-white/[0.05] hover:to-white/[0.01]",
-        "border-white/[0.05] hover:border-white/[0.12]",
-        isLive && "border-red-500/30 from-red-500/[0.06] to-transparent",
-        !hasStreams && !isLive && "opacity-60 cursor-not-allowed"
+        "group relative w-full text-left rounded-2xl overflow-hidden border transition-all duration-300",
+        "border-white/[0.06] hover:border-white/[0.14] hover:-translate-y-1 hover:shadow-2xl",
+        !hasStreams && !isLive && "opacity-70 cursor-not-allowed hover:translate-y-0"
       )}
     >
-      {isLive && (
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg shadow-red-500/40">
-          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-          EN VIVO
-        </div>
-      )}
-      {isFinished && (
-        <div className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-full bg-white/10 text-white/60 text-[10px] font-bold uppercase tracking-wider">
-          FINAL
-        </div>
-      )}
+      {/* Banner with team-color gradient */}
+      <div
+        className="relative aspect-[16/10] overflow-hidden"
+        style={{
+          background: `linear-gradient(125deg, ${homeHue}80 0%, #0a0a0a 50%, ${awayHue}80 100%)`,
+        }}
+      >
+        {/* dark vignette */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.55)_100%)]" />
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex-1 min-w-0 space-y-2.5">
-          <Side flag={match.home_flag} name={es(match.home_team)} score={match.home_score} live={isLive || isFinished} />
-          <Side flag={match.away_flag} name={es(match.away_team)} score={match.away_score} live={isLive || isFinished} />
+        {/* Top badges */}
+        <div className="absolute top-3 left-3 z-10">
+          {isLive ? (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider shadow-lg shadow-red-500/40">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              LIVE
+            </div>
+          ) : isFinished ? (
+            <div className="px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md text-white/80 text-[10px] font-bold uppercase tracking-wider">
+              FINAL
+            </div>
+          ) : (
+            <div className="px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-md text-white/80 text-[10px] font-bold uppercase tracking-wider">
+              {dayLabel}, {timeLabel}
+            </div>
+          )}
         </div>
 
-        <div className="text-right shrink-0 flex flex-col items-end gap-1.5 min-w-[90px]">
-          {!isLive && !isFinished && (
-            <span className="font-display text-xl font-bold text-white tabular-nums">
-              {t}
-            </span>
-          )}
-          {match.venue_name && (
-            <span className="text-[10px] text-white/30 leading-tight text-right max-w-[110px]">
-              {match.venue_name}
-              {match.venue_city ? ` · ${match.venue_city}` : ""}
-            </span>
-          )}
-          {hasStreams && (
-            <span className="flex items-center gap-1 text-[10px] text-primary/80 font-semibold">
-              <Tv className="w-3 h-3" /> Ver
-              <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-            </span>
+        <div className="absolute top-3 right-3 z-10">
+          {isLive ? (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/50 backdrop-blur-md text-white/90 text-[10px] font-semibold tabular-nums">
+              <Eye className="w-3 h-3" />
+              {viewers.toLocaleString()}
+            </div>
+          ) : hasStreams && isUpcoming ? (
+            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-400/30 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+              <span className="w-1 h-1 rounded-full bg-emerald-400" />
+              Señal
+            </div>
+          ) : null}
+        </div>
+
+        {/* Center: flags + score */}
+        <div className="absolute inset-0 flex items-center justify-center gap-5 sm:gap-7 px-5">
+          <Flag src={match.home_flag} name={match.home_team} />
+
+          <div className="flex flex-col items-center min-w-[90px]">
+            {isLive || isFinished ? (
+              <>
+                <div className="font-display text-4xl sm:text-5xl font-black text-white tabular-nums tracking-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+                  {match.home_score ?? 0}
+                  <span className="text-white/40 mx-2">:</span>
+                  {match.away_score ?? 0}
+                </div>
+                {isLive && match.time_elapsed && (
+                  <div className="mt-1 text-[10px] font-bold text-cyan-300 tracking-wider tabular-nums">
+                    {match.time_elapsed}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="font-display text-3xl sm:text-4xl font-black text-white tabular-nums tracking-tight drop-shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+                  {timeLabel}
+                </div>
+                <div className="mt-0.5 text-[10px] font-bold text-white/50 uppercase tracking-wider">
+                  {dayLabel}
+                </div>
+              </>
+            )}
+          </div>
+
+          <Flag src={match.away_flag} name={match.away_team} />
+        </div>
+
+        {/* Watermark */}
+        <div className="absolute bottom-3 left-0 right-0 text-center pointer-events-none">
+          <span className="text-[9px] font-black tracking-[0.35em] text-white/15 uppercase">
+            FIFA World Cup
+          </span>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="bg-[#0c0c0e] px-4 py-3 space-y-0.5">
+        <div className="flex items-center gap-2 text-sm font-bold text-white truncate">
+          <span className="truncate">{es(match.home_team)}</span>
+          <span className="text-white/35 text-xs font-medium">vs</span>
+          <span className="truncate">{es(match.away_team)}</span>
+        </div>
+        <div className="flex items-center gap-2 text-[11px] text-white/40">
+          <span className="font-medium">FIFA World Cup</span>
+          {isFinished && <><span>·</span><span>FT</span></>}
+          {isUpcoming && (
+            <>
+              <span>·</span>
+              <span>{dayLabel}, {timeLabel}</span>
+            </>
           )}
         </div>
       </div>
@@ -241,30 +312,23 @@ function WCMatchCard({
   );
 }
 
-function Side({
-  flag,
-  name,
-  score,
-  live,
-}: {
-  flag: string | null;
-  name: string;
-  score: number | null;
-  live: boolean;
-}) {
+function Flag({ src, name }: { src: string | null; name: string }) {
+  if (!src) {
+    return (
+      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-white/10 backdrop-blur-md flex items-center justify-center text-white/40 text-xs font-bold shrink-0">
+        {name.slice(0, 3).toUpperCase()}
+      </div>
+    );
+  }
   return (
-    <div className="flex items-center gap-2.5">
-      {flag ? (
-        <img src={flag} alt={name} className="w-6 h-6 rounded object-cover shrink-0" loading="lazy" />
-      ) : (
-        <div className="w-6 h-6 rounded bg-white/5 shrink-0" />
-      )}
-      <span className="font-medium text-white/90 text-sm truncate flex-1">{name}</span>
-      {live && (
-        <span className="font-display font-bold text-white text-lg tabular-nums">
-          {score ?? 0}
-        </span>
-      )}
+    <div className="relative shrink-0">
+      <div className="absolute inset-0 bg-black/30 blur-xl scale-125 rounded-lg" />
+      <img
+        src={src}
+        alt={name}
+        className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-lg object-cover shadow-[0_4px_16px_rgba(0,0,0,0.6)] ring-1 ring-white/10"
+        loading="lazy"
+      />
     </div>
   );
 }
@@ -287,6 +351,7 @@ function WCPlayerModal({
 
   if (!match) return null;
   const current = streams.find((s) => s.id === active);
+  const isLive = match.status === "live" || match.status === "in_play";
 
   return (
     <AnimatePresence>
@@ -295,7 +360,7 @@ function WCPlayerModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-3 sm:p-6"
           onClick={onClose}
         >
           <motion.div
@@ -303,51 +368,45 @@ function WCPlayerModal({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ duration: 0.25 }}
-            className="relative w-full max-w-5xl bg-[#0a0a0a] border border-white/10 rounded-3xl overflow-hidden shadow-2xl"
+            className="relative w-full max-w-6xl bg-[#0a0a0a] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* header */}
-            <div className="flex items-center justify-between p-4 border-b border-white/5">
-              <div className="flex items-center gap-3 min-w-0">
-                {match.home_flag && <img src={match.home_flag} className="w-7 h-7 rounded" alt="" />}
-                <span className="font-display font-bold text-white truncate">
-                  {es(match.home_team)} <span className="text-white/40">vs</span>{" "}
+            {/* header — teams + LIVE pill (style like image 2) */}
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-white/[0.06] shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                {match.home_flag && (
+                  <img src={match.home_flag} className="w-5 h-5 rounded object-cover" alt="" />
+                )}
+                <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider truncate">
+                  {es(match.home_team)}
+                </span>
+                <span className="text-white/30 text-xs">vs</span>
+                <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider truncate">
                   {es(match.away_team)}
                 </span>
-                {match.away_flag && <img src={match.away_flag} className="w-7 h-7 rounded" alt="" />}
+                {match.away_flag && (
+                  <img src={match.away_flag} className="w-5 h-5 rounded object-cover" alt="" />
+                )}
               </div>
-              <button
-                onClick={onClose}
-                className="w-9 h-9 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition"
-                aria-label="Cerrar"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {isLive && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    EN VIVO
+                  </div>
+                )}
+                <button
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition"
+                  aria-label="Cerrar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            {/* channel tabs */}
-            {streams.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto p-3 border-b border-white/5 scrollbar-hide">
-                {streams.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setActive(s.id)}
-                    className={cn(
-                      "shrink-0 px-3.5 py-2 rounded-xl text-xs font-semibold transition border",
-                      active === s.id
-                        ? "bg-red-500 text-white border-red-500 shadow-lg shadow-red-500/30"
-                        : "bg-white/[0.03] text-white/70 hover:bg-white/[0.08] border-white/5"
-                    )}
-                  >
-                    <Radio className="w-3 h-3 inline mr-1.5 -mt-0.5" />
-                    {s.embed_name}
-                  </button>
-                ))}
-              </div>
-            )}
-
             {/* player */}
-            <div className="relative bg-black aspect-video">
+            <div className="relative bg-black aspect-video shrink-0">
               {current ? (
                 <iframe
                   key={current.id}
@@ -358,11 +417,47 @@ function WCPlayerModal({
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-white/40 text-sm">
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-white/40 text-sm gap-2">
+                  <Radio className="w-8 h-8 opacity-30" />
                   Sin transmisiones disponibles aún
                 </div>
               )}
             </div>
+
+            {/* CANALES bar — like image 2 */}
+            {streams.length > 0 && (
+              <div className="border-t border-white/[0.06] bg-[#0a0a0a] overflow-y-auto">
+                <div className="px-4 sm:px-5 py-3 flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 shrink-0">
+                    <Radio className="w-3 h-3" /> Canales
+                  </span>
+                </div>
+                <div className="px-4 sm:px-5 pb-4 flex gap-2 overflow-x-auto scrollbar-hide">
+                  {streams.map((s) => {
+                    const isAds = /no\s*ads|sin\s*publicidad|4k|hevc/i.test(s.embed_name);
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => setActive(s.id)}
+                        className={cn(
+                          "shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition flex items-center gap-2 border",
+                          active === s.id
+                            ? "bg-red-500/10 text-red-400 border-red-500/40 shadow-lg shadow-red-500/10"
+                            : "bg-white/[0.03] text-white/70 hover:bg-white/[0.07] border-white/[0.06]"
+                        )}
+                      >
+                        {s.embed_name}
+                        {isAds && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[8px] font-black tracking-wider">
+                            NO ADS
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </motion.div>
         </motion.div>
       )}
