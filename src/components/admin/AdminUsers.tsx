@@ -112,8 +112,9 @@ export function AdminUsers() {
       return;
     }
 
-    if (password.length < 4) {
-      toast.error("La contraseña debe tener al menos 4 caracteres");
+    const pwError = validatePassword(password);
+    if (pwError) {
+      toast.error(pwError);
       return;
     }
 
