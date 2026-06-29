@@ -41,7 +41,8 @@ interface AppUser {
   created_at: string;
 }
 
-// Simple hash function (for demo - in production use bcrypt on server)
+// Simple hash function (kept for backwards compatibility; server-side verification
+// in the `app-auth` edge function uses the same scheme).
 const simpleHash = async (password: string): Promise<string> => {
   const encoder = new TextEncoder();
   const data = encoder.encode(password + "fluxo_salt_2024");
@@ -49,6 +50,18 @@ const simpleHash = async (password: string): Promise<string> => {
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 };
+
+// Strong password policy: ≥12 chars, upper, lower, digit, special.
+function validatePassword(password: string): string | null {
+  if (!password) return "La contraseña es requerida";
+  if (password.length < 12) return "La contraseña debe tener al menos 12 caracteres";
+  if (password.length > 128) return "La contraseña es demasiado larga";
+  if (!/[A-Z]/.test(password)) return "Debe incluir al menos una letra mayúscula";
+  if (!/[a-z]/.test(password)) return "Debe incluir al menos una letra minúscula";
+  if (!/[0-9]/.test(password)) return "Debe incluir al menos un número";
+  if (!/[^A-Za-z0-9]/.test(password)) return "Debe incluir al menos un carácter especial";
+  return null;
+}
 
 export function AdminUsers() {
   const [users, setUsers] = useState<AppUser[]>([]);
