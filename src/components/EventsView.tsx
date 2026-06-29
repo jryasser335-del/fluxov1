@@ -75,6 +75,7 @@ const SPORT_TABS = [
     ],
   },
   { value: "mlb", label: "MLB", emoji: "⚾", leagues: ["mlb", "baseball.wbc"] },
+  { value: "channels", label: "Canales", emoji: "📺", leagues: [] },
 ];
 
 interface DbEvent {
