@@ -13,6 +13,7 @@ import fluxoLogo from "@/assets/fluxotv-logo.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { WorldCupView } from "./WorldCupView";
+import { LaCanchaChannelsView } from "./LaCanchaChannelsView";
 
 // ── Caché localStorage (5 minutos) ───────────────────────────────────────────
 const CACHE_KEY = "fluxo_streams_cache";
@@ -74,6 +75,7 @@ const SPORT_TABS = [
     ],
   },
   { value: "mlb", label: "MLB", emoji: "⚾", leagues: ["mlb", "baseball.wbc"] },
+  { value: "channels", label: "Canales", emoji: "📺", leagues: [] },
 ];
 
 interface DbEvent {
@@ -840,7 +842,9 @@ export function EventsView() {
         )}
       </div>
 
-      {activeSport === "football" ? (
+      {activeSport === "channels" ? (
+        <LaCanchaChannelsView />
+      ) : activeSport === "football" ? (
         <WorldCupView />
       ) : loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
