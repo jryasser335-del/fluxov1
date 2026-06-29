@@ -1,12 +1,58 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-forwarded-for",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-forwarded-for",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-// Random user agents to rotate and avoid detection
+// Hosts the proxy is allowed to forward requests to.
+// Add new providers here when needed; everything else is rejected.
+const ALLOWED_HOST_SUFFIXES = [
+  "streamed.pk", "streamed.su", "ppv.to", "ppv.land", "sportsbite.app",
+  "lacancha.tv", "fubohd.com", "cdn-fubohd.com", "topembed.pw",
+  "embedme.top", "embedstream.me", "1stream.top", "wikisport.best",
+  "sportshub.stream", "weakstreams.com",
+  // Common HLS/CDN hosts used by the providers above:
+  "akamaized.net", "cloudfront.net", "fastly.net", "edgesuite.net",
+  "googlevideo.com", "ttvnw.net", "twitch.tv",
+];
+
+function isAllowedHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return ALLOWED_HOST_SUFFIXES.some(
+    (suffix) => h === suffix || h.endsWith("." + suffix),
+  );
+}
+
+// Block private / loopback / link-local / metadata ranges to prevent SSRF.
+function isPrivateIp(host: string): boolean {
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
+  if (ipv4) {
+    const [a, b] = ipv4.slice(1).map((n) => parseInt(n, 10));
+    if (a === 10) return true;
+    if (a === 127) return true;
+    if (a === 0) return true;
+    if (a === 169 && b === 254) return true; // link-local + AWS metadata
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a >= 224) return true; // multicast / reserved
+    return false;
+  }
+  // Plain IPv6 literal — block anything not a clearly public address
+  if (host.includes(":")) return true;
+  // Special hostnames
+  if (
+    host === "localhost" ||
+    host.endsWith(".local") ||
+    host.endsWith(".internal") ||
+    host === "metadata.google.internal"
+  ) return true;
+  return false;
+}
+
 const userAgents = [
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -14,13 +60,30 @@ const userAgents = [
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15",
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
 ];
-
 function getRandomUserAgent() {
   return userAgents[Math.floor(Math.random() * userAgents.length)];
 }
 
+function validateTarget(rawUrl: string): { ok: true; url: URL } | { ok: false; status: number; msg: string } {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return { ok: false, status: 400, msg: "URL inválida" };
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    return { ok: false, status: 400, msg: "Sólo http(s) permitido" };
+  }
+  if (isPrivateIp(parsed.hostname)) {
+    return { ok: false, status: 403, msg: "Destino no permitido" };
+  }
+  if (!isAllowedHost(parsed.hostname)) {
+    return { ok: false, status: 403, msg: "Host no permitido" };
+  }
+  return { ok: true, url: parsed };
+}
+
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -28,7 +91,6 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const streamUrl = url.searchParams.get("url");
-
     if (!streamUrl) {
       return new Response(JSON.stringify({ error: "Missing url parameter" }), {
         status: 400,
@@ -36,15 +98,17 @@ serve(async (req) => {
       });
     }
 
-    // Decode the URL if it's encoded
     const decodedUrl = decodeURIComponent(streamUrl);
-    
-    console.log("Proxying stream:", decodedUrl);
+    const check = validateTarget(decodedUrl);
+    if (!check.ok) {
+      return new Response(JSON.stringify({ error: check.msg }), {
+        status: check.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const parsedUrl = check.url;
 
     const userAgent = getRandomUserAgent();
-    const parsedUrl = new URL(decodedUrl);
-
-    // Build headers that work for international users
     const fetchHeaders: Record<string, string> = {
       "User-Agent": userAgent,
       "Accept": "*/*",
@@ -58,50 +122,47 @@ serve(async (req) => {
       "Sec-Fetch-Site": "cross-site",
     };
 
-    // Fetch the stream content
-    const response = await fetch(decodedUrl, {
-      headers: fetchHeaders,
-    });
+    // Don't follow redirects automatically — we have to revalidate the target.
+    const response = await fetch(decodedUrl, { headers: fetchHeaders, redirect: "manual" });
 
-    if (!response.ok) {
-      console.error("Stream fetch failed:", response.status, response.statusText);
-      
-      // Try again with minimal headers for some servers
-      const retryResponse = await fetch(decodedUrl, {
-        headers: {
-          "User-Agent": userAgent,
-          "Accept": "*/*",
-        },
-      });
-      
-      if (!retryResponse.ok) {
-        return new Response(JSON.stringify({ 
-          error: `Stream fetch failed: ${response.status}`,
-          details: "El servidor del stream rechazó la conexión"
-        }), {
-          status: response.status,
+    if (response.status >= 300 && response.status < 400) {
+      const loc = response.headers.get("Location");
+      if (!loc) {
+        return new Response(JSON.stringify({ error: "Redirect without Location" }), {
+          status: 502,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      
-      // Process retry response
+      const absolute = new URL(loc, decodedUrl).toString();
+      const recheck = validateTarget(absolute);
+      if (!recheck.ok) {
+        return new Response(JSON.stringify({ error: "Redirect bloqueado" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // Re-issue request to the validated target
+      const retryResponse = await fetch(absolute, { headers: fetchHeaders });
       const retryContentType = retryResponse.headers.get("Content-Type") || "application/vnd.apple.mpegurl";
       const retryBody = await retryResponse.text();
-      return processM3U8Response(retryBody, decodedUrl, url, retryContentType, corsHeaders);
+      return processM3U8Response(retryBody, absolute, url, retryContentType, corsHeaders);
+    }
+
+    if (!response.ok) {
+      return new Response(JSON.stringify({
+        error: `Stream fetch failed: ${response.status}`,
+      }), {
+        status: response.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const contentType = response.headers.get("Content-Type") || "application/vnd.apple.mpegurl";
     const body = await response.text();
-
     return processM3U8Response(body, decodedUrl, url, contentType, corsHeaders);
-
   } catch (error) {
     console.error("Proxy error:", error);
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return new Response(JSON.stringify({ 
-      error: message,
-      hint: "Si estás fuera de USA, algunos streams pueden estar geo-bloqueados"
-    }), {
+    return new Response(JSON.stringify({ error: "Proxy error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -109,42 +170,36 @@ serve(async (req) => {
 });
 
 async function processM3U8Response(
-  body: string, 
-  decodedUrl: string, 
-  proxyUrl: URL, 
+  body: string,
+  decodedUrl: string,
+  proxyUrl: URL,
   contentType: string,
-  corsHeaders: Record<string, string>
+  corsHeaders: Record<string, string>,
 ): Promise<Response> {
-  // If it's an m3u8 manifest, rewrite segment URLs to go through our proxy
   if (decodedUrl.includes(".m3u8") || contentType.includes("mpegurl") || contentType.includes("m3u8")) {
     const baseUrl = decodedUrl.substring(0, decodedUrl.lastIndexOf("/") + 1);
     const proxyBase = `${proxyUrl.origin}/stream-proxy?url=`;
 
-    // Rewrite relative URLs to absolute proxied URLs
     const rewrittenBody = body.split("\n").map((line) => {
       const trimmed = line.trim();
-      
-      // Skip comments and empty lines
       if (trimmed.startsWith("#") || trimmed === "") {
-        // But check for URI= in EXT-X-KEY or similar
         if (trimmed.includes('URI="')) {
-          return trimmed.replace(/URI="([^"]+)"/, (_match, uri) => {
-            if (uri.startsWith("http")) {
-              return `URI="${proxyBase}${encodeURIComponent(uri)}"`;
-            }
+          return trimmed.replace(/URI="([^"]+)"/, (_m, uri) => {
+            if (uri.startsWith("http")) return `URI="${proxyBase}${encodeURIComponent(uri)}"`;
             return `URI="${proxyBase}${encodeURIComponent(baseUrl + uri)}"`;
           });
         }
         return line;
       }
-      
-      // Handle segment URLs
       if (trimmed.startsWith("http")) {
         return `${proxyBase}${encodeURIComponent(trimmed)}`;
-      } else if (trimmed.endsWith(".ts") || trimmed.endsWith(".m3u8") || trimmed.includes(".ts?") || trimmed.includes(".m3u8?") || trimmed.includes(".aac")) {
+      } else if (
+        trimmed.endsWith(".ts") || trimmed.endsWith(".m3u8") ||
+        trimmed.includes(".ts?") || trimmed.includes(".m3u8?") ||
+        trimmed.includes(".aac")
+      ) {
         return `${proxyBase}${encodeURIComponent(baseUrl + trimmed)}`;
       }
-      
       return line;
     }).join("\n");
 
@@ -157,7 +212,7 @@ async function processM3U8Response(
     });
   }
 
-  // For .ts segments, fetch and return as binary
+  // Binary segment: revalidate (we already validated decodedUrl above)
   const userAgent = getRandomUserAgent();
   const binaryResponse = await fetch(decodedUrl, {
     headers: {
@@ -168,7 +223,6 @@ async function processM3U8Response(
   });
 
   const arrayBuffer = await binaryResponse.arrayBuffer();
-
   return new Response(arrayBuffer, {
     headers: {
       ...corsHeaders,

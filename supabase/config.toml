@@ -26,3 +26,7 @@ verify_jwt = false
 
 [functions.iptv-xtream]
 verify_jwt = false
+
+[functions.app-auth]
+verify_jwt = false
+
