@@ -83,37 +83,12 @@ function validateTarget(rawUrl: string): { ok: true; url: URL } | { ok: false; s
   return { ok: true, url: parsed };
 }
 
-// Authenticate the caller (a real Supabase user JWT, not the bare anon key).
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
-async function requireUser(req: Request): Promise<boolean> {
-  const auth = req.headers.get("Authorization") ?? "";
-  if (!auth.toLowerCase().startsWith("bearer ")) return false;
-  const token = auth.slice(7);
-  // Reject the bare anon key — only real user sessions are allowed.
-  if (token === SUPABASE_ANON) return false;
-  const client = createClient(SUPABASE_URL, SUPABASE_ANON, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
-  const { data, error } = await client.auth.getUser(token);
-  return !!data?.user && !error;
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const authed = await requireUser(req);
-    if (!authed) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const url = new URL(req.url);
     const streamUrl = url.searchParams.get("url");
     if (!streamUrl) {
