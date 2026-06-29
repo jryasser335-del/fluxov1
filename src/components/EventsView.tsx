@@ -13,6 +13,7 @@ import fluxoLogo from "@/assets/fluxotv-logo.png";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { WorldCupView } from "./WorldCupView";
+import { LaCanchaChannelsView } from "./LaCanchaChannelsView";
 
 // ── Caché localStorage (5 minutos) ───────────────────────────────────────────
 const CACHE_KEY = "fluxo_streams_cache";
