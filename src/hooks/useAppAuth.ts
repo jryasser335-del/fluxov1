@@ -8,48 +8,43 @@ interface AppUser {
   display_name: string | null;
   expires_at: string;
   is_active: boolean;
-  isAdmin?: boolean; // Para admins de Supabase
+  isAdmin?: boolean; // Supabase admins
 }
 
 interface AppAuthState {
   appUser: AppUser | null;
+  sessionToken: string | null;
   isLoading: boolean;
   hasHydrated: boolean;
   setHasHydrated: (value: boolean) => void;
   login: (username: string, password: string) => Promise<{ error: string | null }>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  /** Server-side re-validation. Returns true if access is still allowed. */
+  verifyAccess: () => Promise<boolean>;
+  /** Cheap optimistic local check, MUST be backed by verifyAccess on mount. */
   checkAccess: () => boolean;
 }
-
-// Simple hash function (must match the one in AdminUsers)
-const simpleHash = async (password: string): Promise<string> => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password + "fluxo_salt_2024");
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-};
 
 export const useAppAuth = create<AppAuthState>()(
   persist(
     (set, get) => ({
       appUser: null,
+      sessionToken: null,
       isLoading: false,
       hasHydrated: false,
       setHasHydrated: (value) => set({ hasHydrated: value }),
 
       login: async (username: string, password: string) => {
         set({ isLoading: true });
-        
+
         try {
-          // First, try Supabase Auth login (for admins)
+          // 1) Try Supabase Auth (admin) first
           const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
             email: username.includes('@') ? username : `${username}@admin.fluxo`,
-            password: password,
+            password,
           });
 
           if (!authError && authData.user) {
-            // Check if user is admin
             const { data: roleData } = await supabase
               .from('user_roles')
               .select('role')
@@ -58,105 +53,111 @@ export const useAppAuth = create<AppAuthState>()(
               .maybeSingle();
 
             if (roleData) {
-              // Admin login success
               set({
                 appUser: {
                   id: authData.user.id,
                   username: authData.user.email || 'admin',
                   display_name: 'Administrador',
-                  expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
+                  expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
                   is_active: true,
                   isAdmin: true,
                 },
+                sessionToken: null,
                 isLoading: false,
               });
               return { error: null };
             }
           }
 
-          // If not admin, try app_users login
-          const passwordHash = await simpleHash(password);
-          
-          const { data, error } = await supabase
-            .from('app_users')
-            .select('id, username, display_name, expires_at, is_active, password_hash')
-            .eq('username', username.toLowerCase().trim())
-            .maybeSingle();
-
-          if (error) {
-            set({ isLoading: false });
-            return { error: 'Error al verificar usuario' };
-          }
-
-          if (!data) {
-            set({ isLoading: false });
-            return { error: 'Usuario no encontrado' };
-          }
-
-          // Check password
-          if (data.password_hash !== passwordHash) {
-            set({ isLoading: false });
-            return { error: 'Contraseña incorrecta' };
-          }
-
-          // Check if active
-          if (!data.is_active) {
-            set({ isLoading: false });
-            return { error: 'Tu cuenta está desactivada' };
-          }
-
-          // Check expiration
-          const now = new Date();
-          const expires = new Date(data.expires_at);
-          if (expires <= now) {
-            set({ isLoading: false });
-            return { error: 'Tu suscripción ha expirado' };
-          }
-
-          // Success!
-          set({
-            appUser: {
-              id: data.id,
-              username: data.username,
-              display_name: data.display_name,
-              expires_at: data.expires_at,
-              is_active: data.is_active,
-            },
-            isLoading: false,
+          // 2) App user login — all validation happens server-side
+          const { data, error } = await supabase.functions.invoke('app-auth', {
+            body: { action: 'login', username, password },
           });
 
+          if (error || !data?.token || !data?.user) {
+            set({ isLoading: false });
+            // Generic error to prevent username enumeration
+            return { error: 'Credenciales inválidas' };
+          }
+
+          set({
+            appUser: { ...data.user, isAdmin: false },
+            sessionToken: data.token,
+            isLoading: false,
+          });
           return { error: null };
         } catch {
           set({ isLoading: false });
-          return { error: 'Error de conexión' };
+          return { error: 'Credenciales inválidas' };
         }
       },
 
-      logout: () => {
-        supabase.auth.signOut();
-        set({ appUser: null });
+      logout: async () => {
+        const { sessionToken } = get();
+        try {
+          await supabase.auth.signOut();
+        } catch { /* ignore */ }
+        if (sessionToken) {
+          try {
+            await supabase.functions.invoke('app-auth', {
+              body: { action: 'logout', token: sessionToken },
+            });
+          } catch { /* ignore */ }
+        }
+        set({ appUser: null, sessionToken: null });
+      },
+
+      verifyAccess: async () => {
+        const { appUser, sessionToken } = get();
+        if (!appUser) return false;
+
+        // Admin: re-validate via Supabase Auth session + role
+        if (appUser.isAdmin) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) { set({ appUser: null }); return false; }
+          const { data: roleData } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id)
+            .eq('role', 'admin')
+            .maybeSingle();
+          if (!roleData) { set({ appUser: null }); return false; }
+          return true;
+        }
+
+        // App user: re-validate server-side via session token
+        if (!sessionToken) { set({ appUser: null }); return false; }
+
+        try {
+          const { data, error } = await supabase.functions.invoke('app-auth', {
+            body: { action: 'session', token: sessionToken },
+          });
+          if (error || !data?.user) {
+            set({ appUser: null, sessionToken: null });
+            return false;
+          }
+          set({ appUser: { ...data.user, isAdmin: false } });
+          return true;
+        } catch {
+          return false;
+        }
       },
 
       checkAccess: () => {
         const { appUser } = get();
         if (!appUser) return false;
-        
-        // Admins always have access
         if (appUser.isAdmin) return true;
-        
-        // Check if still active and not expired
         if (!appUser.is_active) return false;
-        
-        const now = new Date();
-        const expires = new Date(appUser.expires_at);
-        if (expires <= now) return false;
-
+        if (new Date(appUser.expires_at) <= new Date()) return false;
         return true;
       },
     }),
     {
       name: 'fluxo-app-auth',
-      partialize: (state) => ({ appUser: state.appUser }),
+      partialize: (state) => ({
+        appUser: state.appUser,
+        sessionToken: state.sessionToken,
+      }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
       },
