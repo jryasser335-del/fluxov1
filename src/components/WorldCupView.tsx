@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+
 import { Loader2, Radio, X, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 
