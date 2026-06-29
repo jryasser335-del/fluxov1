@@ -176,8 +176,14 @@ export function AdminUsers() {
       notes: notes || null,
     };
 
-    // If password is provided, update it
+    // If password is provided, update it (with strong policy)
     if (password) {
+      const pwError = validatePassword(password);
+      if (pwError) {
+        toast.error(pwError);
+        setSaving(false);
+        return;
+      }
       updates.password_hash = await simpleHash(password);
     }
 
