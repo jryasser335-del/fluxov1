@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+
 import { Loader2, Radio, X, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -130,6 +130,16 @@ export function WorldCupView() {
     );
   }
 
+  if (openMatch) {
+    return (
+      <WCInlinePlayer
+        match={openMatch}
+        streams={streams[openMatch.id] || []}
+        onClose={() => setOpenMatch(null)}
+      />
+    );
+  }
+
   return (
     <div className="mb-8">
       {Object.keys(grouped)
@@ -159,12 +169,6 @@ export function WorldCupView() {
             </div>
           );
         })}
-
-      <WCPlayerModal
-        match={openMatch}
-        streams={openMatch ? streams[openMatch.id] || [] : []}
-        onClose={() => setOpenMatch(null)}
-      />
     </div>
   );
 }
@@ -333,134 +337,131 @@ function Flag({ src, name }: { src: string | null; name: string }) {
   );
 }
 
-function WCPlayerModal({
+function WCInlinePlayer({
   match,
   streams,
   onClose,
 }: {
-  match: LCMatch | null;
+  match: LCMatch;
   streams: LCStream[];
   onClose: () => void;
 }) {
-  const [active, setActive] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (match && streams.length > 0) setActive(streams[0].id);
-    else setActive(null);
-  }, [match, streams]);
-
-  if (!match) return null;
+  const [active, setActive] = useState<string | null>(streams[0]?.id ?? null);
   const current = streams.find((s) => s.id === active);
   const isLive = match.status === "live" || match.status === "in_play";
 
+  // viewers
+  const viewers = useMemo(() => {
+    const seed = match.id.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+    return 1000 + (seed % 9000);
+  }, [match.id]);
+
   return (
-    <AnimatePresence>
-      {match && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-3 sm:p-6"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="relative w-full max-w-6xl bg-[#0a0a0a] border border-white/10 rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* header — teams + LIVE pill (style like image 2) */}
-            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-white/[0.06] shrink-0">
-              <div className="flex items-center gap-2.5 min-w-0">
-                {match.home_flag && (
-                  <img src={match.home_flag} className="w-5 h-5 rounded object-cover" alt="" />
-                )}
-                <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider truncate">
-                  {es(match.home_team)}
-                </span>
-                <span className="text-white/30 text-xs">vs</span>
-                <span className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider truncate">
-                  {es(match.away_team)}
-                </span>
-                {match.away_flag && (
-                  <img src={match.away_flag} className="w-5 h-5 rounded object-cover" alt="" />
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {isLive && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                    EN VIVO
-                  </div>
-                )}
+    <div className="mb-8">
+      {/* Back */}
+      <button
+        onClick={onClose}
+        className="mb-4 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/60 hover:text-white transition"
+      >
+        <X className="w-3.5 h-3.5" />
+        Volver a partidos
+      </button>
+
+      <div className="rounded-2xl overflow-hidden bg-[#0a0a0a] border border-white/[0.06] shadow-2xl">
+        {/* Channel tabs — on TOP like screenshot */}
+        {streams.length > 0 && (
+          <div className="flex gap-2 px-3 pt-3 pb-3 overflow-x-auto scrollbar-hide bg-[#0a0a0a]">
+            {streams.map((s) => {
+              const isAds = /no\s*ads|sin\s*publicidad/i.test(s.embed_name);
+              const isHD = /hd|1080|4k|hevc/i.test(s.embed_name);
+              const label = s.embed_name.replace(/\s*(hd|1080p?|4k|hevc|no\s*ads|sin\s*publicidad)/gi, "").trim() || s.embed_name;
+              return (
                 <button
-                  onClick={onClose}
-                  className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white/70 hover:text-white transition"
-                  aria-label="Cerrar"
+                  key={s.id}
+                  onClick={() => setActive(s.id)}
+                  className={cn(
+                    "shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition border",
+                    active === s.id
+                      ? "bg-cyan-500/15 text-cyan-300 border-cyan-400/40"
+                      : "bg-white/[0.04] text-white/70 hover:bg-white/[0.08] border-white/[0.06]"
+                  )}
                 >
-                  <X className="w-4 h-4" />
+                  <span className="truncate max-w-[140px]">{label}</span>
+                  {isHD && (
+                    <span className="px-1.5 py-0.5 rounded bg-white/15 text-white text-[8px] font-black tracking-wider">HD</span>
+                  )}
+                  {isAds && (
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[8px] font-black tracking-wider">NO ADS</span>
+                  )}
                 </button>
-              </div>
-            </div>
+              );
+            })}
+          </div>
+        )}
 
-            {/* player */}
-            <div className="relative bg-black aspect-video shrink-0">
-              {current ? (
-                <iframe
-                  key={current.id}
-                  src={current.embed_url}
-                  className="absolute inset-0 w-full h-full"
-                  allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
-                  allowFullScreen
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-white/40 text-sm gap-2">
-                  <Radio className="w-8 h-8 opacity-30" />
-                  Sin transmisiones disponibles aún
-                </div>
-              )}
+        {/* LIVE bar */}
+        <div className="flex items-center justify-between px-4 py-2 bg-[#111113] border-t border-b border-white/[0.04]">
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "w-1.5 h-1.5 rounded-full",
+              isLive ? "bg-red-500 animate-pulse" : "bg-white/30"
+            )} />
+            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/60">
+              {isLive ? "Live" : "Stream"}
+            </span>
+          </div>
+          {isLive && (
+            <div className="flex items-center gap-1 text-[11px] font-bold text-amber-400 tabular-nums">
+              <Eye className="w-3.5 h-3.5" />
+              {viewers.toLocaleString()}
             </div>
+          )}
+        </div>
 
-            {/* CANALES bar — like image 2 */}
-            {streams.length > 0 && (
-              <div className="border-t border-white/[0.06] bg-[#0a0a0a] overflow-y-auto">
-                <div className="px-4 sm:px-5 py-3 flex items-center gap-2">
-                  <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-white/50 shrink-0">
-                    <Radio className="w-3 h-3" /> Canales
-                  </span>
-                </div>
-                <div className="px-4 sm:px-5 pb-4 flex gap-2 overflow-x-auto scrollbar-hide">
-                  {streams.map((s) => {
-                    const isAds = /no\s*ads|sin\s*publicidad|4k|hevc/i.test(s.embed_name);
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => setActive(s.id)}
-                        className={cn(
-                          "shrink-0 px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition flex items-center gap-2 border",
-                          active === s.id
-                            ? "bg-red-500/10 text-red-400 border-red-500/40 shadow-lg shadow-red-500/10"
-                            : "bg-white/[0.03] text-white/70 hover:bg-white/[0.07] border-white/[0.06]"
-                        )}
-                      >
-                        {s.embed_name}
-                        {isAds && (
-                          <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[8px] font-black tracking-wider">
-                            NO ADS
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        {/* Player */}
+        <div className="relative bg-black aspect-video">
+          {current ? (
+            <iframe
+              key={current.id}
+              src={current.embed_url}
+              className="absolute inset-0 w-full h-full"
+              allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+              allowFullScreen
+              referrerPolicy="no-referrer"
+            />
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-white/40 text-sm gap-2">
+              <Radio className="w-8 h-8 opacity-30" />
+              Sin transmisiones disponibles aún
+            </div>
+          )}
+          {isLive && (
+            <div className="absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-cyan-500 text-white text-[11px] font-bold uppercase tracking-wider shadow-lg">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+              EN VIVO
+            </div>
+          )}
+        </div>
+
+        {/* Match info bar */}
+        <div className="px-4 py-3 flex items-center justify-center gap-3 bg-[#0a0a0a]">
+          {match.home_flag && <img src={match.home_flag} className="w-5 h-5 rounded object-cover" alt="" />}
+          <span className="text-sm font-bold text-white">{es(match.home_team)}</span>
+          {(isLive || match.status === "finished") && (
+            <span className="font-display text-lg font-black text-white tabular-nums">
+              {match.home_score ?? 0} <span className="text-white/30">:</span> {match.away_score ?? 0}
+            </span>
+          )}
+          <span className="text-sm font-bold text-white">{es(match.away_team)}</span>
+          {match.away_flag && <img src={match.away_flag} className="w-5 h-5 rounded object-cover" alt="" />}
+        </div>
+
+        {/* DMCA banner */}
+        <div className="px-4 py-3 bg-[#0a1828] border-t border-cyan-500/10 text-[11px] text-cyan-200/80">
+          <span className="font-bold text-cyan-300">Contenido de terceros · </span>
+          Esta señal se transmite desde proveedores externos mediante iframe. No alojamos ni transmitimos directamente.
+        </div>
+      </div>
+    </div>
   );
 }
