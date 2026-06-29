@@ -130,6 +130,16 @@ export function WorldCupView() {
     );
   }
 
+  if (openMatch) {
+    return (
+      <WCInlinePlayer
+        match={openMatch}
+        streams={streams[openMatch.id] || []}
+        onClose={() => setOpenMatch(null)}
+      />
+    );
+  }
+
   return (
     <div className="mb-8">
       {Object.keys(grouped)
@@ -159,12 +169,6 @@ export function WorldCupView() {
             </div>
           );
         })}
-
-      <WCPlayerModal
-        match={openMatch}
-        streams={openMatch ? streams[openMatch.id] || [] : []}
-        onClose={() => setOpenMatch(null)}
-      />
     </div>
   );
 }
