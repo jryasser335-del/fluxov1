@@ -102,7 +102,15 @@ export function LaCanchaChannelsView() {
     });
   }, [withQuality, activeCat, qFilter, search]);
 
-  if (open) return <ChannelPlayer channel={open} onClose={() => setOpen(null)} />;
+  if (open)
+    return (
+      <ChannelPlayer
+        channel={open}
+        allChannels={withQuality}
+        onSelect={setOpen}
+        onClose={() => setOpen(null)}
+      />
+    );
 
   return (
     <div className="mb-8 space-y-6">
