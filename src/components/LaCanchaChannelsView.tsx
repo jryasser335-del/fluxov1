@@ -102,7 +102,15 @@ export function LaCanchaChannelsView() {
     });
   }, [withQuality, activeCat, qFilter, search]);
 
-  if (open) return <ChannelPlayer channel={open} onClose={() => setOpen(null)} />;
+  if (open)
+    return (
+      <ChannelPlayer
+        channel={open}
+        allChannels={withQuality}
+        onSelect={setOpen}
+        onClose={() => setOpen(null)}
+      />
+    );
 
   return (
     <div className="mb-8 space-y-6">
@@ -380,7 +388,30 @@ function ChannelCard({
   );
 }
 
-function ChannelPlayer({ channel, onClose }: { channel: LCChannel; onClose: () => void }) {
+function ChannelPlayer({
+  channel,
+  allChannels,
+  onSelect,
+  onClose,
+}: {
+  channel: LCChannel;
+  allChannels: (LCChannel & { quality: Quality })[];
+  onSelect: (c: LCChannel) => void;
+  onClose: () => void;
+}) {
+  const [qFilter, setQFilter] = useState<QualityFilter>("all");
+  const [search, setSearch] = useState("");
+
+  const list = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return allChannels.filter((c) => {
+      if (qFilter === "4k" && c.quality !== "4K") return false;
+      if (qFilter === "hd_plus" && !(c.quality === "4K" || c.quality === "FHD" || c.quality === "HD")) return false;
+      if (q && !c.name.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [allChannels, qFilter, search]);
+
   return (
     <div className="mb-8">
       <button
@@ -417,6 +448,107 @@ function ChannelPlayer({ channel, onClose }: { channel: LCChannel; onClose: () =
         </div>
       </div>
 
+      {/* Selector de canales dentro del reproductor */}
+      <div className="mt-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-2">
+            <span className="w-1 h-4 rounded-full bg-gradient-to-b from-cyan-400 to-fuchsia-500" />
+            <h3 className="text-[11px] font-black uppercase tracking-[0.24em] text-white/90">
+              Cambiar canal · {list.length}
+            </h3>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setQFilter(qFilter === "4k" ? "all" : "4k")}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-[0.18em] border transition",
+                qFilter === "4k"
+                  ? "bg-amber-400/20 text-amber-200 border-amber-300/50"
+                  : "bg-white/[0.03] text-amber-200/70 border-amber-400/20 hover:border-amber-300/40",
+              )}
+            >
+              4K
+            </button>
+            <button
+              onClick={() => setQFilter(qFilter === "hd_plus" ? "all" : "hd_plus")}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-[0.18em] border transition",
+                qFilter === "hd_plus"
+                  ? "bg-cyan-500/20 text-cyan-200 border-cyan-300/50"
+                  : "bg-white/[0.03] text-cyan-200/70 border-cyan-400/20 hover:border-cyan-300/40",
+              )}
+            >
+              HD+
+            </button>
+            {qFilter !== "all" && (
+              <button
+                onClick={() => setQFilter("all")}
+                className="px-2 py-1 rounded-lg text-[10px] font-bold text-white/60 hover:text-white"
+              >
+                Todos
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar canal…"
+            className="w-full pl-9 pr-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-cyan-400/40 transition"
+          />
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-1 -mx-1 px-1">
+          {list.map((c) => {
+            const hue = brandHue(c.name);
+            const active = c.id === channel.id;
+            return (
+              <button
+                key={c.id}
+                onClick={() => onSelect(c)}
+                className={cn(
+                  "snap-start shrink-0 w-[130px] rounded-xl overflow-hidden border transition-all",
+                  active
+                    ? "border-cyan-400/70 ring-2 ring-cyan-400/30"
+                    : "border-white/[0.05] hover:border-cyan-400/40 hover:-translate-y-0.5",
+                )}
+              >
+                <div
+                  className="relative aspect-video"
+                  style={{ background: `linear-gradient(135deg, ${hue}55 0%, #0a0a0a 60%, ${hue}30 100%)` }}
+                >
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_35%,rgba(0,0,0,0.6)_100%)]" />
+                  {c.logo_url ? (
+                    <img
+                      src={c.logo_url}
+                      alt={c.name}
+                      className="absolute inset-0 m-auto max-h-9 max-w-[70%] object-contain drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-black text-white text-center px-2">
+                      {c.name}
+                    </span>
+                  )}
+                  <QualityChip q={c.quality} />
+                  {active && (
+                    <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-cyan-400 text-black text-[8px] font-black uppercase tracking-wider">
+                      En vivo
+                    </span>
+                  )}
+                </div>
+                <div className="bg-[#0c0c0e] px-2 py-1.5">
+                  <div className="text-[10px] font-bold text-white truncate">{c.name}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="mt-4 flex items-center gap-2 text-[11px] text-white/40">
         <Radio className="w-3.5 h-3.5" />
         Fuente: lacancha.tv · canal <span className="font-mono text-white/60">{channel.stream_param}</span>
@@ -424,3 +556,4 @@ function ChannelPlayer({ channel, onClose }: { channel: LCChannel; onClose: () =
     </div>
   );
 }
+
