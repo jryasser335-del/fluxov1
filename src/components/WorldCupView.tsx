@@ -78,9 +78,10 @@ export function WorldCupView() {
           `${LC_URL}/matches?select=*&competition=eq.World%20Cup&kickoff_at=gte.${since}&order=kickoff_at.asc&limit=60`,
           { headers: lcHeaders }
         );
-        const data: LCMatch[] = await res.json();
-        setMatches(data || []);
-        const ids = (data || [])
+        const raw = await res.json();
+        const data: LCMatch[] = Array.isArray(raw) ? raw : [];
+        setMatches(data);
+        const ids = data
           .filter((m) => new Date(m.kickoff_at).getTime() < Date.now() + 36 * 3600 * 1000)
           .map((m) => m.id);
         if (ids.length) {
